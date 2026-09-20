@@ -4,7 +4,7 @@ da8c58f05f135a9d15e9ffad4ecf854cfcc1f014c8abfd75ba05f62630ccc118  src/vendor/tf-
 f7613bd99e9e06fb89705f1f7c5caa6a15186422b1fddad80a7299bccffa7e44  src/vendor/tf-psa-crypto/inc/mbedtls/compat-3-crypto.h
 1f4196abb876364c85bcc044990b01661114e32d5ddeade427259adb58bb0c79  src/vendor/tf-psa-crypto/inc/mbedtls/constant_time.h
 6ec06d08175b338dd2d93d1513499346f8f978138540577e9e7049d0b0dc6eb0  src/vendor/tf-psa-crypto/inc/mbedtls/md.h
-91dcedf5c44007f85324cd826fdc5910b1ea3b9606b41c3d16879d09d4cdba7e  src/vendor/tf-psa-crypto/inc/mbedtls/pk.h
+8f48a5fdaa55f36e7758464c775de22105e005248fe8d1495fdb79d49afa1775  src/vendor/tf-psa-crypto/inc/mbedtls/pk.h
 624e0b940e616faba8ace12296aba20599a3d617e07148070c3543126c166ac6  src/vendor/tf-psa-crypto/inc/mbedtls/platform.h
 ed9d0bef1fdb5ff248954a5e2cf9d54eb72ee7e9e3abb5cfcaa843d8cdf3b860  src/vendor/tf-psa-crypto/inc/mbedtls/platform_util.h
 3dd0364a308e743d2f505ea99c50d2a7a30b030894dbb45911baf5620fd90a48  src/vendor/tf-psa-crypto/inc/mbedtls/private/aes.h

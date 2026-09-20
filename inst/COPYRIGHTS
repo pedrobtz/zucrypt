@@ -45,7 +45,19 @@ checksum are in tools/vendor/manifest.tsv, and tools/vendor/verify checks
 offline that the tree, the manifest, the build configuration and this file all
 agree.
 
-No upstream file is modified. Local changes, if any are ever needed, are
-carried as patch files under tools/patches/<source>/ and applied by
-tools/vendor/fetch, and each one is listed in the manifest's `patches` column
-and named here. Today there are none.
+Local changes are carried as patch files under tools/patches/<source>/ and
+applied by tools/vendor/fetch; no upstream file is edited in place. Each patch
+is listed in the manifest's `patches` column and named here, and
+tools/vendor/verify fails if those three records disagree.
+
+One patch is applied:
+
+    tools/patches/tf-psa-crypto/0001-avoid-zero-size-pubkey-array.patch
+
+        inc/mbedtls/pk.h declares a zero-size array when no public-key
+        algorithm is enabled, which this build does not enable. Zero-size
+        arrays are a GNU extension rather than ISO C, and GCC with -Wpedantic
+        -- which CRAN's r-devel container passes -- reports it as a
+        significant warning. The patch starts the length at 1 instead of 0.
+        It changes nothing in a configuration that enables a public-key
+        algorithm. The patch file carries the full rationale.
