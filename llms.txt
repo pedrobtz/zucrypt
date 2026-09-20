@@ -73,12 +73,21 @@ See
 [`?crypt_aes_cbc`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
 before using them.
 
+## Consuming it from C
+
+Other packages can use these primitives without going through R, in
+either of the two ways the `zu*` family links siblings: a registered
+function table for a package that can carry an `Imports:`, or the static
+archive `inst/lib/libzucrypt.a` for one that cannot. The C ABI is frozen
+at version 1. See
+[`?zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md).
+
 ## Status
 
-Early development. The design is in `.agents/design.md` and the path to
-the first release in `.agents/roadmap.md`. The R interface above is
-complete and tested against published vectors; the registered C function
-table for `Imports:`-carrying consumers is not built yet.
+Version 0.1.0. The R and C interfaces are complete and frozen within
+major version 1. The design is in `.agents/design.md`;
+`.agents/roadmap.md` records how it was built and what was deliberately
+left out.
 
 ## Installation
 
@@ -90,20 +99,53 @@ pak::pak("pedrobtz/zucrypt")
 
 # Package index
 
-## All functions
+## Hashing
 
-- [`crypt_aes_cbc_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
-  [`crypt_aes_cbc_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
-  : AES-CBC, without padding and without authentication
-- [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md)
-  : Compare two raw vectors without leaking timing information
+Digests and keyed digests over raw vectors. This is what most callers
+want, and
+[`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md)
+with its default is the right answer unless something external requires
+otherwise.
+
 - [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md)
   : Compute a message digest
 - [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
   : Compute an HMAC
+
+## Comparison and information
+
+Comparing a secret without leaking how much of it you guessed, and
+finding out what this build contains.
+
+- [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md)
+  : Compare two raw vectors without leaking timing information
 - [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md)
   : Report what this build of zucrypt contains
+
+## Ciphers (advanced)
+
+Unauthenticated AES-CBC, for reading and writing formats that specify
+it. No padding is added or removed and nothing is authenticated:
+ciphertext produced here can be altered undetectably, and detecting that
+is the caller’s job. These are interoperability tools, not a way to
+encrypt something of your own.
+
+- [`crypt_aes_cbc_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+  [`crypt_aes_cbc_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+  : AES-CBC, without padding and without authentication
+
+## C API
+
+Consuming zucrypt from another package’s C code, through the registered
+function table or the static archive.
+
 - [`zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
   [`zucrypt-c-api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
   : Using zucrypt from C
+
+## Package
+
+- [`zucrypt`](https://pedrobtz.github.io/zucrypt/reference/zucrypt-package.md)
+  [`zucrypt-package`](https://pedrobtz.github.io/zucrypt/reference/zucrypt-package.md)
+  : zucrypt: Narrow Cryptographic Primitives with a Vendored Backend
 

@@ -73,12 +73,21 @@ See
 [`?crypt_aes_cbc`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
 before using them.
 
+## Consuming it from C
+
+Other packages can use these primitives without going through R, in
+either of the two ways the `zu*` family links siblings: a registered
+function table for a package that can carry an `Imports:`, or the static
+archive `inst/lib/libzucrypt.a` for one that cannot. The C ABI is frozen
+at version 1. See
+[`?zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md).
+
 ## Status
 
-Early development. The design is in `.agents/design.md` and the path to
-the first release in `.agents/roadmap.md`. The R interface above is
-complete and tested against published vectors; the registered C function
-table for `Imports:`-carrying consumers is not built yet.
+Version 0.1.0. The R and C interfaces are complete and frozen within
+major version 1. The design is in `.agents/design.md`;
+`.agents/roadmap.md` records how it was built and what was deliberately
+left out.
 
 ## Installation
 

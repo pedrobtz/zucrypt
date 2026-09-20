@@ -11,7 +11,7 @@ same library; they differ in what the consumer has to carry."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">zucrypt</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -120,9 +120,18 @@ reading a structure that has moved.</p></li>
     <h2 id="stability">Stability<a class="anchor" aria-label="anchor" href="#stability"></a></h2>
 
 
-<p><code>ZUCRYPT_ABI_VERSION</code> is 0 in this
-build. It is <code>0</code> while the interface is still moving; the compatibility
-promise begins when it reaches <code>1</code> at the first release.</p>
+<p><code>ZUCRYPT_ABI_VERSION</code> is <code>1</code>, frozen at v0.1.0. Within a major version:
+functions and table fields may be added; nothing is removed, reordered or
+given a new meaning; enumerator values are permanent, so an algorithm
+compiled out of a build keeps its number and reports itself unavailable;
+and a <code>ZUC_*_REQUIRED_SIZE</code> macro never grows, so a consumer built against
+an older header keeps working without being rebuilt.</p>
+<p>A layout change to a type that <code>struct_size</code> cannot see renames the
+registered callable instead, so an old consumer fails at
+<code>R_GetCCallable()</code> rather than reading a structure that has moved.</p>
+<p>Not promised: the numeric value of a backend status behind
+<code>ZUC_ERR_BACKEND</code>, the contents of an opaque handle, and thread safety
+beyond the main thread.</p>
     </div>
     <div class="section level2">
     <h2 id="see-also">See also<a class="anchor" aria-label="anchor" href="#see-also"></a></h2>

@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">zucrypt</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -33,10 +33,46 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.0.0.9000" id="zucrypt-0009000">zucrypt 0.0.0.9000<a class="anchor" aria-label="anchor" href="#zucrypt-0009000"></a></h2>
-<ul><li>Under development; no released version yet. The design is in <code>.agents/design.md</code> and the path to 0.1.0 in <code>.agents/roadmap.md</code>.</li>
-</ul></div>
-  </main></div>
+<h2 class="pkg-version" data-toc-text="0.1.0" id="zucrypt-010">zucrypt 0.1.0<a class="anchor" aria-label="anchor" href="#zucrypt-010"></a></h2>
+<p>First release. A narrow set of cryptographic primitives over raw vectors, backed by a vendored, pinned crypto library, published to R and to C.</p>
+<div class="section level3">
+<h3 id="r-interface-0-1-0">R interface<a class="anchor" aria-label="anchor" href="#r-interface-0-1-0"></a></h3>
+<p>Six functions, and deliberately no more:</p>
+<ul><li>
+<code><a href="../reference/crypt_hash.html">crypt_hash()</a></code> and <code><a href="../reference/crypt_hmac.html">crypt_hmac()</a></code> — SHA-1, SHA-256, SHA-384 and SHA-512 digests and keyed digests. Raw vectors in, raw vectors out; a character value is never given a guessed encoding and never treated as a file name. Algorithm names match exactly, with no partial matching and no fallback.</li>
+<li>
+<code><a href="../reference/crypt_equal.html">crypt_equal()</a></code> — constant-time comparison. Unequal lengths return <code>FALSE</code> rather than pretending the length is secret.</li>
+<li>
+<code><a href="../reference/crypt_aes_cbc.html">crypt_aes_cbc_encrypt()</a></code> and <code><a href="../reference/crypt_aes_cbc.html">crypt_aes_cbc_decrypt()</a></code> — AES-128/192/256 in CBC mode, with no padding and <strong>no authentication</strong>. Interoperability tools for formats that specify unauthenticated CBC, not a way to encrypt something of your own.</li>
+<li>
+<code><a href="../reference/crypt_info.html">crypt_info()</a></code> — what this build contains, read from the compiled library.</li>
+</ul><p>Failures are R conditions classed <code>c(&lt;specific&gt;, "zucrypt_error", "error", "condition")</code>, mapped from the C status by enumerator name rather than by number. No message ever contains a key, an IV or plaintext.</p>
+</div>
+<div class="section level3">
+<h3 id="c-interface-0-1-0">C interface<a class="anchor" aria-label="anchor" href="#c-interface-0-1-0"></a></h3>
+<p>Both shapes the <code>zu*</code> family consumes siblings by, with the ABI frozen at <code>ZUCRYPT_ABI_VERSION 1</code>:</p>
+<ul><li>A registered function table, <code>inst/include/zucrypt-r.h</code>, for a package that can carry an <code>Imports:</code>. Resolved lazily through <code>zucrypt_api()</code>.</li>
+<li>A static archive, <code>inst/lib/libzucrypt.a</code>, for a package that cannot — <code>LinkingTo:</code> only, no runtime dependency, and the consumer owns the backend’s lifetime through <code>zuc_init()</code>/<code>zuc_shutdown()</code>.</li>
+</ul><p><code>inst/include/zucrypt.h</code> compiles standalone as C99 against <code>&lt;stddef.h&gt;</code> and <code>&lt;stdint.h&gt;</code>, and names no backend type: a consumer never has to reproduce this package’s build configuration. Within major version 1, functions and table fields may be added and nothing is removed, reordered, or given a new meaning; see <code><a href="../reference/zucrypt_c_api.html">?zucrypt_c_api</a></code>.</p>
+</div>
+<div class="section level3">
+<h3 id="backend-0-1-0">Backend<a class="anchor" aria-label="anchor" href="#backend-0-1-0"></a></h3>
+<p>Vendored TF-PSA-Crypto 1.1.1, an LTS release, trimmed to 109 files — the dependency closure of the 18 sources that carry a symbol under this package’s configuration. Installation needs a C99 compiler and nothing else: no system cryptographic library, no CMake, no Python or Perl, and no network access. Hardware acceleration is disabled on every platform, so every platform produces the same bytes.</p>
+<p>Upstream symbols are hidden. The installed shared object exports exactly one symbol, <code>R_init_zucrypt</code>, so an independently vendored copy of the same library in another package cannot bind to this one, and no OpenSSL-ABI name is exported beside the <code>libcrypto</code> other packages link.</p>
+</div>
+<div class="section level3">
+<h3 id="supported-platforms-0-1-0">Supported platforms<a class="anchor" aria-label="anchor" href="#supported-platforms-0-1-0"></a></h3>
+<p>Checked on every push: Linux, macOS (ARM64) and Windows; R release, oldrel-1 and 4.1; CRAN’s clang-23 and GCC-16 containers; the no-Suggests flavour; LTO; rchk and gctorture; ASan, UBSan, valgrind and GCC’s <code>-fanalyzer</code>. Weekly: a 32-bit and a musl build, and a sweep that fails every allocation in turn.</p>
+<p>Correctness is checked against published vectors — FIPS 180-2, RFC 2202, RFC 4231 and NIST SP 800-38A — every one of which is also recomputed with OpenSSL, an implementation sharing no code with the vendored backend.</p>
+</div>
+<div class="section level3">
+<h3 id="not-in-this-release-0-1-0">Not in this release<a class="anchor" aria-label="anchor" href="#not-in-this-release-0-1-0"></a></h3>
+<p>Deliberate omissions, each waiting on a concrete consumer rather than on effort: authenticated encryption, password-based key derivation (PBKDF2, HKDF, Argon2), random byte generation, signatures, key serialization, file hashing and connection wrappers. There is no <code>encrypt_file(password = )</code>, and there will not be one without a specified authenticated format, a nonce policy and a key derivation step.</p>
+<p>Office/Excel decryption is not here either. It belongs to <a href="https://github.com/pedrobtz/zuxlsx" class="external-link">zuxlsx</a>, which consumes this package.</p>
+</div>
+</div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">

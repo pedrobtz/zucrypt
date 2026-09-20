@@ -5,10 +5,11 @@ with code in this repository.
 
 ## Current state
 
-Roadmap Stages 0–5 are complete. The package builds a vendored
-TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the six
-`crypt_*` functions of design §7, and publishes both consumer shapes:
-the registered function table (`inst/include/zucrypt-r.h`,
+Roadmap Stages 0–6 are complete; the package is at version 0.1.0 with
+the C ABI frozen at `ZUCRYPT_ABI_VERSION 1`. The package builds a
+vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly
+the six `crypt_*` functions of design §7, and publishes both consumer
+shapes: the registered function table (`inst/include/zucrypt-r.h`,
 `zucrypt_get_api`) and the static archive (`inst/lib/libzucrypt.a`).
 Stage 5, hardening and the remaining release gates, is the current
 stage.
@@ -19,9 +20,18 @@ Both shapes have a consumer proof, and neither is reachable from
 `consumer.yaml`; it calls every table entry, because a pointer that was
 never assigned is indistinguishable from a working one until something
 calls it. `tools/check-linking.sh` compiles a plain C program against
-the archive with no R involved. Stage 6, the v0.1.0 release, is what
-remains. The Office derivation rehearsal lives in the fixture and is the
-ABI validation gate: it runs the generic
+the archive with no R involved. The next tracked work is the Agile
+integration in `zuxlsx`, which lives in that repository.
+
+**The ABI is frozen.** Within major version 1, functions and table
+fields may be *added*; nothing is removed, reordered or given a new
+meaning; enumerator values are permanent; and a `ZUC_*_REQUIRED_SIZE`
+macro never grows. A layout change to a type `struct_size` cannot see
+renames the registered callable instead, so an old consumer fails at
+`R_GetCCallable()` rather than reading a structure that has moved.
+[`?zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
+is the published statement of this. The Office derivation rehearsal
+lives in the fixture and is the ABI validation gate: it runs the generic
 `H_n = hash(int32le(n) || H_{n-1})` loop through one reused incremental
 context and compares it with an independent R implementation. It is not
 Office support and must not become it — no constants, no block keys, no

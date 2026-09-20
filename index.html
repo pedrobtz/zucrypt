@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="index.html">zucrypt</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -79,9 +79,14 @@
 <p>The AES-CBC functions exist too, and are deliberately not shown here: they add no padding and no authentication, and presenting them beside a hash would suggest they are a general-purpose way to encrypt something. See <code><a href="reference/crypt_aes_cbc.html">?crypt_aes_cbc</a></code> before using them.</p>
 </div>
 <div class="section level2">
+<h2 id="consuming-it-from-c">Consuming it from C<a class="anchor" aria-label="anchor" href="#consuming-it-from-c"></a>
+</h2>
+<p>Other packages can use these primitives without going through R, in either of the two ways the <code>zu*</code> family links siblings: a registered function table for a package that can carry an <code>Imports:</code>, or the static archive <code>inst/lib/libzucrypt.a</code> for one that cannot. The C ABI is frozen at version 1. See <code><a href="reference/zucrypt_c_api.html">?zucrypt_c_api</a></code>.</p>
+</div>
+<div class="section level2">
 <h2 id="status">Status<a class="anchor" aria-label="anchor" href="#status"></a>
 </h2>
-<p>Early development. The design is in <code>.agents/design.md</code> and the path to the first release in <code>.agents/roadmap.md</code>. The R interface above is complete and tested against published vectors; the registered C function table for <code>Imports:</code>-carrying consumers is not built yet.</p>
+<p>Version 0.1.0. The R and C interfaces are complete and frozen within major version 1. The design is in <code>.agents/design.md</code>; <code>.agents/roadmap.md</code> records how it was built and what was deliberately left out.</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -128,6 +133,7 @@
 <ul class="list-unstyled">
 <li><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
 <li><a href="https://github.com/pedrobtz/zucrypt/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/pedrobtz/zucrypt/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
+<li><a href="https://github.com/pedrobtz/zucrypt/actions/workflows/coverage.yaml" class="external-link"><img src="https://raw.githubusercontent.com/pedrobtz/zucrypt/main/.github/badges/coverage.svg" alt="coverage"></a></li>
 </ul>
 </div>
 

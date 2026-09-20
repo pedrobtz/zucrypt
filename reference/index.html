@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">zucrypt</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,9 +32,9 @@
     </div>
 
     <div class="section level2">
-      <h2 id="all-functions">All functions<a class="anchor" aria-label="anchor" href="#all-functions"></a></h2>
+      <h2 id="hashing">Hashing<a class="anchor" aria-label="anchor" href="#hashing"></a></h2>
 
-
+      <div class="section-desc"><p>Digests and keyed digests over raw vectors. This is what most callers want, and <code><a href="../reference/crypt_hash.html">crypt_hash()</a></code> with its default is the right answer unless something external requires otherwise.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -42,20 +42,6 @@
 
 
       <dl><dt>
-
-          <code><a href="crypt_aes_cbc.html">crypt_aes_cbc_encrypt()</a></code> <code><a href="crypt_aes_cbc.html">crypt_aes_cbc_decrypt()</a></code>
-
-        </dt>
-        <dd>AES-CBC, without padding and without authentication</dd>
-
-        <dt>
-
-          <code><a href="crypt_equal.html">crypt_equal()</a></code>
-
-        </dt>
-        <dd>Compare two raw vectors without leaking timing information</dd>
-
-        <dt>
 
           <code><a href="crypt_hash.html">crypt_hash()</a></code>
 
@@ -68,6 +54,22 @@
 
         </dt>
         <dd>Compute an HMAC</dd>
+      </dl></div><div class="section level2">
+      <h2 id="comparison-and-information">Comparison and information<a class="anchor" aria-label="anchor" href="#comparison-and-information"></a></h2>
+
+      <div class="section-desc"><p>Comparing a secret without leaking how much of it you guessed, and finding out what this build contains.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="crypt_equal.html">crypt_equal()</a></code>
+
+        </dt>
+        <dd>Compare two raw vectors without leaking timing information</dd>
 
         <dt>
 
@@ -75,15 +77,57 @@
 
         </dt>
         <dd>Report what this build of zucrypt contains</dd>
+      </dl></div><div class="section level2">
+      <h2 id="ciphers-advanced-">Ciphers (advanced)<a class="anchor" aria-label="anchor" href="#ciphers-advanced-"></a></h2>
 
-        <dt>
+      <div class="section-desc"><p>Unauthenticated AES-CBC, for reading and writing formats that specify it. No padding is added or removed and nothing is authenticated: ciphertext produced here can be altered undetectably, and detecting that is the caller’s job. These are interoperability tools, not a way to encrypt something of your own.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="crypt_aes_cbc.html">crypt_aes_cbc_encrypt()</a></code> <code><a href="crypt_aes_cbc.html">crypt_aes_cbc_decrypt()</a></code>
+
+        </dt>
+        <dd>AES-CBC, without padding and without authentication</dd>
+      </dl></div><div class="section level2">
+      <h2 id="c-api">C API<a class="anchor" aria-label="anchor" href="#c-api"></a></h2>
+
+      <div class="section-desc"><p>Consuming zucrypt from another package’s C code, through the registered function table or the static archive.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
 
           <code><a href="zucrypt_c_api.html">zucrypt_c_api</a></code> <code><a href="zucrypt_c_api.html">zucrypt-c-api</a></code>
 
         </dt>
         <dd>Using zucrypt from C</dd>
+      </dl></div><div class="section level2">
+      <h2 id="package">Package<a class="anchor" aria-label="anchor" href="#package"></a></h2>
+
+
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="zucrypt-package.html">zucrypt</a></code> <code><a href="zucrypt-package.html">zucrypt-package</a></code>
+
+        </dt>
+        <dd>zucrypt: Narrow Cryptographic Primitives with a Vendored Backend</dd>
       </dl></div>
-  </main></div>
+  </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
+    </nav></aside></div>
 
 
     <footer><div class="pkgdown-footer-left">
