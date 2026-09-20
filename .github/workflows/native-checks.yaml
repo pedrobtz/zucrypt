@@ -36,14 +36,19 @@ jobs:
   # executes, gctorture provokes real collections and catches what static
   # reasoning misses.
   #
-  # rchk starts informational. It becomes gating the moment it reads zero, with
-  # a `baseline:` file ready for the first false positive -- a boolean gate has
-  # one bad day in it, and what happens on that day is that someone sets it to
-  # false and the gate is gone for good.
+  # Gating, as of the run that first read zero: "rchk found no PROTECT issues
+  # outside the baseline", with an empty baseline. It landed informational one
+  # commit earlier and was turned on once there was evidence, rather than
+  # optimistically -- a gate switched on before it has ever been green is a
+  # gate somebody switches off.
+  #
+  # The `baseline:` input is the answer to the first false positive. Use it
+  # rather than setting this back to false: a boolean gate has one bad day in
+  # it, and what happens on that day is that it goes to false and stays there.
   rchk:
     uses: pedrobtz/r-actions/.github/workflows/rchk.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
     with:
-      fail-on-findings: false
+      fail-on-findings: true
 
   # The entry points in src/zucrypt_crypt.c check for an interrupt between
   # chunks, which means a longjmp past whatever C had allocated -- and what it
@@ -54,7 +59,87 @@ jobs:
   gctorture:
     uses: pedrobtz/r-actions/.github/workflows/gctorture.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
 
-  # Bespoke, like abi.yaml and consumer.yaml will be at Stage 4: r-actions has
+  # Memory safety, once there is a suite that reaches it -- which there now is:
+  # every error path in the adapter frees a context, and the R layer frees one
+  # from an external-pointer finalizer after a longjmp.
+  #
+  # asan runs in the R-hub containers, which is the one place ASan works for
+  # an R package without -shared-libasan gymnastics: R itself is instrumented
+  # there. Not redundant with UBSan -- the error and cleanup paths are where a
+  # double-free or a use-after-free would live, and this package's heap state
+  # is contexts holding key material. UBSan does not look at the heap.
+  #
+  # extra-ubsan-checks is NOT passed, and that is a deviation from the roadmap
+  # worth reading before undoing.
+  #
+  # The roadmap argues for -fsanitize=integer, on the grounds that unsigned
+  # overflow is defined behaviour, so CRAN never checks it, and is still a bug
+  # when it happens to a length or a block count. The argument is right about
+  # our code. The problem is that it cannot be applied only to our code.
+  #
+  # Two runs, two findings, both in the vendored tree and both deliberate:
+  #
+  #   aes.c:365      `x ^= XTIME(x)` -- GF(2^8) doubling truncates back to
+  #                  uint8_t on purpose (implicit-conversion, in the wider
+  #                  -fsanitize=integer group)
+  #   sha256.c:512   the compression function adds modulo 2^32 on purpose
+  #                  (unsigned-integer-overflow, in the narrow flag too)
+  #
+  # The roadmap anticipated the second one and said to write it down in
+  # tools/ubsan.supp rather than drop the flag. That is the right answer and
+  # it is not currently available: passing ubsan-suppressions breaks the asan
+  # job outright, because that job runs inside a container where the checkout
+  # is mounted at /__w/... while the suppressions path is built from
+  # `github.workspace`, the host's /home/runner/work/... . The runtime reports
+  # "failed to read suppressions file" and fails before running anything.
+  #
+  # So the choice is between ASan and the extra integer checks, and ASan wins:
+  # it finds use-after-free and double-free on exactly the cleanup paths
+  # design.md section 11 legislates about, while the length arithmetic the
+  # integer checks would cover is simple, validated in R before any native
+  # call, and separately exercised by arch.yml's 32-bit leg where size_t is
+  # half as wide.
+  #
+  # tools/ubsan.supp holds both entries, ready. Restoring this is two lines --
+  # the input here and the one there -- once r-actions resolves the path
+  # inside the container. The fix belongs there, not in this repository.
+  sanitizers:
+    uses: pedrobtz/r-actions/.github/workflows/sanitizers.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      asan: true
+
+  # --leak-check=full, because R's own --use-valgrind does not set it and a
+  # "definitely lost" total arrives with no stack and cannot be attributed.
+  # For this package the expected leak is precise: a context or a key buffer
+  # stranded when R_CheckUserInterrupt() longjmps past the free below it. A
+  # total with no stack is exactly what would not find it.
+  valgrind:
+    uses: pedrobtz/r-actions/.github/workflows/valgrind.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      valgrind-opts: >-
+        --leak-check=full
+        --show-leak-kinds=definite,indirect
+        --errors-for-leak-kinds=definite,indirect
+
+  # GCC's -fanalyzer, for allocator lifecycle: a leak on an error path, a free
+  # of a partially built context, a use after destruction. That is the bug
+  # class design.md section 11 legislates against, and unlike ASan and
+  # valgrind it reaches code no test executes -- which is most of the error
+  # handling in the adapter, by volume.
+  #
+  # exclude: src/vendor because upstream's findings are not ours to fix and a
+  # report full of them is one people learn to skip. The exclusion is doing
+  # real work: the run that first read zero reported "0 finding(s) outside
+  # excluded paths, 9 inside".
+  #
+  # Gating for the same reason and on the same evidence as rchk above.
+  analyzers:
+    uses: pedrobtz/r-actions/.github/workflows/analyzers.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      exclude: src/vendor
+      fail-on-findings: true
+
+  # Bespoke, like abi.yaml and consumer.yaml at Stage 4: r-actions has
   # no layering job, because what counts as a layer is specific to what a
   # package publishes. This one enforces design.md sections 8.1 and 8.3 -- the
   # adapter is R-free, the R glue is backend-free -- and neither direction is

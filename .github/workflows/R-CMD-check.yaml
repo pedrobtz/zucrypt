@@ -36,6 +36,24 @@ jobs:
   R-CMD-check:
     uses: pedrobtz/r-actions/.github/workflows/r-cmd-check.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
     with:
+      # The default matrix plus one leg at the version DESCRIPTION declares.
+      #
+      # `Depends: R (>= 4.1)` was a claim inherited from the family, not a
+      # measurement: release and oldrel-1 prove the package works on two
+      # recent versions and say nothing about the floor. A declared minimum
+      # nobody checks is the kind of thing that is wrong for two years and
+      # then breaks one user's install.
+      #
+      # Roadmap Stage 5 asks for the minimum R version the build actually
+      # needs to be recorded. This is that, kept honest by a job rather than
+      # by a comment.
+      runners: >-
+        [{"os": "macos-latest", "r": "release"},
+         {"os": "windows-latest", "r": "release"},
+         {"os": "ubuntu-latest", "r": "release"},
+         {"os": "ubuntu-latest", "r": "oldrel-1"},
+         {"os": "ubuntu-latest", "r": "4.1"}]
+
       # CRAN's NOSUGGESTS flavor. This package's only Suggests is testthat,
       # which is exactly the dependency most easily used unguarded: a helper
       # calling library(testthat) at top level, or -- once the C API lands --

@@ -1,0 +1,32 @@
+# UndefinedBehaviorSanitizer suppressions.
+#
+# NOT CURRENTLY IN USE, and kept anyway. native-checks.yaml passes no
+# extra-ubsan-checks and no ubsan-suppressions; the comment there explains why
+# at length. The short version: passing a suppressions file breaks the asan
+# job, because that job runs inside a container where the checkout is mounted
+# at /__w/... while the path is built from `github.workspace`, which is the
+# host's /home/runner/work/... . Without suppressions the extra integer checks
+# fail on deliberate arithmetic in the vendored tree, so both go together.
+#
+# Both entries below are findings from real instrumented runs, not guesses.
+# When r-actions resolves that path inside the container, restoring this is
+# two lines: `extra-ubsan-checks: -fsanitize=integer` and
+# `ubsan-suppressions: tools/ubsan.supp`.
+#
+# One `<check>:<file or function>` per line. Every entry is a deliberate case
+# with its reason beside it; anything not named would still fail the build.
+
+# SHA-256's compression function adds modulo 2^32, which is what the algorithm
+# specifies. Observed as:
+#   sha256.c:512:9: runtime error: unsigned integer overflow:
+#     4084723048 + 1785358954 cannot be represented in type 'unsigned int'
+# sha512.c does the same thing 64 bits wide; it has not been observed only
+# because the test that reached it stopped at the first finding.
+unsigned-integer-overflow:vendor/tf-psa-crypto/lib/sha256.c
+unsigned-integer-overflow:vendor/tf-psa-crypto/lib/sha512.c
+
+# AES table generation: `x ^= XTIME(x)` doubles in GF(2^8), and the shift
+# promotes to int before truncating back to uint8_t. The truncation is the
+# operation, not an accident. Only reachable with the full -fsanitize=integer
+# group, which also turns on the implicit-conversion checks.
+implicit-conversion:vendor/tf-psa-crypto/lib/aes.c

@@ -215,3 +215,45 @@ the 18 objects and checked published vectors:
 
 Stage 2 owns the real KAT suite with committed fixtures and provenance. This
 was enough to decide the configuration.
+
+---
+
+## 11. Addendum: the security-update rehearsal (Stage 5)
+
+Roadmap Stage 5 asks for the upstream-update procedure to be proved before it
+is needed under time pressure. Run on 2026-09-20, against the same pinned
+release:
+
+    sh tools/vendor/fetch      # downloads, verifies sha256, trims, patches
+    sh tools/vendor/verify     # offline, checks everything against everything
+
+`git status --porcelain src/vendor tools/vendor` was empty afterwards: the
+tree, including the applied patch and the recorded checksums, is reproduced
+byte for byte from the upstream archive. `verify` was clean.
+
+So the procedure for acting on a `vendor-upstream.yaml` notification is:
+
+1. Edit the `tag`, `commit`, `version_string`, `archive` and `archive_sha256`
+   columns of `tools/vendor/manifest.tsv`.
+2. `sh tools/vendor/fetch`, which re-derives the tree and re-records the
+   checksums.
+3. Re-derive the trim if upstream's file list moved — §3 above has the method,
+   and `verify` fails if the keep list and the `OBJECTS` list disagree.
+4. Update the version literal in `tests/testthat/test-abi.R`; `verify` fails
+   until it matches.
+5. Re-check each patch in `tools/patches/` still applies and is still needed.
+   The one that exists today should be dropped as soon as a release carries
+   the fix.
+6. `sh tools/vendor/verify`, then the full CI run.
+
+## 12. Addendum: the R floor is now measured (Stage 5)
+
+`Depends: R (>= 4.1)` was inherited from the family and never checked: the
+`release` and `oldrel-1` legs prove the package works on two recent versions
+and say nothing about the floor. `R-CMD-check.yaml` now carries an explicit
+`ubuntu-latest / 4.1` leg, so the declared minimum is a measurement.
+
+The compiler requirement is C99 and nothing else. No CMake, no Python, no
+Perl, no GNU make, and no system cryptographic library — `SystemRequirements`
+says so, and every element of that claim is exercised by an ordinary source
+install on each CI platform.

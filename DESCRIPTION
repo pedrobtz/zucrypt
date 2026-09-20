@@ -30,8 +30,9 @@ Suggests:
     openssl,
     testthat (>= 3.0.0)
 SystemRequirements: A C99 compiler. No system cryptographic library is
-    used; the backend is built from vendored sources, and no sources are
-    downloaded or generated during installation.
+    used, no CMake, Python or Perl is required, and nothing is downloaded or
+    generated during installation: the backend is built from vendored
+    sources, with an explicit object list in portable make.
 Config/testthat/edition: 3
 Config/testthat/parallel: true
 Encoding: UTF-8

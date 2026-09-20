@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Roadmap Stages 0–4 are complete. The package builds a vendored TF-PSA-Crypto 1.1.1 crypto
+Roadmap Stages 0–5 are complete. The package builds a vendored TF-PSA-Crypto 1.1.1 crypto
 subset from source, exports exactly the six `crypt_*` functions of design §7, and publishes
 both consumer shapes: the registered function table (`inst/include/zucrypt-r.h`,
 `zucrypt_get_api`) and the static archive (`inst/lib/libzucrypt.a`). Stage 5, hardening and the
@@ -15,6 +15,7 @@ Both shapes have a consumer proof, and neither is reachable from `R CMD check`.
 `importFrom()`, built only by `consumer.yaml`; it calls every table entry, because a pointer
 that was never assigned is indistinguishable from a working one until something calls it.
 `tools/check-linking.sh` compiles a plain C program against the archive with no R involved.
+Stage 6, the v0.1.0 release, is what remains.
 The Office derivation rehearsal lives in the fixture and is the ABI validation gate: it runs
 the generic `H_n = hash(int32le(n) || H_{n-1})` loop through one reused incremental context and
 compares it with an independent R implementation. It is not Office support and must not become
@@ -96,13 +97,19 @@ shared reusable workflows — never hand-rolled jobs. Two conventions:
   is worse than no job.
 
 Today: `R-CMD-check.yaml` (runners plus CRAN's clang-23/GCC-16 containers, `nosuggests` on),
-`native-checks.yaml` (LTO, rchk, gctorture, and the bespoke layering check), `abi.yaml` and
-`consumer.yaml` (both bespoke), `coverage.yaml` (with `native: true`), `vendor.yaml` (the vendored tree matches its manifest, and a PR touching it updates that
+`native-checks.yaml` (LTO, rchk, gctorture, sanitizers, valgrind, analyzers, and the bespoke
+layering check), `abi.yaml` and `consumer.yaml` (both bespoke), `coverage.yaml` (with
+`native: true`), `arch.yaml` and `alloc-failure.yaml` (weekly), `vendor.yaml` (the vendored tree matches its manifest, and a PR touching it updates that
 manifest), `vendor-upstream.yaml` (weekly; opens an issue when TF-PSA-Crypto releases) and
 `pkgdown.yaml` deploying to `gh-pages` on push to `main`. `pkgdown.yaml` is this repo's own, not
 an r-actions call. The `nosuggests` leg checks with no `Suggests` installed, which is why `tests/testthat.R` wraps
 its `library(testthat)` in `requireNamespace()`. Anything else that reaches for a suggested
 package from a top-level test or example file must be guarded the same way.
+
+`rchk` and `analyzers` are informational until they read zero, then gated with
+`fail-on-findings: true`. A `baseline:` file is the answer to the first false positive: a
+boolean gate has one bad day in it, and what happens on that day is that someone sets it to
+false and the gate is gone for good.
 
 `abi.yaml` and `consumer.yaml` are bespoke by necessity — r-actions has no ABI or consumer
 workflow, because what a package publishes is specific to that package. Both are adapted from
