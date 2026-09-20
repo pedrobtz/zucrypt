@@ -25,5 +25,10 @@ Authors:
   \item Pedro Baltazar \email{pedrobtz@gmail.com} [copyright holder]
 }
 
+Other contributors:
+\itemize{
+  \item The Mbed TLS Contributors (TF-PSA-Crypto, bundled in src/vendor/tf-psa-crypto) [copyright holder]
+}
+
 }
 \keyword{internal}

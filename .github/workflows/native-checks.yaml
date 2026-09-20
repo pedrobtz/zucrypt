@@ -1,0 +1,45 @@
+# Checks on the compiled code that R CMD check does not perform.
+#
+# This file grows with the roadmap: LTO here at Stage 2, rchk and gctorture at
+# Stage 3 when there is R-facing C to have PROTECT bugs in, and the sanitizer,
+# valgrind and analyzer jobs at Stage 5. Each arrives at the stage where it
+# has something to inspect, because a job that is green because it looked at
+# nothing is indistinguishable from the same job after it silently stopped
+# looking.
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - '**.md'
+      - '.agents/**'
+      - 'docs/**'
+      - '_pkgdown.yml'
+  pull_request:
+  workflow_dispatch:
+
+name: native-checks.yaml
+
+permissions: read-all
+
+jobs:
+  # -flto is what cross-checks a declaration in one translation unit against
+  # its definition in another. This package now has several: the adapter, the
+  # R glue, the test harness and the vendored tree are separate compilations,
+  # and a signature that disagrees across them compiles happily under an
+  # ordinary check and shows up at runtime as corruption.
+  lto:
+    uses: pedrobtz/r-actions/.github/workflows/lto.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+
+  # Bespoke, like abi.yaml and consumer.yaml will be at Stage 4: r-actions has
+  # no layering job, because what counts as a layer is specific to what a
+  # package publishes. This one enforces design.md sections 8.1 and 8.3 -- the
+  # adapter is R-free, the R glue is backend-free -- and neither direction is
+  # visible to R CMD check. Including R.h in the adapter compiles fine here
+  # and fails much later in a consumer's build, with an error that does not
+  # name this cause.
+  layering:
+    runs-on: ubuntu-latest
+    name: src/ layering holds
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh tools/check-layering.sh
