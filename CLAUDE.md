@@ -30,8 +30,23 @@ pkgdown::build_site()         # build the docs site (output in docs/, gitignored
 Once C sources exist, `devtools::load_all()` recompiles; use `pkgbuild::clean_dll()` when native
 state gets stale.
 
-CI (`.github/workflows/R-CMD-check.yaml`) runs `R CMD check` on macOS, Windows and Ubuntu
-(devel/release/oldrel-1). pkgdown deploys to `gh-pages` on push to `main`.
+## CI
+
+CI is adopted from [`pedrobtz/r-actions`](https://github.com/pedrobtz/r-actions), the family's
+shared reusable workflows — never hand-rolled jobs. Two conventions:
+
+- **Pin calls to a commit**, with the tag in a trailing comment (`@1878271... # v1.9.0`). A tag
+  is mutable; `@v1` means "whatever it points at when the job starts". Bump deliberately.
+- **Add a workflow at the stage where it has something to check.** The roadmap's CI table says
+  which workflow lands in which stage and why. A job that is green because it inspected nothing
+  is worse than no job.
+
+Today: `R-CMD-check.yaml` (runners plus CRAN's clang-23/GCC-16 containers, `nosuggests` on),
+`coverage.yaml`, and `pkgdown.yaml` deploying to `gh-pages` on push to `main`. `pkgdown.yaml` is
+this repo's own, not an r-actions call.
+
+`abi.yaml` and `consumer.yaml` at Stage 4 are bespoke by necessity — r-actions has no ABI or
+consumer workflow. Copy the ones in the sibling `zukomp` repo rather than inventing a shape.
 
 ## Architecture (planned)
 
@@ -40,20 +55,28 @@ CI (`.github/workflows/R-CMD-check.yaml`) runs `R CMD check` on macOS, Windows a
 
 - **`zucrypt` owns cryptographic primitives only** — hashes, HMAC, AES-CBC/ECB, constant-time
   compare, secure cleanup. It must never acquire XML, ZIP, Office, socket or TLS dependencies.
+- **Family conventions are binding** (design §3): C ABI prefix `zuc_`/`ZUC_` (never `zu_`,
+  which is `zukomp`'s public namespace and would not compile beside `zukomp.h` in `zuxlsx`);
+  R exports `crypt_*`; entry points `zucrypt_*`; internal `zuc_int_*`; test-only
+  `zucrypt_test_*`; condition classes `zucrypt_*`. `zukomp`'s CLAUDE.md is the reference.
 - **Office/Excel decryption orchestration lives in `zuxlsx`**, not here. The Office adapter owns
   iteration counts, salts, block keys, password verifiers and segment IVs; it may depend on
   `zucrypt` and `zuxml`, never the reverse.
 - **`zuhttp` owns TLS and trust**, and keeps its native OS TLS backend. Mbed TLS there is a
   separate, optional backend, not something `zucrypt` provides.
 
-Two interfaces are exposed:
+Three surfaces are exposed:
 
-1. A small R surface: `crypto_info()`, `hash_raw()`, `hmac_raw()`, `constant_time_equal()`,
-   `aes_cbc_encrypt_raw()` / `aes_cbc_decrypt_raw()`.
-2. A versioned C ABI: a public header at `inst/include/zucrypt.h` plus one accessor registered with
-   `R_RegisterCCallable`, returning a table of function pointers with opaque context handles.
-   Consumers use `LinkingTo: zucrypt` + `Imports: zucrypt` and resolve via `R_GetCCallable`.
-   Upstream Mbed/PSA types must never appear in the header.
+1. A small R surface: `crypt_info()`, `crypt_hash()`, `crypt_hmac()`, `crypt_equal()`,
+   `crypt_aes_cbc_encrypt()` / `crypt_aes_cbc_decrypt()`.
+2. A registered function table (`inst/include/zucrypt-r.h`, `zucrypt_api_v1`, resolved lazily
+   via `zucrypt_get_api`) for `zuhttp`-style consumers: `Imports:` + `LinkingTo:` + a real
+   `importFrom()`.
+3. A static archive `inst/lib/libzucrypt.a` for `zuxlsx`-style consumers (`LinkingTo:` +
+   `configure` resolving `system.file("lib")`, no `Imports:`). It contains the R-free adapter
+   plus vendored crypto — **not** raw upstream, unlike `zukomp`/`zuxml`'s archives — so consumers
+   see only `inst/include/zucrypt.h`, which must compile standalone as C99 with no R or PSA
+   vocabulary.
 
 The backend is a vendored, pinned Mbed TLS 4.x / TF-PSA-Crypto crypto subset (no TLS, no X.509).
 Installation must not download sources or require Python/Perl to generate them, and upstream symbols
@@ -70,9 +93,13 @@ must be hidden or namespaced so independent vendored copies cannot bind to each 
 - No `encrypt_file(password = )`, no PBKDF2/HKDF/AEAD/RNG in the initial scope — each needs a
   concrete consumer first.
 - Any future randomness uses platform entropy or a seeded backend RNG, **never R's RNG**.
-- Errors are R conditions inheriting from `zucrypt_error` with a stable code; never attach keys,
-  passwords or plaintext to a condition. C functions return status codes and never raise R errors,
-  allocate R objects or call back into R.
+- Errors are R conditions `c(<specific>, "zucrypt_error", "error", "condition")` built in R from a
+  `zuc_status`, mapped by enumerator *name*; never attach keys, passwords or plaintext. C returns
+  status codes, never `Rf_error()` below the outermost `.Call`; heap state that must survive a
+  `longjmp` (`Rf_error`, `R_CheckUserInterrupt`) is owned by a finalized external pointer.
+- Vendoring uses the family layout — `src/vendor/<source>/`, `tools/patches/`,
+  `tools/vendor/{manifest.tsv,checksums.sha256,fetch,record,verify}`, `inst/COPYRIGHTS` — and
+  `src/Makevars` is portable make with an explicit `OBJECTS` list (no CMake, no GNU make).
 - API resolution and calls are main-thread only in 0.1.
 - Testing gate: published known-answer vectors per algorithm, one-shot vs incremental equivalence,
   and independent-implementation compatibility — a self round trip is explicitly not sufficient.
