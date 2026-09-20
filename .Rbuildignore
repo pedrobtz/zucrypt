@@ -9,3 +9,4 @@
 # src/*.o and src/*.so, but not a static archive, so a local check otherwise
 # ships one and reports it as a WARNING.
 ^src/libzucrypt\.a$
+^tests/consumer$

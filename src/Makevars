@@ -88,6 +88,7 @@ ADAPTER_OBJECTS = \
 OBJECTS = \
   zucrypt_r.o \
   zucrypt_crypt.o \
+  zucrypt_api.o \
   zucrypt_test.o \
   $(ADAPTER_OBJECTS)
 

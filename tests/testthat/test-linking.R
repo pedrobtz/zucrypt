@@ -61,7 +61,34 @@ test_that("no upstream header is installed beside ours", {
   # the same library. It sees zucrypt.h and nothing else.
   installed <- list.files(system.file("include", package = "zucrypt"),
                           recursive = TRUE)
-  expect_identical(sort(installed), "zucrypt.h")
+  expect_identical(sort(installed), c("zucrypt-r.h", "zucrypt.h"))
+})
+
+test_that("zucrypt-r.h is the only header that knows about R", {
+  # The split is the contract: an archive consumer includes zucrypt.h and
+  # links no R at all, and a table consumer includes zucrypt-r.h, which adds
+  # the one thing that unavoidably knows about R -- how to reach the table.
+  r_header <- installed_header_code("zucrypt-r.h")
+  expect_gt(length(grep("R_GetCCallable", r_header, fixed = TRUE)), 0L)
+  expect_gt(length(grep("zucrypt.h", installed_header("zucrypt-r.h"),
+                        fixed = TRUE)), 0L)
+
+  # And it defines the accessor as `static inline`, not plain `static`: a
+  # header-defined plain static is an unused-function error in every consumer
+  # translation unit that includes the header without calling it, which is a
+  # build failure in their tree and warning-free in ours.
+  expect_length(grep("^static inline const zucrypt_api_v1 \\*zucrypt_api",
+                     r_header), 1L)
+  expect_length(grep("^static const zucrypt_api_v1", r_header), 0L)
+})
+
+test_that("the registered callable is named as the header expects", {
+  # zucrypt-r.h resolves this literal. If the provider ever registers a
+  # different name -- which is the documented way to version a layout change
+  # in a non-table type -- the header has to change with it, and this fails
+  # until it does.
+  r_header <- installed_header_code("zucrypt-r.h")
+  expect_length(grep('"zucrypt_get_api"', r_header, fixed = TRUE), 1L)
 })
 
 test_that("the public header leaks no backend vocabulary", {
@@ -72,6 +99,8 @@ test_that("the public header leaks no backend vocabulary", {
 })
 
 test_that("the public header leaks no R vocabulary", {
+  # zucrypt.h only. zucrypt-r.h is R-specific by design and is exempt --
+  # which is why the two are separate files rather than one with an #ifdef.
   header <- installed_header_code()
   for (pattern in c("R.h", "Rinternals.h", "SEXP", "Rf_", "R_xlen_t")) {
     expect_length(grep(pattern, header, fixed = TRUE, value = TRUE), 0L)

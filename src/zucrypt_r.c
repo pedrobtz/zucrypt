@@ -34,6 +34,9 @@ extern const R_CallMethodDef zucrypt_test_call_methods[];
 /* Defined in zucrypt_crypt.c: the entry points behind the crypt_* functions. */
 extern const R_CallMethodDef zucrypt_crypt_call_methods[];
 
+/* Defined in zucrypt_api.c: publishes the table to LinkingTo consumers. */
+extern void zucrypt_register_api(void);
+
 SEXP zucrypt_backend_info(void)
 {
     zuc_info info;
@@ -155,4 +158,8 @@ void attribute_visible R_init_zucrypt(DllInfo *dll)
         Rf_error("zucrypt: the cryptographic backend failed to start (%s)",
                  zuc_status_string(st));
     }
+
+    /* After the backend is up, never before: a consumer that resolves the
+     * table is entitled to assume the functions in it will work. */
+    zucrypt_register_api();
 }
