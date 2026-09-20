@@ -19,12 +19,24 @@ installed_path <- function(...) {
   file.path(system.file(package = "zucrypt"), ...)
 }
 
-# R_ARCH is empty on every single-architecture platform, so this is plain
-# "lib" there. The archive is architecture-specific object code, so a
-# multi-architecture install would have to give each one its own directory.
+# Where the archive lives, resolved exactly the way a consumer resolves it.
+#
+# This mirrors zuxlsx's configure line for its sibling archives: try
+# lib/<r_arch> first, fall back to plain lib. Both layouts exist in the
+# family -- zukomp installs under R_ARCH, zuxml and this package install
+# arch-neutral -- and a consumer has to cope with either, so the test asserts
+# what the consumer actually does rather than one hard-coded spelling.
+#
+# Assuming lib/<r_arch> here is what failed on Windows: .Platform$r_arch is
+# "x64" there and empty on Linux and macOS, so a single-path helper passes on
+# two platforms out of three while testing the wrong thing on all of them.
 installed_lib_dir <- function() {
+  root <- installed_path()
   arch <- .Platform$r_arch
-  installed_path(if (nzchar(arch)) file.path("lib", arch) else "lib")
+  if (nzchar(arch) && dir.exists(file.path(root, "lib", arch))) {
+    return(file.path(root, "lib", arch))
+  }
+  file.path(root, "lib")
 }
 
 archive_path <- function() file.path(installed_lib_dir(), "libzucrypt.a")
