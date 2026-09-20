@@ -1,0 +1,34 @@
+# Architectures R-CMD-check.yaml does not reach.
+#
+# That workflow covers CRAN's compilers well and its architectures not at all:
+# every leg there is x86-64 glibc. The 32-bit leg is the one that matters for
+# this package. size_t narrows to 32 bits there, and every length check, block
+# count and "is this a multiple of 16" becomes different arithmetic -- a bound
+# computed as a product can overflow while being nowhere near the limit on
+# 64-bit. The musl leg costs little alongside it, and neither needs QEMU.
+#
+# Weekly rather than per-push: these are container builds from source, they
+# are slow, and the arithmetic they exercise changes rarely. A break here is
+# worth knowing about within a week, not within a minute.
+#
+# aarch64 is added before tagging v0.1.0, per the roadmap. It is the leg that
+# actually costs QEMU, and it is also the platform a large part of the world
+# now develops on, so its bugs tend to be found already.
+on:
+  schedule:
+    - cron: '0 6 * * 2'
+  workflow_dispatch:
+
+name: arch.yaml
+
+permissions: read-all
+
+jobs:
+  arch:
+    uses: pedrobtz/r-actions/.github/workflows/arch.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      # zucrypt's only hard dependency is utils, which is base priority, and
+      # its Suggests are not needed for a check that skips them. Empty is the
+      # case this runs fastest in, and it is the case a vendored-C package
+      # with no Imports is normally in.
+      install-dependencies: ""

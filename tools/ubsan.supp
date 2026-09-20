@@ -1,0 +1,17 @@
+# UndefinedBehaviorSanitizer suppressions.
+#
+# One `<check>:<file or function>` per line. Every entry here is a deliberate
+# case with a reason written beside it; anything not named still fails the
+# build. That is the point of keeping this file rather than dropping
+# -fsanitize=integer: the flag catches unsigned overflow, which is *defined*
+# behaviour and therefore something CRAN never checks, and which is still a
+# bug when it happens to a length, an offset or a block count.
+#
+# Empty, deliberately. The vendored tree was expected to need entries --
+# hash mixing and constant-time arithmetic both want wrapping -- and so far
+# it has not. When one is needed, add it with a comment naming why the
+# wrapping is intended, not merely that it happens.
+#
+# Format reference:
+#   unsigned-integer-overflow:src/vendor/tf-psa-crypto/lib/sha256.c
+#   shift:mbedtls_ct_uint_mask

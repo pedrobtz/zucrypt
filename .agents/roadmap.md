@@ -372,6 +372,13 @@ Exit:
 
 ## Stage 5 — Hardening and release gates
 
+**Done.** Two notes. `rchk` and `analyzers` land informational, as planned, and are gated the
+moment they read zero rather than in the same commit — a gate turned on before it has ever
+been green is a gate somebody turns off. And the R floor is now a measurement rather than a
+claim: `R-CMD-check.yaml` carries an explicit `4.1` leg, because `release` and `oldrel-1` prove
+the package works on two recent versions and say nothing about the minimum `DESCRIPTION`
+declares.
+
 Goal: satisfy the design §12 evidence table for the layers that exist in v0.1.0.
 Almost all of it is adopting the remaining r-actions workflows into
 `native-checks.yaml`, plus two scheduled ones of their own.

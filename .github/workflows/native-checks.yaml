@@ -54,7 +54,64 @@ jobs:
   gctorture:
     uses: pedrobtz/r-actions/.github/workflows/gctorture.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
 
-  # Bespoke, like abi.yaml and consumer.yaml will be at Stage 4: r-actions has
+  # Memory safety, once there is a suite that reaches it -- which there now is:
+  # every error path in the adapter frees a context, and the R layer frees one
+  # from an external-pointer finalizer after a longjmp.
+  #
+  # extra-ubsan-checks: -fsanitize=integer is the one addition worth arguing
+  # for. Unsigned overflow is *defined* behaviour, so CRAN does not check it,
+  # and it is still a bug when it happens to a length, an offset or a block
+  # count -- and design.md section 10 rests this package's safety on exactly
+  # that arithmetic. It is fatal, so it is on early rather than at the end,
+  # when working through findings would be a release blocker instead of a
+  # morning.
+  #
+  # tools/ubsan.supp is where a deliberate case gets written down, one
+  # <check>:<file or function> per line. Writing it down beats dropping the
+  # flag: the suppression names what is intentional, and everything not named
+  # still fails.
+  #
+  # asan runs in the R-hub containers, where R itself is instrumented -- the
+  # one place ASan works for an R package without -shared-libasan gymnastics.
+  # Not redundant with UBSan: the error and cleanup paths are where a
+  # double-free or a use-after-free would live, and UBSan does not look at the
+  # heap.
+  sanitizers:
+    uses: pedrobtz/r-actions/.github/workflows/sanitizers.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      asan: true
+      extra-ubsan-checks: -fsanitize=integer
+      ubsan-suppressions: tools/ubsan.supp
+
+  # --leak-check=full, because R's own --use-valgrind does not set it and a
+  # "definitely lost" total arrives with no stack and cannot be attributed.
+  # For this package the expected leak is precise: a context or a key buffer
+  # stranded when R_CheckUserInterrupt() longjmps past the free below it. A
+  # total with no stack is exactly what would not find it.
+  valgrind:
+    uses: pedrobtz/r-actions/.github/workflows/valgrind.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      valgrind-opts: >-
+        --leak-check=full
+        --show-leak-kinds=definite,indirect
+        --errors-for-leak-kinds=definite,indirect
+
+  # GCC's -fanalyzer, for allocator lifecycle: a leak on an error path, a free
+  # of a partially built context, a use after destruction. That is the bug
+  # class design.md section 11 legislates against, and unlike ASan and
+  # valgrind it reaches code no test executes -- which is most of the error
+  # handling in the adapter, by volume.
+  #
+  # exclude: src/vendor because upstream's findings are not ours to fix and a
+  # report full of them is one people learn to skip. Informational until it
+  # reads zero, then gated.
+  analyzers:
+    uses: pedrobtz/r-actions/.github/workflows/analyzers.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      exclude: src/vendor
+      fail-on-findings: false
+
+  # Bespoke, like abi.yaml and consumer.yaml at Stage 4: r-actions has
   # no layering job, because what counts as a layer is specific to what a
   # package publishes. This one enforces design.md sections 8.1 and 8.3 -- the
   # adapter is R-free, the R glue is backend-free -- and neither direction is

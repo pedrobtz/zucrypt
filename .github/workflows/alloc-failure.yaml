@@ -1,0 +1,35 @@
+# Execute the out-of-memory paths, which nothing else does.
+#
+# This is the direct test of a sentence in design.md section 11 that no other
+# job reaches: "destroy partial contexts after any failed initialization".
+# Nothing in an ordinary suite makes malloc fail, so that code is executed
+# zero times. ASan and valgrind check what happens to memory that *was*
+# allocated; gctorture forces collections rather than failures; rchk reasons
+# about PROTECT rather than about a NULL return.
+#
+# Weekly, because the sweep restarts the process once per injected failure and
+# the paths it covers change rarely.
+on:
+  schedule:
+    - cron: '0 6 * * 3'
+  workflow_dispatch:
+
+name: alloc-failure.yaml
+
+permissions: read-all
+
+jobs:
+  alloc-failure:
+    uses: pedrobtz/r-actions/.github/workflows/alloc-failure.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      run: Rscript tools/alloc-exercise.R
+
+      # What makes this "behaved" rather than "did not crash". Surviving a
+      # failed allocation while returning a truncated digest would pass a
+      # crash test and be worse than crashing -- the caller would have a
+      # wrong answer and no indication of it.
+      #
+      # zucrypt_memory_error is the condition class R/conditions.R maps
+      # ZUC_ERR_MEMORY to; "cannot allocate" is R's own message for the
+      # failures that happen above the native layer, in allocVector.
+      expect-pattern: "zucrypt_memory_error|cannot allocate"
