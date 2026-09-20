@@ -1,0 +1,73 @@
+# Portable make only: no GNU-make conditionals and no $(wildcard), either of
+# which would force SystemRequirements: GNU make, and no -W* or optimisation
+# flags, which CRAN sets and rejects overrides of. design.md section 3.
+#
+# -DTF_PSA_CRYPTO_CONFIG_FILE replaces upstream's psa/crypto_config.h with
+# src/zuc_crypto_config.h, so the enabled feature set is exactly what that
+# file lists. It is the only -D here: everything else is a #define there,
+# where it can be commented, and tools/vendor/verify checks that file against
+# the manifest's `defines` column.
+VENDOR = vendor/tf-psa-crypto
+
+# Two -I roots, not upstream's six. The vendored tree is flattened into inc/
+# and lib/ because R CMD check rejects a tarball path over 100 bytes and
+# upstream's drivers/builtin/include/mbedtls/private/ hierarchy is over it
+# before src/vendor/ is prefixed -- the same limit that breaks deep vendored
+# trees on Windows. tools/vendor/keep/tf-psa-crypto.txt maps each file, and
+# tools/vendor/verify measures the result.
+PKG_CPPFLAGS = -I. \
+  -I$(VENDOR)/inc \
+  -I$(VENDOR)/lib \
+  -DTF_PSA_CRYPTO_CONFIG_FILE='"zuc_crypto_config.h"'
+
+# $(C_VISIBILITY) is R's own substitution for -fvisibility=hidden, empty on a
+# compiler that has no such flag. It is what keeps mbedtls_* and psa_* out of
+# the dynamic symbol table, so zucrypt's vendored copy and any other package's
+# independently vendored one cannot bind to each other, and so no OpenSSL-ABI
+# name is exported beside the libcrypto zuhttp links (design.md sections 3
+# and 4). tests/testthat/test-abi.R asserts it on the installed object.
+PKG_CFLAGS = $(C_VISIBILITY)
+
+# The vendored object list.
+#
+# Upstream's own build compiles every file in core/, drivers/builtin/src/,
+# platform/, utilities/, dispatch/ and extras/ and lets the configuration
+# guard the unused ones down to empty translation units. Under
+# src/zuc_crypto_config.h that is 77 files of which 18 define a single symbol;
+# the other 59 are compiled, produce nothing, and are not vendored at all.
+#
+# The list is derived, not chosen: compile all 77, keep the ones whose object
+# has a symbol, then take the header closure with `cc -MM`. That closure is
+# tools/vendor/keep/tf-psa-crypto.txt, and the two have to move together --
+# dropping a source here without dropping it there leaves a file in the
+# tarball that nothing builds. .agents/stage-1-spike.md records the method.
+VENDOR_OBJECTS = \
+  $(VENDOR)/lib/psa_crypto.o \
+  $(VENDOR)/lib/psa_crypto_client.o \
+  $(VENDOR)/lib/psa_crypto_driver_wrappers_no_static.o \
+  $(VENDOR)/lib/psa_crypto_slot_management.o \
+  $(VENDOR)/lib/psa_util.o \
+  $(VENDOR)/lib/aes.o \
+  $(VENDOR)/lib/cipher.o \
+  $(VENDOR)/lib/cipher_wrap.o \
+  $(VENDOR)/lib/psa_crypto_cipher.o \
+  $(VENDOR)/lib/psa_crypto_hash.o \
+  $(VENDOR)/lib/psa_crypto_mac.o \
+  $(VENDOR)/lib/psa_crypto_rsa.o \
+  $(VENDOR)/lib/psa_util_internal.o \
+  $(VENDOR)/lib/sha1.o \
+  $(VENDOR)/lib/sha256.o \
+  $(VENDOR)/lib/sha512.o \
+  $(VENDOR)/lib/platform_util.o \
+  $(VENDOR)/lib/constant_time.o
+
+# psa_crypto_rsa.o is in that list and looks out of place: no public-key
+# algorithm is enabled. It compiles to two key-management helpers that
+# psa_crypto.c calls unconditionally, and dropping it is a link error, not a
+# smaller build.
+
+OBJECTS = \
+  zucrypt_r.o \
+  zuc_backend.o \
+  zuc_random.o \
+  $(VENDOR_OBJECTS)

@@ -1,8 +1,11 @@
 Package: zucrypt
 Title: Narrow Cryptographic Primitives with a Vendored Backend
 Version: 0.0.0.9000
-Authors@R: 
-    person("Pedro", "Baltazar", , "pedrobtz@gmail.com", role = c("aut", "cre", "cph"))
+Authors@R: c(
+    person("Pedro", "Baltazar", , "pedrobtz@gmail.com",
+           role = c("aut", "cre", "cph")),
+    person("The Mbed TLS Contributors", role = "cph",
+           comment = "TF-PSA-Crypto, bundled in src/vendor/tf-psa-crypto"))
 Description: Provides a small, predictable set of cryptographic
     primitives over raw vectors: message digests, 'HMAC', unauthenticated
     'AES' in 'CBC' and 'ECB' mode, constant-time comparison and secure
@@ -15,12 +18,16 @@ Description: Provides a small, predictable set of cryptographic
     without going through R. This is a focused foundation for the 'zu*'
     package family rather than a general-purpose cryptography toolkit.
 License: MIT + file LICENSE
+Copyright: See inst/COPYRIGHTS and tools/vendor/manifest.tsv.
 URL: https://github.com/pedrobtz/zucrypt,
     https://pedrobtz.github.io/zucrypt/
 BugReports: https://github.com/pedrobtz/zucrypt/issues
 Depends: 
     R (>= 4.1)
+Imports: 
+    utils
 Suggests: 
+    openssl,
     testthat (>= 3.0.0)
 SystemRequirements: A C99 compiler. No system cryptographic library is
     used; the backend is built from vendored sources, and no sources are

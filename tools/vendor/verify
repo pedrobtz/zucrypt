@@ -1,0 +1,251 @@
+#!/bin/sh
+# Offline check that the vendored tree is exactly what the manifest describes.
+#
+# Fails if a vendored file was edited, added or removed without going through
+# `tools/vendor/fetch`, if the build configuration and the manifest disagree
+# about the enabled feature set, or if the trim and the object list have
+# drifted apart. Safe to run in CI and from a release tarball; it needs no
+# network and no compiler.
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+cd "$ROOT"
+MANIFEST=tools/vendor/manifest.tsv
+. tools/vendor/common.sh
+
+status=0
+sums=tools/vendor/checksums.sha256
+config=src/zuc_crypto_config.h
+
+if [ ! -f "$sums" ]; then
+    echo "FAIL missing $sums; run tools/vendor/record" >&2
+    exit 1
+fi
+
+# 1. every recorded file still hashes to the recorded value
+while read -r want path; do
+    [ -n "$want" ] || continue
+    if [ ! -f "$path" ]; then
+        printf 'FAIL missing vendored file: %s\n' "$path" >&2
+        status=1
+        continue
+    fi
+    got=$(sha256_of "$path")
+    if [ "$got" != "$want" ]; then
+        printf 'FAIL modified vendored file: %s\n      expected %s\n      got      %s\n' \
+            "$path" "$want" "$got" >&2
+        status=1
+    fi
+done < "$sums"
+
+# 2. no vendored file that the manifest does not know about
+for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
+    for f in $(vendored_files "$src"); do
+        if ! grep -q "  $f\$" "$sums"; then
+            printf 'FAIL unrecorded vendored file: %s\n' "$f" >&2
+            status=1
+        fi
+    done
+done
+
+# 3. the vendored tree is exactly the keep list, in both directions
+#
+# The checksum file above says "these files are unmodified"; it cannot say
+# "these are the files we meant to keep". Without this, dropping a path from
+# the keep list and re-recording looks clean, and the next `fetch` silently
+# produces a different tree.
+for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
+    list="tools/vendor/keep/$src.txt"
+    if [ ! -f "$list" ]; then
+        printf 'FAIL missing keep list: %s\n' "$list" >&2
+        status=1
+        continue
+    fi
+    kept=$(sed 's/#.*//' "$list" | awk 'NF == 2 { print $1 }' | LC_ALL=C sort)
+    present=$(vendored_files "$src" | sed "s|^src/vendor/$src/||" | LC_ALL=C sort)
+    if [ "$kept" != "$present" ]; then
+        printf 'FAIL src/vendor/%s does not match %s\n' "$src" "$list" >&2
+        printf '%s\n' "$kept" > "$ROOT/.verify-kept.$$"
+        printf '%s\n' "$present" > "$ROOT/.verify-present.$$"
+        diff "$ROOT/.verify-kept.$$" "$ROOT/.verify-present.$$" >&2 || true
+        rm -f "$ROOT/.verify-kept.$$" "$ROOT/.verify-present.$$"
+        status=1
+    fi
+done
+
+# 4. the build configuration and the manifest agree on the enabled features
+#
+# The sibling packages compare the manifest against the -D flags in
+# src/Makevars, because that is where their trim is expressed. This one is
+# configured by a header -- src/zuc_crypto_config.h replaces upstream's
+# psa/crypto_config.h wholesale -- so the header is what has to agree. Reading
+# it with comments stripped, for the same reason zukomp reads Makevars that
+# way: the rule is about what reaches the compiler, and a comment there is
+# free to name a define in order to explain why it is absent.
+if [ ! -f "$config" ]; then
+    printf 'FAIL missing %s\n' "$config" >&2
+    exit 1
+fi
+config_defines=$(
+    sed 's|/\*.*\*/||' "$config" \
+      | sed -n 's/^[[:space:]]*#[[:space:]]*define[[:space:]]\{1,\}\([A-Z0-9_]*\).*/\1/p' \
+      | grep -v '^ZUC_CRYPTO_CONFIG_H$' \
+      | LC_ALL=C sort -u
+)
+declared_defines=$(
+    for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
+        manifest_field "$src" defines | tr ',' '\n'
+    done | grep -v '^$' | LC_ALL=C sort -u
+)
+if [ "$config_defines" != "$declared_defines" ]; then
+    printf 'FAIL %s and the manifest declare different feature sets\n' "$config" >&2
+    printf '%s\n' "$declared_defines" > "$ROOT/.verify-a.$$"
+    printf '%s\n' "$config_defines" > "$ROOT/.verify-b.$$"
+    printf '  < manifest, > %s\n' "$config" >&2
+    diff "$ROOT/.verify-a.$$" "$ROOT/.verify-b.$$" >&2 || true
+    rm -f "$ROOT/.verify-a.$$" "$ROOT/.verify-b.$$"
+    status=1
+fi
+
+# and src/Makevars has to actually point the build at that header, or the
+# agreement above describes a file nothing reads
+if ! grep -q "TF_PSA_CRYPTO_CONFIG_FILE=.*zuc_crypto_config.h" src/Makevars; then
+    printf 'FAIL src/Makevars does not set TF_PSA_CRYPTO_CONFIG_FILE to %s\n' \
+        "$config" >&2
+    status=1
+fi
+
+# 5. the object list and the trim agree
+#
+# A vendored .c that no OBJECTS entry names is dead weight in the tarball; an
+# OBJECTS entry with no vendored source is a build failure on a fresh clone.
+# Neither shows up in a local rebuild, where the stale object file is still
+# sitting in src/.
+makevars_sources=$(
+    grep -oE '\$\(VENDOR\)/[A-Za-z0-9_/.-]+\.o' src/Makevars \
+      | sed 's|\$(VENDOR)/||; s|\.o$|.c|' | LC_ALL=C sort -u
+)
+for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
+    kept_sources=$(sed 's/#.*//' "tools/vendor/keep/$src.txt" \
+                     | awk 'NF == 2 { print $1 }' | grep '\.c$' | LC_ALL=C sort -u)
+    if [ "$makevars_sources" != "$kept_sources" ]; then
+        printf 'FAIL src/Makevars OBJECTS and the %s trim disagree\n' "$src" >&2
+        printf '%s\n' "$kept_sources" > "$ROOT/.verify-a.$$"
+        printf '%s\n' "$makevars_sources" > "$ROOT/.verify-b.$$"
+        printf '  < kept sources, > Makevars objects\n' >&2
+        diff "$ROOT/.verify-a.$$" "$ROOT/.verify-b.$$" >&2 || true
+        rm -f "$ROOT/.verify-a.$$" "$ROOT/.verify-b.$$"
+        status=1
+    fi
+done
+
+# 5b. no vendored path is too long for a tarball
+#
+# R CMD check rejects a path over 100 bytes, measured with the package
+# directory in front of it, and the same limit is what makes deep vendored
+# trees fail to unpack on Windows. Upstream has header names of 39 characters
+# under a three-level include prefix, so this is not theoretical margin: the
+# unflattened layout was over the limit, which is why src/vendor/<source>/ has
+# inc/ and lib/ rather than upstream's six directories. Checked here so a
+# release bump that adds a longer name fails with the reason attached, rather
+# than as a check NOTE about "non-portable file paths" that has to be traced
+# back to a vendoring decision.
+pkg=$(awk '/^Package:/ { print $2 }' DESCRIPTION)
+for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
+    for f in $(vendored_files "$src"); do
+        n=$(printf '%s/%s' "$pkg" "$f" | wc -c | tr -d ' ')
+        n=$((n - 1))
+        if [ "$n" -gt 100 ]; then
+            printf 'FAIL vendored path is %s bytes, over the 100-byte tarball limit:\n      %s/%s\n' \
+                "$n" "$pkg" "$f" >&2
+            status=1
+        fi
+    done
+done
+
+# 6. the version the vendored headers report matches the manifest, and the
+#    test suite asserts that same string (tests cannot read this manifest:
+#    tools/ is not installed, so the literal is duplicated and checked here)
+declared=$(manifest_field tf-psa-crypto version_string)
+header=$(sed -n 's/^#define TF_PSA_CRYPTO_VERSION_STRING  *"\(.*\)"/\1/p' \
+    src/vendor/tf-psa-crypto/inc/tf-psa-crypto/build_info.h)
+if [ "$declared" != "$header" ]; then
+    printf 'FAIL build_info.h reports %s, manifest declares %s\n' \
+        "$header" "$declared" >&2
+    status=1
+fi
+if ! grep -q "\"$declared\"" tests/testthat/test-abi.R; then
+    printf 'FAIL tests/testthat/test-abi.R does not assert backend version %s\n' \
+        "$declared" >&2
+    status=1
+fi
+
+# 7. licensing is disclosed for every vendored source
+for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
+    lic=$(manifest_field "$src" license)
+    if ! grep -qF "$src" inst/COPYRIGHTS; then
+        printf 'FAIL inst/COPYRIGHTS does not mention vendored source %s\n' "$src" >&2
+        status=1
+    fi
+    if ! grep -qF "$lic" inst/COPYRIGHTS; then
+        printf 'FAIL inst/COPYRIGHTS does not mention the %s license of %s\n' \
+            "$lic" "$src" >&2
+        status=1
+    fi
+done
+
+# 8. the patch set agrees across the manifest, tools/patches/ and the shipped
+#    attribution -- checked in all three directions, because a one-way check
+#    passes happily while the other side rots. There are no patches today;
+#    the check exists so the first one cannot land undisclosed.
+declared_patches=$(
+    for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
+        p=$(manifest_field "$src" patches)
+        [ "$p" = "-" ] && continue
+        echo "$p" | tr ',' '\n'
+    done | grep -v '^$' | LC_ALL=C sort -u
+)
+
+for p in $declared_patches; do
+    if ! find tools/patches -type f -name "$p" | grep -q .; then
+        printf 'FAIL manifest declares patch %s, which does not exist under tools/patches/\n' \
+            "$p" >&2
+        status=1
+    fi
+    if ! grep -qF "$p" inst/COPYRIGHTS; then
+        printf 'FAIL inst/COPYRIGHTS does not mention patch %s, which the manifest declares\n' \
+            "$p" >&2
+        status=1
+    fi
+done
+
+for f in $(find tools/patches -type f -name '*.patch' 2>/dev/null | LC_ALL=C sort); do
+    p=$(basename "$f")
+    found=0
+    for e in $declared_patches; do
+        if [ "$e" = "$p" ]; then found=1; break; fi
+    done
+    if [ "$found" -eq 0 ]; then
+        printf 'FAIL %s is not declared in the manifest, so fetch would not apply it\n' \
+            "$f" >&2
+        status=1
+    fi
+done
+
+for p in $(grep -oE '[0-9]{4}-[A-Za-z0-9._-]+\.patch' inst/COPYRIGHTS \
+           | LC_ALL=C sort -u); do
+    found=0
+    for e in $declared_patches; do
+        if [ "$e" = "$p" ]; then found=1; break; fi
+    done
+    if [ "$found" -eq 0 ]; then
+        printf 'FAIL inst/COPYRIGHTS mentions patch %s, which the manifest does not declare\n' \
+            "$p" >&2
+        status=1
+    fi
+done
+
+if [ "$status" -eq 0 ]; then
+    printf 'ok  vendored tree matches %s\n' "$MANIFEST"
+fi
+exit "$status"

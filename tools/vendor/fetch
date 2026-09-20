@@ -1,0 +1,100 @@
+#!/bin/sh
+# Fetch, verify, trim, patch and record a vendored source.
+#
+#   tools/vendor/fetch [source ...]      (default: every source in the manifest)
+#
+# Network is required. This is a maintainer script; it is never run during
+# R CMD INSTALL or R CMD check -- design.md section 4 requires that an install
+# download nothing and generate nothing. Afterwards `tools/vendor/verify`
+# re-checks the result offline.
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+cd "$ROOT"
+MANIFEST=tools/vendor/manifest.tsv
+. tools/vendor/common.sh
+
+# Which files we keep from each upstream archive, and where they land, lives
+# in tools/vendor/keep/<source>.txt -- two whitespace-separated columns,
+# destination then source -- rather than in a keep_files() case arm as in the
+# sibling packages. Two reasons: the TF-PSA-Crypto trim is a hundred-odd files
+# across six upstream directories, which is not reviewable inside a shell
+# function, and the list is derived rather than chosen. The header of that
+# file explains both the derivation and why the destinations are flatter than
+# upstream's layout.
+#
+# Emitted as "dest:source" pairs so a `for` loop over the output stays one
+# word per file.
+keep_list() {
+    list="tools/vendor/keep/$1.txt"
+    if [ ! -f "$list" ]; then
+        echo "no keep list for source: $1 (expected $list)" >&2
+        exit 1
+    fi
+    sed 's/#.*//' "$list" | awk 'NF == 2 { print $1 ":" $2 }'
+}
+
+sources=${*:-$(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST")}
+
+for src in $sources; do
+    tag=$(manifest_field "$src" tag)
+    url=$(manifest_field "$src" archive)
+    want=$(manifest_field "$src" archive_sha256)
+    patches=$(manifest_field "$src" patches)
+
+    printf '==> %s %s\n' "$src" "$tag"
+
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    archive="$tmp/archive"
+
+    printf '    fetching %s\n' "$url"
+    curl -sSL --fail --max-time 300 -o "$archive" "$url"
+
+    got=$(sha256_of "$archive")
+    if [ "$got" != "$want" ]; then
+        printf '    sha256 MISMATCH\n      expected %s\n      got      %s\n' \
+            "$want" "$got" >&2
+        exit 1
+    fi
+    printf '    sha256 ok %s\n' "$got"
+
+    mkdir -p "$tmp/x"
+    case "$url" in
+        *.zip) unzip -q -o "$archive" -d "$tmp/x" ;;
+        *.tar.gz|*.tgz) tar -xzf "$archive" -C "$tmp/x" --strip-components=1 ;;
+        *.tar.bz2|*.tbz2) tar -xjf "$archive" -C "$tmp/x" --strip-components=1 ;;
+        *) echo "    unknown archive type: $url" >&2; exit 1 ;;
+    esac
+
+    dest="src/vendor/$src"
+    rm -rf "$dest"
+    mkdir -p "$dest"
+    kept=0
+    for pair in $(keep_list "$src"); do
+        to=${pair%%:*}
+        from=${pair#*:}
+        if [ ! -f "$tmp/x/$from" ]; then
+            printf '    MISSING in archive: %s\n' "$from" >&2
+            exit 1
+        fi
+        mkdir -p "$dest/$(dirname "$to")"
+        cp "$tmp/x/$from" "$dest/$to"
+        kept=$((kept + 1))
+    done
+    printf '    kept %s files\n' "$kept"
+
+    if [ "$patches" != "-" ] && [ -n "$patches" ]; then
+        for p in $(echo "$patches" | tr ',' ' '); do
+            printf '    applying %s\n' "$p"
+            patch -s -p1 -d "$dest" < "tools/patches/$src/$p"
+        done
+    fi
+
+    rm -rf "$tmp"
+    trap - EXIT
+done
+
+printf '==> recording checksums\n'
+"$ROOT/tools/vendor/record"
+printf 'done. review the diff under src/vendor/ before committing.\n'

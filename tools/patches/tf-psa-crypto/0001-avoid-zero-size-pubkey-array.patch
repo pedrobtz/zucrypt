@@ -1,0 +1,35 @@
+Avoid a zero-size array when no public-key algorithm is enabled
+
+MBEDTLS_PK_MAX_PUBKEY_RAW_LEN starts at 0 and is raised by the EC and RSA
+arms below it. zucrypt enables neither (src/zuc_crypto_config.h: digests,
+HMAC and unauthenticated AES only), so it stays 0 and
+
+    uint8_t MBEDTLS_PRIVATE(pub_raw)[MBEDTLS_PK_MAX_PUBKEY_RAW_LEN];
+
+declares a zero-size array. That is a GNU extension, not ISO C, and GCC 16
+with -Wpedantic -- which is what CRAN's r-devel container passes and what
+R CMD check reports as a "significant warning" -- rejects it:
+
+    inc/mbedtls/pk.h:124:29: warning: ISO C forbids zero-size array 'pub_raw'
+                             [-Wpedantic]
+
+Starting from 1 instead of 0 costs one byte in a struct that this build never
+instantiates -- no pk_*.c is compiled here; psa_crypto.c includes the header
+for unrelated declarations -- and changes nothing in any configuration that
+enables a public-key algorithm, because both arms below compare `>` against
+the current value and 1 is smaller than every real key length.
+
+Reported upstream is the right long-term fix; the header is upstream's to
+correct. Remove this patch when a release carries one.
+
+--- a/inc/mbedtls/pk.h
++++ b/inc/mbedtls/pk.h
+@@ -88,7 +88,7 @@
+ #define MBEDTLS_PK_MAX_RSA_PUBKEY_RAW_LEN \
+     PSA_KEY_EXPORT_RSA_PUBLIC_KEY_MAX_SIZE(PSA_VENDOR_RSA_MAX_KEY_BITS)
+ 
+-#define MBEDTLS_PK_MAX_PUBKEY_RAW_LEN 0
++#define MBEDTLS_PK_MAX_PUBKEY_RAW_LEN 1
+ #if defined(PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY) && \
+     MBEDTLS_PK_MAX_EC_PUBKEY_RAW_LEN > MBEDTLS_PK_MAX_PUBKEY_RAW_LEN
+ #undef MBEDTLS_PK_MAX_PUBKEY_RAW_LEN
