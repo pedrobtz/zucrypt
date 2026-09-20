@@ -4,10 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Roadmap Stages 0 (package identity) and 1 (backend spike) are complete. The package builds a
-vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports one placeholder function
-(`crypt_info()`), and exports exactly one C symbol (`R_init_zucrypt`). Stage 2, the R-free
-native adapter behind `inst/include/zucrypt.h`, is the current stage.
+Roadmap Stages 0 (package identity), 1 (backend spike) and 2 (native adapter) are complete.
+The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source and exposes it
+through `inst/include/zucrypt.h` and `inst/lib/libzucrypt.a`. R still exports only the
+placeholder `crypt_info()`; the six `crypt_*` functions and the condition system are Stage 3,
+which is the current stage.
+
+The native layer is in two halves and the split is load-bearing. `src/zuc_*.c` is the adapter:
+R-free, and what goes into the archive. `src/zucrypt_r.c` and `src/zucrypt_test.c` are the R
+glue: backend-free, and not in the archive. `tools/check-layering.sh` enforces both directions
+in CI, because neither breaks loudly — including `R.h` in the adapter compiles fine here and
+fails much later in a consumer's build.
+
+`src/zucrypt_test.c` is a permanently-compiled `.Call` harness (`zucrypt_test_*`), the analogue
+of `zukomp`'s `zu_test_stream()`. It is how the suite drives the adapter at caller-chosen split
+points, and it stays compiled in every build. Fixtures are in `tests/testthat/fixtures/`, with
+provenance in `MANIFEST.tsv`; `Rscript tools/make-kat.R --check` recomputes every vector against
+`openssl` and fails on a mismatch.
 
 [.agents/stage-1-spike.md](.agents/stage-1-spike.md) records what the spike measured and every
 decision it settled — the pinned release, the eleven-define configuration, the 18-object trim
@@ -68,7 +81,7 @@ shared reusable workflows — never hand-rolled jobs. Two conventions:
   is worse than no job.
 
 Today: `R-CMD-check.yaml` (runners plus CRAN's clang-23/GCC-16 containers, `nosuggests` on),
-`vendor.yaml` (the vendored tree matches its manifest, and a PR touching it updates that
+`native-checks.yaml` (LTO, and the bespoke layering check), `vendor.yaml` (the vendored tree matches its manifest, and a PR touching it updates that
 manifest), `vendor-upstream.yaml` (weekly; opens an issue when TF-PSA-Crypto releases) and
 `pkgdown.yaml` deploying to `gh-pages` on push to `main`. `pkgdown.yaml` is this repo's own, not
 an r-actions call. `coverage.yaml` returns in Stage 3: covr instruments `R/`, so until there is a

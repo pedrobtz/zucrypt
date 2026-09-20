@@ -227,8 +227,18 @@ ordinary checks compile happily and that surfaces as corruption at runtime. `cov
 the C.
 
 Exit: all KATs pass on all CI platforms; the adapter includes no R header at all; upstream
-headers are included from exactly one translation unit; `test-linking.R` passes under
-`R CMD check`.
+headers reach no file outside the adapter; `test-linking.R` passes under `R CMD check`.
+
+The second and third criteria were written as "upstream headers are included from exactly one
+translation unit", which the implementation does not meet and should not: the adapter is five
+files (`zuc_status`, `zuc_backend`, `zuc_hash`, `zuc_aes`, `zuc_util`), and collapsing them into
+one to satisfy a count would be worse code for no gain. What the criterion is actually about is
+isolation, and that is now enforced in both directions and mechanically, by
+`tools/check-layering.sh` in `native-checks.yaml`: `src/zuc_*.c` and `inst/include/zucrypt.h` may
+not name an R header, `SEXP` or `Rf_*`; `src/zucrypt_*.c` may not name a backend header, `psa_*`,
+`mbedtls_*` or `PSA_*`; the public header includes `<stddef.h>` and `<stdint.h>` and nothing
+else; and every `zuc_*` it declares is defined in the adapter. `src/zuc_internal.h` is the single
+place where backend vocabulary enters the package.
 
 ## Stage 3 — R interface
 

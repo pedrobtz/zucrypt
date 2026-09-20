@@ -16,6 +16,7 @@ VENDOR = vendor/tf-psa-crypto
 # trees on Windows. tools/vendor/keep/tf-psa-crypto.txt maps each file, and
 # tools/vendor/verify measures the result.
 PKG_CPPFLAGS = -I. \
+  -I../inst/include \
   -I$(VENDOR)/inc \
   -I$(VENDOR)/lib \
   -DTF_PSA_CRYPTO_CONFIG_FILE='"zuc_crypto_config.h"'
@@ -66,8 +67,51 @@ VENDOR_OBJECTS = \
 # psa_crypto.c calls unconditionally, and dropping it is a link error, not a
 # smaller build.
 
-OBJECTS = \
-  zucrypt_r.o \
+# ADAPTER_OBJECTS is the R-free core: the adapter and the vendored backend,
+# and nothing that has ever seen an R header. It is what goes into
+# libzucrypt.a below, so keep it that way -- a consumer links that archive
+# into its own shared object, where R glue would be a duplicate symbol and
+# could not work anyway. tests/testthat/test-linking.R audits the built
+# archive for R symbols rather than trusting this comment.
+ADAPTER_OBJECTS = \
+  zuc_status.o \
   zuc_backend.o \
+  zuc_hash.o \
+  zuc_aes.o \
+  zuc_util.o \
   zuc_random.o \
   $(VENDOR_OBJECTS)
+
+# The two files that do include R headers. zucrypt_test.c is compiled into
+# every build, never only into a debug one: a harness that exists only where
+# nobody runs it tests nothing.
+OBJECTS = \
+  zucrypt_r.o \
+  zucrypt_test.o \
+  $(ADAPTER_OBJECTS)
+
+# ---------------------------------------------------------------------------
+# The LinkingTo surface: inst/lib/libzucrypt.a
+#
+# For a consumer that cannot carry an Imports: -- zuxlsx links its siblings as
+# static archives with no runtime dependency at all. It gets the adapter and
+# the vendored backend, and sees only inst/include/zucrypt.h: no upstream
+# header is installed, because PSA's headers describe whatever configuration
+# they were generated for and a consumer has no way to reproduce ours.
+#
+# The archive inherits $(ALL_CFLAGS) by being built from the same objects the
+# shared object was linked from. That is what makes it position independent
+# ($(CPICFLAGS) is in there), and it means the archive is exactly the code
+# that was tested here rather than a second compilation of it.
+#
+# "all" has to be the FIRST target in this file: make takes the first target
+# it reads as the default goal, so a rule above this one becomes what an
+# unqualified `make` builds, which shows up as the shared object quietly not
+# being relinked. (Writing R Extensions 1.2.1.)
+.PHONY: all
+
+all: $(SHLIB) libzucrypt.a
+
+libzucrypt.a: $(SHLIB)
+	rm -f libzucrypt.a
+	$(AR) rcs libzucrypt.a $(ADAPTER_OBJECTS)

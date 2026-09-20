@@ -1,33 +1,48 @@
-/* zucrypt: declarations shared inside the package. Never installed.
+/* zucrypt: declarations shared between the adapter's translation units.
+ * Never installed, never part of any ABI.
  *
- * The zuc_int_ prefix is the family's "internal only" layer (design.md
- * section 3). Nothing here is part of any ABI: the public C surface is
- * inst/include/zucrypt.h, which Stage 2 of .agents/roadmap.md writes.
+ * Everything that includes this header is R-free and goes into
+ * inst/lib/libzucrypt.a, which a consumer links into its own shared object.
+ * Including R.h anywhere below this line would put R glue in that archive,
+ * where it is a duplicate symbol at best.
  *
- * This header is R-free on purpose. Everything below it in the build --
- * src/zuc_*.c and src/vendor/ -- is what will become inst/lib/libzucrypt.a,
- * which a consumer links into its own shared object, where R glue would be a
- * duplicate symbol. R headers appear only in src/zucrypt_r.c.
+ * The public surface is inst/include/zucrypt.h. This header adds only what
+ * the adapter needs to talk to the backend, and it is the one place where
+ * PSA vocabulary and zuc_ vocabulary meet.
  */
 
 #ifndef ZUC_INTERNAL_H
 #define ZUC_INTERNAL_H
 
-/* Brings up the PSA backend. Returns 0 on success, and the upstream status
- * code otherwise. Idempotent: psa_crypto_init() is documented as safe to call
- * more than once. Reference counting and an ordered shutdown belong to the
- * adapter in Stage 2, not here. */
-int zuc_int_backend_init(void);
+#include <psa/crypto.h>
 
-/* The version of the compiled-in backend, e.g. "1.1.1".
+#include "zucrypt.h"
+
+/* Map a backend status onto the public enum. Every unrecognised failure
+ * becomes ZUC_ERR_BACKEND: the upstream code is meaningful only against a
+ * specific release and configuration, so publishing it would make a caller's
+ * error handling depend on our build. */
+zuc_status zuc_int_from_psa(psa_status_t status);
+
+/* The backend algorithm for a digest, or 0 if `alg` is not a digest this
+ * build knows. Does not say whether it is *available*; zuc_alg_available()
+ * does that. */
+psa_algorithm_t zuc_int_psa_hash(zuc_alg alg);
+
+/* Do these two buffers overlap in a way that would corrupt the result?
  *
- * Reported from the library rather than read from tools/vendor/manifest.tsv:
- * the manifest is maintainer tooling and is not installed, so it cannot say
- * anything about the binary a user actually has. design.md section 3. */
-const char *zuc_int_backend_version(void);
+ * Returns 0 for disjoint buffers and for the exactly-equal case, which the
+ * backend supports in place and which this package tests. Returns 1 for
+ * every partial overlap, which is what ZUC_ERR_OVERLAP reports. */
+int zuc_int_overlaps(const void *in, const void *out, size_t len);
 
-/* The name of the operating-system random source selected at compile time by
- * src/zuc_random.c, e.g. "arc4random_buf". */
+/* The name of the compile-time random source, from src/zuc_random.c. */
 const char *zuc_int_random_backend(void);
+
+/* Non-zero once zuc_init() has succeeded and before the last
+ * zuc_shutdown(). Every entry point that touches the backend checks it, so
+ * that calling into a library that was never started is ZUC_ERR_INVALID_ARGUMENT
+ * rather than undefined behaviour inside the backend. */
+int zuc_int_ready(void);
 
 #endif /* ZUC_INTERNAL_H */
