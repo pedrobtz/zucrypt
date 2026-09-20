@@ -10,12 +10,16 @@
 # exported for a debugging session.
 
 test_that("the shared object exports nothing but R_init_zucrypt", {
+  # The one assertion here that an instrumented build cannot satisfy: gcov's
+  # runtime is linked in and exports symbols of its own, some with names as
+  # generic as `mangle_path`. Skipped there and only there -- it still runs on
+  # every ordinary leg, which is nine of them, and the banned-name audits
+  # below run everywhere including under coverage.
+  skip_if(is_instrumented_build(),
+          "instrumented build: the coverage runtime exports symbols of its own")
+
   syms <- exported_symbols()
   names <- sub("^.*[[:space:]]", "", syms)
-  # Instrumented builds -- coverage.yaml's native: true today, the sanitizer
-  # jobs at Stage 5 -- export their own runtime. Those are the toolchain's,
-  # not ours, and they cannot collide with another package's vendored crypto.
-  names <- drop_instrumentation(names)
   names <- sub("^_", "", names)          # Mach-O's leading underscore
   expect_identical(sort(names), "R_init_zucrypt")
 })

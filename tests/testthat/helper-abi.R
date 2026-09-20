@@ -47,25 +47,17 @@ exported_symbols <- function() {
   syms
 }
 
-# Symbols the toolchain injects rather than ones this package defines.
+# Is this build instrumented? covr sets R_COVR for the test run, and
+# coverage.yaml's native: true compiles with gcov, whose runtime is linked
+# into the shared object and exports symbols of its own.
 #
-# An instrumented build exports its own runtime: gcov under coverage.yaml's
-# `native: true`, the profile runtime under a PGO build, the sanitizer
-# runtimes under sanitizers.yml at Stage 5. They are not ours, they are not
-# upstream's, and they cannot collide with another package's vendored crypto
-# -- which is the property test-abi.R exists to defend.
-#
-# Filtered rather than skipped: skipping the audit wherever it is inconvenient
-# leaves it running in one configuration, and the coverage job is a
-# configuration this repository runs on every push. The banned-name checks
-# below are unaffected either way, because no instrumentation runtime is
-# called mbedtls_ or SHA256_Init.
-INSTRUMENTATION <- c("^_?__?gcov", "^_?__?llvm_prf", "^_?__?profc",
-                     "^_?__?profd", "^_?__?profn", "^_?__?asan",
-                     "^_?__?ubsan", "^_?__?tsan", "^_?__?msan",
-                     "^_?__?sanitizer", "^_?__?emutls")
-
-drop_instrumentation <- function(names) {
-  keep <- !Reduce(`|`, lapply(INSTRUMENTATION, grepl, x = names))
-  names[keep]
+# It matters for exactly one assertion -- the exact set of exported symbols --
+# and not for the banned-name audits, which keep running everywhere. An
+# earlier attempt filtered the runtime out by name prefix and failed: libgcov
+# exports `mangle_path`, and enumerating another runtime's symbol names is a
+# game with no end. What can be said precisely is "this build is instrumented,
+# so its exported set is not the shipping one", so that is what is said.
+is_instrumented_build <- function() {
+  identical(Sys.getenv("R_COVR"), "true") ||
+    identical(Sys.getenv("_R_CHECK_COVERAGE_"), "true")
 }
