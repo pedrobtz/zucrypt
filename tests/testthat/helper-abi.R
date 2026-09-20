@@ -46,3 +46,26 @@ exported_symbols <- function() {
   skip_if(!is.character(syms) || length(syms) == 0L, "nm produced no output")
   syms
 }
+
+# Symbols the toolchain injects rather than ones this package defines.
+#
+# An instrumented build exports its own runtime: gcov under coverage.yaml's
+# `native: true`, the profile runtime under a PGO build, the sanitizer
+# runtimes under sanitizers.yml at Stage 5. They are not ours, they are not
+# upstream's, and they cannot collide with another package's vendored crypto
+# -- which is the property test-abi.R exists to defend.
+#
+# Filtered rather than skipped: skipping the audit wherever it is inconvenient
+# leaves it running in one configuration, and the coverage job is a
+# configuration this repository runs on every push. The banned-name checks
+# below are unaffected either way, because no instrumentation runtime is
+# called mbedtls_ or SHA256_Init.
+INSTRUMENTATION <- c("^_?__?gcov", "^_?__?llvm_prf", "^_?__?profc",
+                     "^_?__?profd", "^_?__?profn", "^_?__?asan",
+                     "^_?__?ubsan", "^_?__?tsan", "^_?__?msan",
+                     "^_?__?sanitizer", "^_?__?emutls")
+
+drop_instrumentation <- function(names) {
+  keep <- !Reduce(`|`, lapply(INSTRUMENTATION, grepl, x = names))
+  names[keep]
+}

@@ -12,6 +12,10 @@
 test_that("the shared object exports nothing but R_init_zucrypt", {
   syms <- exported_symbols()
   names <- sub("^.*[[:space:]]", "", syms)
+  # Instrumented builds -- coverage.yaml's native: true today, the sanitizer
+  # jobs at Stage 5 -- export their own runtime. Those are the toolchain's,
+  # not ours, and they cannot collide with another package's vendored crypto.
+  names <- drop_instrumentation(names)
   names <- sub("^_", "", names)          # Mach-O's leading underscore
   expect_identical(sort(names), "R_init_zucrypt")
 })
