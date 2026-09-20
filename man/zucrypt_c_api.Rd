@@ -94,9 +94,20 @@ reading a structure that has moved.
 
 \section{Stability}{
 
-\code{ZUCRYPT_ABI_VERSION} is 0 in this
-build. It is \code{0} while the interface is still moving; the compatibility
-promise begins when it reaches \code{1} at the first release.
+\code{ZUCRYPT_ABI_VERSION} is \code{1}, frozen at v0.1.0. Within a major version:
+functions and table fields may be added; nothing is removed, reordered or
+given a new meaning; enumerator values are permanent, so an algorithm
+compiled out of a build keeps its number and reports itself unavailable;
+and a \verb{ZUC_*_REQUIRED_SIZE} macro never grows, so a consumer built against
+an older header keeps working without being rebuilt.
+
+A layout change to a type that \code{struct_size} cannot see renames the
+registered callable instead, so an old consumer fails at
+\code{R_GetCCallable()} rather than reading a structure that has moved.
+
+Not promised: the numeric value of a backend status behind
+\code{ZUC_ERR_BACKEND}, the contents of an opaque handle, and thread safety
+beyond the main thread.
 }
 
 \seealso{

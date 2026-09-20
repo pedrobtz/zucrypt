@@ -38,11 +38,28 @@ extern "C" {
  * Versioning
  * ------------------------------------------------------------------ */
 
-/* The ABI this header describes. 0 while the surface is still moving; it
- * becomes 1 at v0.1.0, at which point the promise begins: within a major
- * version, fields and functions may be added and nothing is removed,
- * reordered or given a new meaning. */
-#define ZUCRYPT_ABI_VERSION 0
+/* The ABI this header describes, frozen at v0.1.0.
+ *
+ * The promise, within a major version:
+ *
+ *   - Functions may be added. Nothing declared here is removed, renamed, or
+ *     given a different signature or meaning.
+ *   - Fields may be appended to zucrypt_api_v1 and to any struct carrying a
+ *     struct_size. Nothing is removed, reordered, or retyped, and a
+ *     ZUC_*_REQUIRED_SIZE macro never grows -- it names the prefix the
+ *     library dereferences, so a consumer built against an older header
+ *     keeps working without being rebuilt.
+ *   - Enumerator values are permanent. An algorithm compiled out of a build
+ *     keeps its number and reports itself unavailable; it does not vanish
+ *     and let the next one take its place.
+ *   - A layout change to any type here that struct_size cannot see renames
+ *     the registered callable instead, so an old consumer fails loudly at
+ *     R_GetCCallable() rather than reading a structure that has moved.
+ *
+ * What is deliberately not promised: the numeric value of a backend status
+ * behind ZUC_ERR_BACKEND, the contents of an opaque handle, and thread
+ * safety beyond the main thread. */
+#define ZUCRYPT_ABI_VERSION 1
 
 /* ------------------------------------------------------------------ *
  * Status codes

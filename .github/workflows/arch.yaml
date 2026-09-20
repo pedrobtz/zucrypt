@@ -11,9 +11,10 @@
 # are slow, and the arithmetic they exercise changes rarely. A break here is
 # worth knowing about within a week, not within a minute.
 #
-# aarch64 is added before tagging v0.1.0, per the roadmap. It is the leg that
+# aarch64 is in the list as of v0.1.0, per the roadmap. It is the leg that
 # actually costs QEMU, and it is also the platform a large part of the world
-# now develops on, so its bugs tend to be found already.
+# now develops on, so its bugs tend to be found already -- which is why it
+# waited until a release was near rather than running from Stage 5.
 on:
   schedule:
     - cron: '0 6 * * 2'
@@ -27,6 +28,17 @@ jobs:
   arch:
     uses: pedrobtz/r-actions/.github/workflows/arch.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
     with:
+      targets: >-
+        [{"name": "i386", "platform": "linux/386",
+          "image": "i386/debian:bookworm",
+          "setup": "apt-get update && apt-get install -y --no-install-recommends r-base-dev"},
+         {"name": "musl", "platform": "linux/amd64",
+          "image": "alpine:3.21",
+          "setup": "apk add --no-cache R R-dev R-doc build-base"},
+         {"name": "aarch64", "platform": "linux/arm64",
+          "image": "arm64v8/debian:bookworm",
+          "setup": "apt-get update && apt-get install -y --no-install-recommends r-base-dev"}]
+
       # zucrypt's only hard dependency is utils, which is base priority, and
       # its Suggests are not needed for a check that skips them. Empty is the
       # case this runs fastest in, and it is the case a vendored-C package

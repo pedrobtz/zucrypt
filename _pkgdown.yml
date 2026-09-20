@@ -2,3 +2,41 @@ url: https://pedrobtz.github.io/zucrypt/
 template:
   bootstrap: 5
 
+reference:
+- title: Hashing
+  desc: >
+    Digests and keyed digests over raw vectors. This is what most callers
+    want, and `crypt_hash()` with its default is the right answer unless
+    something external requires otherwise.
+  contents:
+  - crypt_hash
+  - crypt_hmac
+
+- title: Comparison and information
+  desc: >
+    Comparing a secret without leaking how much of it you guessed, and
+    finding out what this build contains.
+  contents:
+  - crypt_equal
+  - crypt_info
+
+- title: Ciphers (advanced)
+  desc: >
+    Unauthenticated AES-CBC, for reading and writing formats that specify it.
+    No padding is added or removed and nothing is authenticated: ciphertext
+    produced here can be altered undetectably, and detecting that is the
+    caller's job. These are interoperability tools, not a way to encrypt
+    something of your own.
+  contents:
+  - crypt_aes_cbc
+
+- title: C API
+  desc: >
+    Consuming zucrypt from another package's C code, through the registered
+    function table or the static archive.
+  contents:
+  - zucrypt_c_api
+
+- title: Package
+  contents:
+  - zucrypt-package
