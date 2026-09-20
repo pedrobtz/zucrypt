@@ -4,16 +4,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-`zucrypt` is an empty R package skeleton (two commits: skeleton + pkgdown setup). `R/` contains only
-`zucrypt-package.R`, `NAMESPACE` is empty, `tests/` has only `testthat.R`, and `DESCRIPTION` still
-carries usethis placeholder `Title`, `Description` and `Authors@R` values that must be filled before
-any release.
+`zucrypt` has no implementation yet. Roadmap Stage 0 (package identity) is complete: `DESCRIPTION`,
+`README.md` and `NEWS.md` are filled in, and `tests/testthat/test-package.R` holds package-level
+invariants. `R/` still contains only `zucrypt-package.R` and `NAMESPACE` exports nothing. Stage 1
+(the backend spike) is the current stage.
 
 The real content of this repository is [.agents/design.md](.agents/design.md) — a detailed, *proposed*
 (not implemented) design. Read it before writing code; it is the authoritative spec for the API,
 boundaries and constraints summarised below, and it is where design changes belong.
 [.agents/roadmap.md](.agents/roadmap.md) breaks the path to v0.1.0 into stages with exit criteria;
 check which stage is current before starting work.
+
+## Working rhythm: one pull request per roadmap stage
+
+[.agents/roadmap.md](.agents/roadmap.md) is the unit of work. Each stage ships as its own pull
+request against `main`, and the loop is the same every time:
+
+1. Branch from an up-to-date `main` (`stage-N-<slug>`), do the stage's work, and check it
+   locally first — `devtools::document()`, `devtools::test()`, `devtools::check()` clean at
+   0/0/0 before anything is pushed. CI is for the platforms and toolchains this machine is not,
+   not for finding what a local check would have caught.
+2. Open the PR with `gh pr create`. The body states the stage, what it implements, and the
+   stage's exit criteria from the roadmap as a checklist.
+3. Watch the checks to completion (`gh pr checks --watch`, `gh run view --log-failed`). Every
+   leg green, not "green except the container ones" and not "the failure is unrelated" — a
+   failure is part of the stage until it is understood. Fix on the same branch and push again.
+4. Merge only once every required check has passed, then delete the branch and pull `main`.
+5. Update this file's **Current state** section and start the next stage.
+
+A stage does not end because its code is written. It ends when its exit criteria are met and CI
+is green, which is also what makes the next stage safe to start: the roadmap's stages are
+sequential precisely so that a later one never inherits an unproven earlier one.
 
 ## Commands
 
