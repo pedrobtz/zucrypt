@@ -29,3 +29,8 @@ Useful links:
 Authors:
 
 - Pedro Baltazar <pedrobtz@gmail.com> \[copyright holder\]
+
+Other contributors:
+
+- The Mbed TLS Contributors (TF-PSA-Crypto, bundled in
+  src/vendor/tf-psa-crypto) \[copyright holder\]
