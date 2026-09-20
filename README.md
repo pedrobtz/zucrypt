@@ -1,27 +1,44 @@
-
 # zucrypt
 
 <!-- badges: start -->
+[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![R-CMD-check](https://github.com/pedrobtz/zucrypt/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/pedrobtz/zucrypt/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
-The goal of zucrypt is to ...
+zucrypt is a narrow native cryptographic foundation for the `zu*` package
+family: message digests, HMAC, unauthenticated AES-CBC/ECB, constant-time
+comparison and secure erasure, over raw vectors. The backend is a vendored,
+pinned subset of the Mbed TLS ecosystem, so installing the package needs a C
+compiler and nothing else — no system cryptographic library, no Java, no
+Python, and no network access during installation.
+
+The same primitives are published to other packages twice, because the family
+consumes siblings in two different ways: as a registered C function table for
+consumers that can carry an `Imports:`, and as a static archive
+(`inst/lib/libzucrypt.a`) for consumers that cannot.
+
+It is **not** a replacement for
+[openssl](https://cran.r-project.org/package=openssl) or
+[sodium](https://cran.r-project.org/package=sodium). Those cover far more
+ground, and a package that wants broad cryptographic functionality should use
+them. zucrypt exists because the `zu*` packages need a small, fixed set of
+primitives with a stable C ABI and an installation that depends on nothing.
+
+Deliberately out of scope for now: authenticated encryption, password-based key
+derivation, random number generation, signatures and key serialization. Each
+needs a concrete consumer before it is added. Office/Excel decryption lives in
+[zuxlsx](https://github.com/pedrobtz/zuxlsx), which is the first consumer of
+this package, not here.
+
+## Status
+
+Early development. The design is in `.agents/design.md` and the path to the
+first release in `.agents/roadmap.md`; the R and C interfaces described there
+are not implemented yet.
 
 ## Installation
-
-You can install the development version of zucrypt from [GitHub](https://github.com/) with:
 
 ``` r
 # install.packages("pak")
 pak::pak("pedrobtz/zucrypt")
 ```
-
-## Example
-
-This is a basic example which shows you how to solve a common problem:
-
-``` r
-library(zucrypt)
-## basic example code
-```
-

@@ -1,14 +1,32 @@
 Package: zucrypt
-Title: What the Package Does (One Line, Title Case)
+Title: Narrow Cryptographic Primitives with a Vendored Backend
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+    person("Pedro", "Baltazar", , "pedrobtz@gmail.com", role = c("aut", "cre", "cph"))
+Description: Provides a small, predictable set of cryptographic
+    primitives over raw vectors: message digests, 'HMAC', unauthenticated
+    'AES' in 'CBC' and 'ECB' mode, constant-time comparison and secure
+    erasure. The backend is vendored and pinned, so no system
+    cryptographic library, 'Java' or 'Python' is required at install or run
+    time. Binary arguments are raw vectors only, algorithm names are
+    matched exactly, and failures are reported as structured conditions.
+    The same primitives are published to other packages as a registered C
+    interface and as a static archive, so a consumer can drive them from C
+    without going through R. This is a focused foundation for the 'zu*'
+    package family rather than a general-purpose cryptography toolkit.
 License: MIT + file LICENSE
-Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 8.1.0
+URL: https://github.com/pedrobtz/zucrypt,
+    https://pedrobtz.github.io/zucrypt/
+BugReports: https://github.com/pedrobtz/zucrypt/issues
+Depends: 
+    R (>= 4.1)
 Suggests: 
     testthat (>= 3.0.0)
+SystemRequirements: A C99 compiler. No system cryptographic library is
+    used; the backend is built from vendored sources, and no sources are
+    downloaded or generated during installation.
 Config/testthat/edition: 3
-URL: https://pedrobtz.github.io/zucrypt/
+Config/testthat/parallel: true
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.1.0
