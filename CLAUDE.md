@@ -62,9 +62,15 @@ shared reusable workflows — never hand-rolled jobs. Two conventions:
   which workflow lands in which stage and why. A job that is green because it inspected nothing
   is worse than no job.
 
-Today: `R-CMD-check.yaml` (runners plus CRAN's clang-23/GCC-16 containers, `nosuggests` on),
-`coverage.yaml`, and `pkgdown.yaml` deploying to `gh-pages` on push to `main`. `pkgdown.yaml` is
-this repo's own, not an r-actions call.
+Today: `R-CMD-check.yaml` (runners plus CRAN's clang-23/GCC-16 containers, `nosuggests` on) and
+`pkgdown.yaml` deploying to `gh-pages` on push to `main`. `pkgdown.yaml` is this repo's own, not
+an r-actions call. `coverage.yaml` returns in Stage 3: covr instruments `R/`, so until there is a
+function to measure `percent_coverage()` is `NaN` and the job fails for a reason that has nothing
+to do with the package.
+
+The `nosuggests` leg checks with no `Suggests` installed, which is why `tests/testthat.R` wraps
+its `library(testthat)` in `requireNamespace()`. Anything else that reaches for a suggested
+package from a top-level test or example file must be guarded the same way.
 
 `abi.yaml` and `consumer.yaml` at Stage 4 are bespoke by necessity — r-actions has no ABI or
 consumer workflow. Copy the ones in the sibling `zukomp` repo rather than inventing a shape.

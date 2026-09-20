@@ -44,7 +44,7 @@ family's shared reusable workflows, rather than from hand-rolled jobs. Two rules
 | Workflow | Added in | Why here |
 |---|---|---|
 | `r-cmd-check.yml` | Stage 0 *(done)* | CRAN's clang-23/GCC-16 containers, ahead of the vendored C that needs them |
-| `coverage.yml` | Stage 0 | with `native: true` from Stage 2 |
+| `coverage.yml` | Stage 3 | covr instruments `R/`, which is empty until then; `native: true` in the same commit |
 | `vendor.yml` | Stage 1 | guards `src/vendor/` against undeclared drift |
 | `vendor-upstream.yml` | Stage 1 | watches upstream for the releases design §4 requires shipping |
 | `lto.yml` | Stage 2 | adapter and wrappers are separate translation units |
@@ -67,13 +67,23 @@ Goal: replace the usethis placeholders so every later check runs against a real 
 - Add `tests/testthat/` with one trivial test so `devtools::test()` runs.
 - Add `.Rbuildignore` entries for `^\.agents$` and `^CLAUDE\.md$`.
 - `Depends: R (>= 4.1)` to match `zuxml`/`zuxlsx`; `Config/testthat/parallel: true` as in `zukomp`.
-- CI: `R-CMD-check.yaml` already calls `r-cmd-check.yml` with `nosuggests: true`.
-  Add `coverage.yaml` **in the same commit as the first test file** — covr needs
-  something to instrument, and an empty package is how that job goes red for a
-  reason that has nothing to do with the package.
+- CI: `R-CMD-check.yaml` already calls `r-cmd-check.yml` with `nosuggests: true`. That leg
+  checks the package with none of its `Suggests` installed, so `tests/testthat.R` guards its
+  `library(testthat)` with `requireNamespace()`; unguarded, it is an ERROR there and nowhere
+  else.
+- CI: `coverage.yaml` is **removed here and returns in Stage 3**. Its own comment said to land
+  it with the first test file, and that was the wrong trigger: covr instruments the package's
+  `R/`, not its tests. With no function to measure, `covr::percent_coverage()` is `NaN` and the
+  badge step fails on a comparison against `NaN` — a red job that says nothing about the
+  package. Restore it with `git show 244fb729:.github/workflows/coverage.yaml`; the reasoning in
+  its comments about reading the "taken at least once" column, and about leaving
+  `native-exclude` empty over `src/vendor/`, is still the reasoning that applies.
 
 Exit: `devtools::check()` passes with 0 errors, 0 warnings, 0 notes; every leg of
-`r-cmd-check.yml` is green, containers included.
+`r-cmd-check.yml` is green, containers included. (The two NOTEs the CRAN-like containers report
+— no `pandoc` for `README.md`/`NEWS.md`, and "New submission / version contains large components"
+for `0.0.0.9000` — are properties of those containers and of a development version, not of the
+package.)
 
 ## Stage 1 — Backend spike
 
@@ -203,8 +213,9 @@ plus `test-linking.R` against the installed package:
 CI: add `lto.yml` to a new `native-checks.yaml`. The adapter, the wrappers and the
 vendored tree are separate translation units, and `-flto` is what cross-checks a
 declaration in `adapter.h` against its definition — a signature mismatch that
-ordinary checks compile happily and that surfaces as corruption at runtime. Turn
-on `coverage.yml`'s `native: true` in the same commit.
+ordinary checks compile happily and that surfaces as corruption at runtime. `coverage.yml` and its
+`native: true` arrive together in Stage 3, once there is an R surface to instrument alongside
+the C.
 
 Exit: all KATs pass on all CI platforms; the adapter includes no R header at all; upstream
 headers are included from exactly one translation unit; `test-linking.R` passes under
@@ -250,7 +261,9 @@ Tests (per design §12 "R interface" row):
 - Immutability: inputs are byte-identical after each call.
 - KAT tests re-run through the public R functions, not only the internal entry points.
 
-CI: add `rchk.yml` and `gctorture.yml` to `native-checks.yaml`. This is the stage
+CI: restore `coverage.yaml` (see Stage 0) with `native: true` on from the start — this is the
+first stage with R functions for covr to instrument, and the C from Stage 2 is measured in the
+same commit. Add `rchk.yml` and `gctorture.yml` to `native-checks.yaml`. This is the stage
 that introduces R-facing C, so it is the stage that introduces PROTECT bugs. The
 two are complements, not alternatives: rchk reasons statically about the PROTECT
 stack, gctorture provokes real collections. Start `rchk` informational; turn on
