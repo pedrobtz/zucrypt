@@ -58,30 +58,49 @@ jobs:
   # every error path in the adapter frees a context, and the R layer frees one
   # from an external-pointer finalizer after a longjmp.
   #
-  # extra-ubsan-checks: -fsanitize=integer is the one addition worth arguing
-  # for. Unsigned overflow is *defined* behaviour, so CRAN does not check it,
-  # and it is still a bug when it happens to a length, an offset or a block
-  # count -- and design.md section 10 rests this package's safety on exactly
-  # that arithmetic. It is fatal, so it is on early rather than at the end,
-  # when working through findings would be a release blocker instead of a
-  # morning.
+  # extra-ubsan-checks is the one addition worth arguing for. Unsigned
+  # overflow is *defined* behaviour, so CRAN does not check it, and it is
+  # still a bug when it happens to a length, an offset or a block count --
+  # which is exactly the arithmetic design.md section 10 rests this package's
+  # safety on. It is fatal, so it goes on early rather than at the end, when
+  # working through findings would be a release blocker instead of a morning.
   #
-  # tools/ubsan.supp is where a deliberate case gets written down, one
-  # <check>:<file or function> per line. Writing it down beats dropping the
-  # flag: the suppression names what is intentional, and everything not named
-  # still fails.
+  # -fsanitize=unsigned-integer-overflow, not the whole -fsanitize=integer
+  # group the roadmap named. The group also turns on the implicit-conversion
+  # checks, and the first run reported vendor/tf-psa-crypto/lib/aes.c:365 --
+  # `x ^= XTIME(x)` in the AES table generation, where the GF(2^8) doubling
+  # truncates back to uint8_t on purpose. That is not a defect and not even
+  # undefined behaviour; it is deliberate arithmetic in someone else's
+  # cryptographic primitive, and every such primitive is full of it. Keeping
+  # the group would mean a suppressions file that grows one entry per upstream
+  # release and never catches anything of ours.
   #
-  # asan runs in the R-hub containers, where R itself is instrumented -- the
-  # one place ASan works for an R package without -shared-libasan gymnastics.
-  # Not redundant with UBSan: the error and cleanup paths are where a
+  # The narrower flag keeps the half that is about *our* arithmetic. If it
+  # ever fires inside src/vendor/ -- hash mixing adds modulo 2^32 on purpose,
+  # so it might -- the answer is an entry in tools/ubsan.supp naming the case,
+  # not dropping the flag.
+  #
+  # ubsan-suppressions is deliberately NOT passed, and this is a workaround
+  # rather than a preference. The asan job runs inside an R-hub container,
+  # where the checkout is mounted at /__w/..., but the workflow builds the
+  # suppressions path from `github.workspace`, which is the *host* path
+  # /home/runner/work/... . The runtime then reports "failed to read
+  # suppressions file" and the job fails before running anything. Passing the
+  # input therefore breaks the asan half no matter what the file contains.
+  # tools/ubsan.supp is kept, with the entries it would need, so that turning
+  # this back on is a one-line change once r-actions resolves the path inside
+  # the container.
+  #
+  # asan runs in those containers because that is the one place ASan works for
+  # an R package without -shared-libasan gymnastics: R itself is instrumented
+  # there. Not redundant with UBSan -- the error and cleanup paths are where a
   # double-free or a use-after-free would live, and UBSan does not look at the
   # heap.
   sanitizers:
     uses: pedrobtz/r-actions/.github/workflows/sanitizers.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
     with:
       asan: true
-      extra-ubsan-checks: -fsanitize=integer
-      ubsan-suppressions: tools/ubsan.supp
+      extra-ubsan-checks: -fsanitize=unsigned-integer-overflow
 
   # --leak-check=full, because R's own --use-valgrind does not set it and a
   # "definitely lost" total arrives with no stack and cannot be attributed.
