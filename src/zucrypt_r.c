@@ -45,7 +45,6 @@ SEXP zucrypt_backend_info(void)
     const char *names[] = {"backend_name", "backend_version", "random_backend",
                            "abi_version"};
     int i, n = 4;
-    char abi[32];
 
     info.struct_size = (uint32_t) sizeof info;
     st = zuc_get_info(&info);
@@ -54,14 +53,15 @@ SEXP zucrypt_backend_info(void)
                  zuc_status_string(st));
     }
 
-    snprintf(abi, sizeof abi, "%u", (unsigned) info.abi_version);
-
-    out = PROTECT(Rf_allocVector(STRSXP, n));
+    /* A list rather than a character vector, so abi_version crosses as an
+     * integer. It used to be formatted to a string here and parsed back with
+     * as.integer() in R, which is two conversions to move a number. */
+    out = PROTECT(Rf_allocVector(VECSXP, n));
     nms = PROTECT(Rf_allocVector(STRSXP, n));
-    SET_STRING_ELT(out, 0, Rf_mkChar(info.backend_name));
-    SET_STRING_ELT(out, 1, Rf_mkChar(info.backend_version));
-    SET_STRING_ELT(out, 2, Rf_mkChar(info.random_backend));
-    SET_STRING_ELT(out, 3, Rf_mkChar(abi));
+    SET_VECTOR_ELT(out, 0, Rf_mkString(info.backend_name));
+    SET_VECTOR_ELT(out, 1, Rf_mkString(info.backend_version));
+    SET_VECTOR_ELT(out, 2, Rf_mkString(info.random_backend));
+    SET_VECTOR_ELT(out, 3, Rf_ScalarInteger((int) info.abi_version));
     for (i = 0; i < n; i++) {
         SET_STRING_ELT(nms, i, Rf_mkChar(names[i]));
     }
@@ -150,9 +150,17 @@ void attribute_visible R_init_zucrypt(DllInfo *dll)
      * says unloading zucrypt while consumer contexts exist is unsupported,
      * and this is how that is enforced rather than merely documented.
      *
-     * An archive consumer takes its own reference with its own zuc_init();
-     * the count is in the archive, so neither consumer can pull the backend
-     * out from under the other. */
+     * An archive consumer is a separate copy entirely, not a second holder
+     * of this count. zucrypt.so links the adapter objects directly and a
+     * LinkingTo consumer links libzucrypt.a into its own shared object, so
+     * there are two zuc_refcount variables and two PSA key stores, kept
+     * apart by hidden visibility (design.md section 8.3).
+     *
+     * That is the intended arrangement and it has a consequence worth being
+     * explicit about: a handle created through one shape cannot be used
+     * through the other. A zuc_aes obtained from the registered table belongs
+     * to this library's key store, and passing it to a function linked from
+     * the archive would look up a key that store does not have. */
     st = zuc_init();
     if (st != ZUC_OK) {
         Rf_error("zucrypt: the cryptographic backend failed to start (%s)",

@@ -93,7 +93,8 @@ zuc_status zuc_aes_new(const uint8_t *key, size_t key_len, zuc_aes **out)
         free(aes);
         return st;
     }
-    return (*out = aes), ZUC_OK;
+    *out = aes;
+    return ZUC_OK;
 }
 
 void zuc_aes_free(zuc_aes *aes)

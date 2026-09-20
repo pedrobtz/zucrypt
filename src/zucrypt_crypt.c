@@ -112,7 +112,7 @@ SEXP zucrypt_hash(SEXP data, SEXP algorithm)
     const uint8_t *bytes = (const uint8_t *) RAW(data);
     size_t total = (size_t) XLENGTH(data);
     size_t want = zuc_alg_size(alg);
-    SEXP out, ptr;
+    SEXP out, ptr, res;
     zuc_hash *h = NULL;
     zuc_status st;
     size_t got = 0, offset = 0;
@@ -137,8 +137,9 @@ SEXP zucrypt_hash(SEXP data, SEXP algorithm)
 
     if (st != ZUC_OK) {
         release_ptr(ptr, free_hash);
+        res = result(st, R_NilValue);
         UNPROTECT(1);
-        return result(st, R_NilValue);
+        return res;
     }
 
     out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) want));
@@ -147,8 +148,15 @@ SEXP zucrypt_hash(SEXP data, SEXP algorithm)
     if (st == ZUC_OK && got != want) {
         st = ZUC_ERR_INTERNAL;
     }
+    /* result() allocates, so it is called while `out` is still protected.
+     * Reversing these two lines is a use-after-free: R's garbage collector is
+     * precise and does not scan the C stack, so an unprotected `out` can be
+     * collected inside result()'s first allocation and stored into the list
+     * as a dangling pointer. The symptom would be a wrong digest returned
+     * successfully, not a crash. */
+    res = result(st, st == ZUC_OK ? out : R_NilValue);
     UNPROTECT(2);
-    return result(st, st == ZUC_OK ? out : R_NilValue);
+    return res;
 }
 
 SEXP zucrypt_hmac(SEXP data, SEXP key, SEXP algorithm)
@@ -157,7 +165,7 @@ SEXP zucrypt_hmac(SEXP data, SEXP key, SEXP algorithm)
     const uint8_t *bytes = (const uint8_t *) RAW(data);
     size_t total = (size_t) XLENGTH(data);
     size_t want = zuc_alg_size(alg);
-    SEXP out, ptr;
+    SEXP out, ptr, res;
     zuc_hmac *h = NULL;
     zuc_status st;
     size_t got = 0, offset = 0;
@@ -179,8 +187,9 @@ SEXP zucrypt_hmac(SEXP data, SEXP key, SEXP algorithm)
 
     if (st != ZUC_OK) {
         release_ptr(ptr, free_hmac);
+        res = result(st, R_NilValue);
         UNPROTECT(1);
-        return result(st, R_NilValue);
+        return res;
     }
 
     out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) want));
@@ -189,8 +198,15 @@ SEXP zucrypt_hmac(SEXP data, SEXP key, SEXP algorithm)
     if (st == ZUC_OK && got != want) {
         st = ZUC_ERR_INTERNAL;
     }
+    /* result() allocates, so it is called while `out` is still protected.
+     * Reversing these two lines is a use-after-free: R's garbage collector is
+     * precise and does not scan the C stack, so an unprotected `out` can be
+     * collected inside result()'s first allocation and stored into the list
+     * as a dangling pointer. The symptom would be a wrong digest returned
+     * successfully, not a crash. */
+    res = result(st, st == ZUC_OK ? out : R_NilValue);
     UNPROTECT(2);
-    return result(st, st == ZUC_OK ? out : R_NilValue);
+    return res;
 }
 
 /* ------------------------------------------------------------------ *
@@ -202,7 +218,7 @@ SEXP zucrypt_aes_cbc(SEXP data, SEXP key, SEXP iv, SEXP encrypt)
     const uint8_t *bytes = (const uint8_t *) RAW(data);
     size_t total = (size_t) XLENGTH(data);
     int do_encrypt = Rf_asLogical(encrypt) == TRUE;
-    SEXP out, ptr;
+    SEXP out, ptr, res;
     zuc_aes *aes = NULL;
     zuc_status st;
     size_t offset = 0;
@@ -237,8 +253,15 @@ SEXP zucrypt_aes_cbc(SEXP data, SEXP key, SEXP iv, SEXP encrypt)
     }
 
     release_ptr(ptr, free_aes);
+    /* result() allocates, so it is called while `out` is still protected.
+     * Reversing these two lines is a use-after-free: R's garbage collector is
+     * precise and does not scan the C stack, so an unprotected `out` can be
+     * collected inside result()'s first allocation and stored into the list
+     * as a dangling pointer. The symptom would be a wrong digest returned
+     * successfully, not a crash. */
+    res = result(st, st == ZUC_OK ? out : R_NilValue);
     UNPROTECT(2);
-    return result(st, st == ZUC_OK ? out : R_NilValue);
+    return res;
 }
 
 /* ------------------------------------------------------------------ *

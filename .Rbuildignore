@@ -10,3 +10,4 @@
 # ships one and reports it as a WARNING.
 ^src/libzucrypt\.a$
 ^tests/consumer$
+^cran-comments\.md$
