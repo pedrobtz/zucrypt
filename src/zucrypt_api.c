@@ -78,10 +78,10 @@ const zucrypt_api_v1 *zucrypt_get_api(uint32_t requested)
      * so, which is the entire point: the alternative is a call through a
      * pointer whose meaning has changed.
      *
-     * Once the ABI is frozen at 1 (roadmap Stage 6), a *later* library
-     * serving an *earlier* request becomes possible and this grows a range
-     * check. It is an equality test today because there is exactly one
-     * version and pretending otherwise would be untested code. */
+     * Still an equality test now that the ABI is frozen at 1, because there
+     * is exactly one version to serve. It grows a range check when there is
+     * a second one and not before: a range check with one version in it is
+     * untested code that looks like it has been thought about. */
     if (requested != (uint32_t) ZUCRYPT_ABI_VERSION) {
         return NULL;
     }

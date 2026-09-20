@@ -85,9 +85,20 @@
 #' * Main thread only, in this version.
 #'
 #' @section Stability:
-#' `ZUCRYPT_ABI_VERSION` is `r zucrypt::crypt_info()$abi_version` in this
-#' build. It is `0` while the interface is still moving; the compatibility
-#' promise begins when it reaches `1` at the first release.
+#' `ZUCRYPT_ABI_VERSION` is `1`, frozen at v0.1.0. Within a major version:
+#' functions and table fields may be added; nothing is removed, reordered or
+#' given a new meaning; enumerator values are permanent, so an algorithm
+#' compiled out of a build keeps its number and reports itself unavailable;
+#' and a `ZUC_*_REQUIRED_SIZE` macro never grows, so a consumer built against
+#' an older header keeps working without being rebuilt.
+#'
+#' A layout change to a type that `struct_size` cannot see renames the
+#' registered callable instead, so an old consumer fails at
+#' `R_GetCCallable()` rather than reading a structure that has moved.
+#'
+#' Not promised: the numeric value of a backend status behind
+#' `ZUC_ERR_BACKEND`, the contents of an opaque handle, and thread safety
+#' beyond the main thread.
 #'
 #' @seealso [crypt_info()], which reports the ABI version, the backend and the
 #'   algorithms this build provides.

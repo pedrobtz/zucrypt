@@ -496,6 +496,14 @@ documents the upstream-update procedure.
 
 ## Stage 6 — v0.1.0 release
 
+**Prepared.** One item was a no-op and is recorded as one: every r-actions pin was already at
+`v1.9.0`, the current release, at the exact commit `1878271`, so "bump every pin in one commit"
+changed nothing. Checked rather than assumed — the point of the item is that the pins are a
+decision, and confirming they are current is that decision.
+
+Tagging and the GitHub release are deliberately not done by the same hand that wrote the code
+without asking: they are public and hard to walk back.
+
 - Documentation pass: pkgdown reference grouped as "Hashing", "Ciphers (advanced)",
   "Comparison and information", "C API"; README example filled with a hash and an HMAC only
   (no cipher example in the README, to avoid presenting CBC as a general-purpose tool).
