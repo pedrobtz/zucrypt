@@ -13,3 +13,6 @@
   : Compute an HMAC
 - [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md)
   : Report what this build of zucrypt contains
+- [`zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
+  [`zucrypt-c-api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
+  : Using zucrypt from C

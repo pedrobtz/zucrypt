@@ -5,13 +5,26 @@ with code in this repository.
 
 ## Current state
 
-Roadmap Stages 0–3 are complete. The package builds a vendored
-TF-PSA-Crypto 1.1.1 crypto subset from source, exposes it through
-`inst/include/zucrypt.h` and `inst/lib/libzucrypt.a`, and exports
-exactly the six `crypt_*` functions of design §7 with the condition
-system behind them. Stage 4, the registered C function table
-(`zucrypt-r.h`, `zucrypt_get_api`) and its two consumer fixtures, is the
-current stage.
+Roadmap Stages 0–4 are complete. The package builds a vendored
+TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the six
+`crypt_*` functions of design §7, and publishes both consumer shapes:
+the registered function table (`inst/include/zucrypt-r.h`,
+`zucrypt_get_api`) and the static archive (`inst/lib/libzucrypt.a`).
+Stage 5, hardening and the remaining release gates, is the current
+stage.
+
+Both shapes have a consumer proof, and neither is reachable from
+`R CMD check`. `tests/consumer/zucrypttest` is a real package with
+`Imports:` + `LinkingTo:` + a real `importFrom()`, built only by
+`consumer.yaml`; it calls every table entry, because a pointer that was
+never assigned is indistinguishable from a working one until something
+calls it. `tools/check-linking.sh` compiles a plain C program against
+the archive with no R involved. The Office derivation rehearsal lives in
+the fixture and is the ABI validation gate: it runs the generic
+`H_n = hash(int32le(n) || H_{n-1})` loop through one reused incremental
+context and compares it with an independent R implementation. It is not
+Office support and must not become it — no constants, no block keys, no
+salts.
 
 The native layer is in two halves and the split is load-bearing.
 `src/zuc_*.c` is the adapter: R-free, and what goes into the archive.
@@ -114,21 +127,26 @@ conventions:
 
 Today: `R-CMD-check.yaml` (runners plus CRAN’s clang-23/GCC-16
 containers, `nosuggests` on), `native-checks.yaml` (LTO, rchk,
-gctorture, and the bespoke layering check), `coverage.yaml` (with
-`native: true`), `vendor.yaml` (the vendored tree matches its manifest,
-and a PR touching it updates that manifest), `vendor-upstream.yaml`
-(weekly; opens an issue when TF-PSA-Crypto releases) and `pkgdown.yaml`
-deploying to `gh-pages` on push to `main`. `pkgdown.yaml` is this repo’s
-own, not an r-actions call. The `nosuggests` leg checks with no
-`Suggests` installed, which is why `tests/testthat.R` wraps its
+gctorture, and the bespoke layering check), `abi.yaml` and
+`consumer.yaml` (both bespoke), `coverage.yaml` (with `native: true`),
+`vendor.yaml` (the vendored tree matches its manifest, and a PR touching
+it updates that manifest), `vendor-upstream.yaml` (weekly; opens an
+issue when TF-PSA-Crypto releases) and `pkgdown.yaml` deploying to
+`gh-pages` on push to `main`. `pkgdown.yaml` is this repo’s own, not an
+r-actions call. The `nosuggests` leg checks with no `Suggests`
+installed, which is why `tests/testthat.R` wraps its
 [`library(testthat)`](https://testthat.r-lib.org) in
 [`requireNamespace()`](https://rdrr.io/r/base/ns-load.html). Anything
 else that reaches for a suggested package from a top-level test or
 example file must be guarded the same way.
 
-`abi.yaml` and `consumer.yaml` at Stage 4 are bespoke by necessity —
-r-actions has no ABI or consumer workflow. Copy the ones in the sibling
-`zukomp` repo rather than inventing a shape.
+`abi.yaml` and `consumer.yaml` are bespoke by necessity — r-actions has
+no ABI or consumer workflow, because what a package publishes is
+specific to that package. Both are adapted from the sibling `zukomp`
+repo. `consumer.yaml` fails when zero tests are discovered:
+[`any()`](https://rdrr.io/r/base/any.html) over an empty vector is
+`FALSE`, so a fixture that silently stopped being found would otherwise
+be a green job that proved nothing.
 
 ## Architecture (planned)
 
