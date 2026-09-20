@@ -5,11 +5,11 @@ with code in this repository.
 
 ## Current state
 
-`zucrypt` is an empty R package skeleton (two commits: skeleton +
-pkgdown setup). `R/` contains only `zucrypt-package.R`, `NAMESPACE` is
-empty, `tests/` has only `testthat.R`, and `DESCRIPTION` still carries
-usethis placeholder `Title`, `Description` and `Authors@R` values that
-must be filled before any release.
+`zucrypt` has no implementation yet. Roadmap Stage 0 (package identity)
+is complete: `DESCRIPTION`, `README.md` and `NEWS.md` are filled in, and
+`tests/testthat/test-package.R` holds package-level invariants. `R/`
+still contains only `zucrypt-package.R` and `NAMESPACE` exports nothing.
+Stage 1 (the backend spike) is the current stage.
 
 The real content of this repository is
 [.agents/design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md)
@@ -19,6 +19,36 @@ constraints summarised below, and it is where design changes belong.
 [.agents/roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
 breaks the path to v0.1.0 into stages with exit criteria; check which
 stage is current before starting work.
+
+## Working rhythm: one pull request per roadmap stage
+
+[.agents/roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
+is the unit of work. Each stage ships as its own pull request against
+`main`, and the loop is the same every time:
+
+1.  Branch from an up-to-date `main` (`stage-N-<slug>`), do the stage’s
+    work, and check it locally first — `devtools::document()`,
+    `devtools::test()`, `devtools::check()` clean at 0/0/0 before
+    anything is pushed. CI is for the platforms and toolchains this
+    machine is not, not for finding what a local check would have
+    caught.
+2.  Open the PR with `gh pr create`. The body states the stage, what it
+    implements, and the stage’s exit criteria from the roadmap as a
+    checklist.
+3.  Watch the checks to completion (`gh pr checks --watch`,
+    `gh run view --log-failed`). Every leg green, not “green except the
+    container ones” and not “the failure is unrelated” — a failure is
+    part of the stage until it is understood. Fix on the same branch and
+    push again.
+4.  Merge only once every required check has passed, then delete the
+    branch and pull `main`.
+5.  Update this file’s **Current state** section and start the next
+    stage.
+
+A stage does not end because its code is written. It ends when its exit
+criteria are met and CI is green, which is also what makes the next
+stage safe to start: the roadmap’s stages are sequential precisely so
+that a later one never inherits an unproven earlier one.
 
 ## Commands
 
@@ -52,9 +82,18 @@ conventions:
   job that is green because it inspected nothing is worse than no job.
 
 Today: `R-CMD-check.yaml` (runners plus CRAN’s clang-23/GCC-16
-containers, `nosuggests` on), `coverage.yaml`, and `pkgdown.yaml`
-deploying to `gh-pages` on push to `main`. `pkgdown.yaml` is this repo’s
-own, not an r-actions call.
+containers, `nosuggests` on) and `pkgdown.yaml` deploying to `gh-pages`
+on push to `main`. `pkgdown.yaml` is this repo’s own, not an r-actions
+call. `coverage.yaml` returns in Stage 3: covr instruments `R/`, so
+until there is a function to measure `percent_coverage()` is `NaN` and
+the job fails for a reason that has nothing to do with the package.
+
+The `nosuggests` leg checks with no `Suggests` installed, which is why
+`tests/testthat.R` wraps its
+[`library(testthat)`](https://testthat.r-lib.org) in
+[`requireNamespace()`](https://rdrr.io/r/base/ns-load.html). Anything
+else that reaches for a suggested package from a top-level test or
+example file must be guarded the same way.
 
 `abi.yaml` and `consumer.yaml` at Stage 4 are bespoke by necessity —
 r-actions has no ABI or consumer workflow. Copy the ones in the sibling
