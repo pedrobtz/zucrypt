@@ -4,6 +4,9 @@
 
 - **Pedro Baltazar**. Author, maintainer, copyright holder.
 
+- **The Mbed TLS Contributors**. Copyright holder.  
+  TF-PSA-Crypto, bundled in src/vendor/tf-psa-crypto
+
 ## Citation
 
 Source:

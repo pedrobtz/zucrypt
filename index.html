@@ -51,14 +51,14 @@
 </h1></div>
 <!-- badges: start -->
 
-<p>zucrypt is a narrow native cryptographic foundation for the <code>zu*</code> package family: message digests, HMAC, unauthenticated AES-CBC/ECB, constant-time comparison and secure erasure, over raw vectors. The backend is a vendored, pinned subset of the Mbed TLS ecosystem, so installing the package needs a C compiler and nothing else — no system cryptographic library, no Java, no Python, and no network access during installation.</p>
+<p>zucrypt is a narrow native cryptographic foundation for the <code>zu*</code> package family: message digests, HMAC, unauthenticated AES-CBC/ECB, constant-time comparison and secure erasure, over raw vectors. The backend is a vendored, pinned subset of <a href="https://github.com/Mbed-TLS/TF-PSA-Crypto" class="external-link">TF-PSA-Crypto</a>, the Mbed TLS project’s cryptography library — 109 files of it, configured down to the algorithms above and nothing else. Installing the package needs a C99 compiler and nothing else: no system cryptographic library, no Java, no Python, and no network access during installation.</p>
 <p>The same primitives are published to other packages twice, because the family consumes siblings in two different ways: as a registered C function table for consumers that can carry an <code>Imports:</code>, and as a static archive (<code>inst/lib/libzucrypt.a</code>) for consumers that cannot.</p>
 <p>It is <strong>not</strong> a replacement for <a href="https://cran.r-project.org/package=openssl" class="external-link">openssl</a> or <a href="https://cran.r-project.org/package=sodium" class="external-link">sodium</a>. Those cover far more ground, and a package that wants broad cryptographic functionality should use them. zucrypt exists because the <code>zu*</code> packages need a small, fixed set of primitives with a stable C ABI and an installation that depends on nothing.</p>
 <p>Deliberately out of scope for now: authenticated encryption, password-based key derivation, random number generation, signatures and key serialization. Each needs a concrete consumer before it is added. Office/Excel decryption lives in <a href="https://github.com/pedrobtz/zuxlsx" class="external-link">zuxlsx</a>, which is the first consumer of this package, not here.</p>
 <div class="section level2">
 <h2 id="status">Status<a class="anchor" aria-label="anchor" href="#status"></a>
 </h2>
-<p>Early development. The design is in <code>.agents/design.md</code> and the path to the first release in <code>.agents/roadmap.md</code>; the R and C interfaces described there are not implemented yet.</p>
+<p>Early development. The design is in <code>.agents/design.md</code> and the path to the first release in <code>.agents/roadmap.md</code>. The vendored backend builds and is verified against published test vectors, but the R and C interfaces described there are not implemented yet: <code><a href="reference/crypt_info.html">crypt_info()</a></code> is the only exported function today.</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -96,6 +96,7 @@
 <h2 data-toc-skip>Developers</h2>
 <ul class="list-unstyled">
 <li>Pedro Baltazar <br><small class="roles"> Author, maintainer, copyright holder </small>   </li>
+<li><a href="authors.html">More about authors...</a></li>
 </ul>
 </div>
 
