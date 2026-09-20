@@ -5,14 +5,13 @@ with code in this repository.
 
 ## Current state
 
-Roadmap Stages 0 (package identity), 1 (backend spike) and 2 (native
-adapter) are complete. The package builds a vendored TF-PSA-Crypto 1.1.1
-crypto subset from source and exposes it through
-`inst/include/zucrypt.h` and `inst/lib/libzucrypt.a`. R still exports
-only the placeholder
-[`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md);
-the six `crypt_*` functions and the condition system are Stage 3, which
-is the current stage.
+Roadmap Stages 0–3 are complete. The package builds a vendored
+TF-PSA-Crypto 1.1.1 crypto subset from source, exposes it through
+`inst/include/zucrypt.h` and `inst/lib/libzucrypt.a`, and exports
+exactly the six `crypt_*` functions of design §7 with the condition
+system behind them. Stage 4, the registered C function table
+(`zucrypt-r.h`, `zucrypt_get_api`) and its two consumer fixtures, is the
+current stage.
 
 The native layer is in two halves and the split is load-bearing.
 `src/zuc_*.c` is the adapter: R-free, and what goes into the archive.
@@ -20,6 +19,13 @@ The native layer is in two halves and the split is load-bearing.
 and not in the archive. `tools/check-layering.sh` enforces both
 directions in CI, because neither breaks loudly — including `R.h` in the
 adapter compiles fine here and fails much later in a consumer’s build.
+
+`src/zucrypt_crypt.c` holds the entry points behind the six exports.
+Every context there is owned by an external pointer with a finalizer
+from the moment it exists, because the loop calls
+`R_CheckUserInterrupt()` between 1 MiB chunks and an interrupt longjmps
+past every `free()` beneath it — and the heap state here is exactly the
+state that must not leak.
 
 `src/zucrypt_test.c` is a permanently-compiled `.Call` harness
 (`zucrypt_test_*`), the analogue of `zukomp`’s `zu_test_stream()`. It is
@@ -107,18 +113,14 @@ conventions:
   job that is green because it inspected nothing is worse than no job.
 
 Today: `R-CMD-check.yaml` (runners plus CRAN’s clang-23/GCC-16
-containers, `nosuggests` on), `native-checks.yaml` (LTO, and the bespoke
-layering check), `vendor.yaml` (the vendored tree matches its manifest,
+containers, `nosuggests` on), `native-checks.yaml` (LTO, rchk,
+gctorture, and the bespoke layering check), `coverage.yaml` (with
+`native: true`), `vendor.yaml` (the vendored tree matches its manifest,
 and a PR touching it updates that manifest), `vendor-upstream.yaml`
 (weekly; opens an issue when TF-PSA-Crypto releases) and `pkgdown.yaml`
 deploying to `gh-pages` on push to `main`. `pkgdown.yaml` is this repo’s
-own, not an r-actions call. `coverage.yaml` returns in Stage 3: covr
-instruments `R/`, so until there is a function to measure
-`percent_coverage()` is `NaN` and the job fails for a reason that has
-nothing to do with the package.
-
-The `nosuggests` leg checks with no `Suggests` installed, which is why
-`tests/testthat.R` wraps its
+own, not an r-actions call. The `nosuggests` leg checks with no
+`Suggests` installed, which is why `tests/testthat.R` wraps its
 [`library(testthat)`](https://testthat.r-lib.org) in
 [`requireNamespace()`](https://rdrr.io/r/base/ns-load.html). Anything
 else that reaches for a suggested package from a top-level test or
@@ -155,8 +157,12 @@ Three surfaces are exposed:
 
 1.  A small R surface:
     [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md),
-    `crypt_hash()`, `crypt_hmac()`, `crypt_equal()`,
-    `crypt_aes_cbc_encrypt()` / `crypt_aes_cbc_decrypt()`.
+    [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
+    [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md),
+    [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md),
+    [`crypt_aes_cbc_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+    /
+    [`crypt_aes_cbc_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md).
 2.  A registered function table (`inst/include/zucrypt-r.h`,
     `zucrypt_api_v1`, resolved lazily via `zucrypt_get_api`) for
     `zuhttp`-style consumers: `Imports:` + `LinkingTo:` + a real
