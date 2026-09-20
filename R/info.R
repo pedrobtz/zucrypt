@@ -1,32 +1,46 @@
+# The exact set of names crypt_hash() and crypt_hmac() accept.
+#
+# Reported by the compiled library rather than written down in R, so it cannot
+# disagree with what the build can actually do -- an algorithm configured out
+# of the backend disappears from here without anyone editing this file.
+#
+# Not exported. design.md section 7 fixes the R surface at six functions, and
+# this is reachable through crypt_info()$algorithms, which is where a user
+# should be looking anyway.
+available_algorithms <- function() {
+  .Call(zucrypt_algorithms)
+}
+
 #' Report what this build of zucrypt contains
 #'
-#' Describes the installed package: its own version, and the vendored
-#' cryptographic backend it was compiled against.
+#' Describes the installed package: its version, the C ABI it publishes, the
+#' algorithms it provides, and the vendored cryptographic backend it was
+#' compiled against.
 #'
-#' Everything reported here is read from the compiled library, never from
+#' Everything here is read from the compiled library, never from
 #' `tools/vendor/manifest.tsv`. The manifest is maintainer tooling and is not
-#' installed, so it can only describe the tree a build *was made from* -- which
-#' is the one thing a user with a binary package cannot check.
-#'
-#' @section Stage of development:
-#' This is a placeholder. The full `crypt_info()` described in the design
-#' returns `abi_version`, the supported `algorithms` and `build_flags` as well,
-#' and those arrive with the functions they describe. Nothing in this list will
-#' change meaning when they do.
+#' installed, so it could only describe the tree a build was made *from* --
+#' which is the one thing a user holding a binary package cannot check.
 #'
 #' @return A list with elements:
 #'   \describe{
 #'     \item{`version`}{the `zucrypt` package version, as a `package_version`.}
+#'     \item{`abi_version`}{the C ABI version published to `LinkingTo`
+#'       consumers, as an integer. `0` while the interface is still moving;
+#'       it becomes `1` at the first release.}
+#'     \item{`algorithms`}{the digest algorithms this build provides, which
+#'       is exactly the set `crypt_hash()` and `crypt_hmac()` accept.}
 #'     \item{`vendored`}{a data frame with one row per vendored source, giving
 #'       its `source` name and the `version` the compiled library reports.}
-#'     \item{`random_backend`}{the operating-system random source selected at
-#'       compile time. No function in this version of the package consumes
-#'       randomness; the backend requires the source to exist at link time.}
+#'     \item{`build_flags`}{a named list of compile-time choices worth being
+#'       able to see from R: the operating-system random source that was
+#'       selected, and whether hardware acceleration is compiled in.}
 #'   }
 #'
 #' @examples
 #' info <- crypt_info()
 #' info$version
+#' info$algorithms
 #' info$vendored
 #'
 #' @export
@@ -35,11 +49,20 @@ crypt_info <- function() {
 
   list(
     version = utils::packageVersion("zucrypt"),
+    abi_version = as.integer(backend[["abi_version"]]),
+    algorithms = available_algorithms(),
     vendored = data.frame(
-      source = "tf-psa-crypto",
+      source = unname(backend[["backend_name"]]),
       version = unname(backend[["backend_version"]]),
       stringsAsFactors = FALSE
     ),
-    random_backend = unname(backend[["random_backend"]])
+    build_flags = list(
+      random_backend = unname(backend[["random_backend"]]),
+      # Off everywhere, deliberately: MBEDTLS_HAVE_ASM, AESNI and AESCE are
+      # set only by upstream's default configuration, which
+      # src/zuc_crypto_config.h replaces. Every platform runs the same C and
+      # produces the same bytes. See .agents/stage-1-spike.md.
+      hardware_acceleration = FALSE
+    )
   )
 }

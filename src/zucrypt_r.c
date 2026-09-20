@@ -31,6 +31,9 @@ void R_init_zucrypt(DllInfo *dll);
  * entry point that exists only in a debug build tests a binary nobody runs. */
 extern const R_CallMethodDef zucrypt_test_call_methods[];
 
+/* Defined in zucrypt_crypt.c: the entry points behind the crypt_* functions. */
+extern const R_CallMethodDef zucrypt_crypt_call_methods[];
+
 SEXP zucrypt_backend_info(void)
 {
     zuc_info info;
@@ -102,18 +105,23 @@ static const R_CallMethodDef call_methods[] = {
  * so the harness can grow without this file changing. */
 static R_CallMethodDef *all_call_methods(void)
 {
-    int n = 0, m = 0, i;
+    const R_CallMethodDef *tables[] = {
+        call_methods, zucrypt_crypt_call_methods, zucrypt_test_call_methods
+    };
+    int n_tables = (int) (sizeof tables / sizeof tables[0]);
+    int total = 0, t, i, k = 0;
     R_CallMethodDef *all;
 
-    while (call_methods[n].name != NULL) n++;
-    while (zucrypt_test_call_methods[m].name != NULL) m++;
-
-    all = (R_CallMethodDef *) calloc((size_t) (n + m + 1), sizeof *all);
+    for (t = 0; t < n_tables; t++) {
+        for (i = 0; tables[t][i].name != NULL; i++) total++;
+    }
+    all = (R_CallMethodDef *) calloc((size_t) total + 1, sizeof *all);
     if (all == NULL) {
         return NULL;
     }
-    for (i = 0; i < n; i++) all[i] = call_methods[i];
-    for (i = 0; i < m; i++) all[n + i] = zucrypt_test_call_methods[i];
+    for (t = 0; t < n_tables; t++) {
+        for (i = 0; tables[t][i].name != NULL; i++) all[k++] = tables[t][i];
+    }
     return all;
 }
 

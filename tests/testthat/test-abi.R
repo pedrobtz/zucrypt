@@ -10,6 +10,14 @@
 # exported for a debugging session.
 
 test_that("the shared object exports nothing but R_init_zucrypt", {
+  # The one assertion here that an instrumented build cannot satisfy: gcov's
+  # runtime is linked in and exports symbols of its own, some with names as
+  # generic as `mangle_path`. Skipped there and only there -- it still runs on
+  # every ordinary leg, which is nine of them, and the banned-name audits
+  # below run everywhere including under coverage.
+  skip_if(is_instrumented_build(),
+          "instrumented build: the coverage runtime exports symbols of its own")
+
   syms <- exported_symbols()
   names <- sub("^.*[[:space:]]", "", syms)
   names <- sub("^_", "", names)          # Mach-O's leading underscore
@@ -43,5 +51,6 @@ test_that("the backend is compiled in at the pinned version", {
   # installed, so tools/vendor/verify cross-checks this literal from the
   # other side -- the same arrangement zukomp uses for miniz.
   vendored <- crypt_info()$vendored
-  expect_identical(vendored$version[vendored$source == "tf-psa-crypto"], "1.1.1")
+  expect_identical(vendored$source, "TF-PSA-Crypto")
+  expect_identical(vendored$version, "1.1.1")
 })

@@ -46,3 +46,41 @@ exported_symbols <- function() {
   skip_if(!is.character(syms) || length(syms) == 0L, "nm produced no output")
   syms
 }
+
+# Is this build instrumented?
+#
+# It matters for exactly one assertion -- the exact set of exported symbols --
+# and for none of the banned-name audits, which keep running everywhere.
+#
+# Two earlier attempts were wrong in instructive ways. Filtering the runtime
+# out by name prefix failed because libgcov exports `mangle_path`, and
+# enumerating another runtime's symbol names is a game with no end. Keying on
+# R_COVR covered coverage.yml's covr job but not its `native: true` job, which
+# compiles with --coverage and runs the tests directly, setting nothing.
+#
+# So the question is asked of the binary instead: does this shared object
+# carry a coverage or sanitizer runtime at all? That is one signature per
+# runtime rather than a list of its symbols, and it is true exactly when the
+# exactness assertion is meaningless. `nm -D` without --defined-only, because
+# an instrumented object may only *reference* the runtime.
+is_instrumented_build <- function() {
+  if (identical(Sys.getenv("R_COVR"), "true")) {
+    return(TRUE)
+  }
+  nm <- Sys.which("nm")
+  if (!nzchar(nm)) {
+    return(FALSE)
+  }
+  dll <- getLoadedDLLs()[["zucrypt"]]
+  if (is.null(dll) || !file.exists(dll[["path"]])) {
+    return(FALSE)
+  }
+  args <- if (Sys.info()[["sysname"]] == "Darwin") "-g" else "-D"
+  syms <- suppressWarnings(
+    system2(nm, c(args, shQuote(dll[["path"]])), stdout = TRUE, stderr = FALSE)
+  )
+  if (!is.character(syms) || length(syms) == 0L) {
+    return(FALSE)
+  }
+  any(grepl("gcov|__llvm_prof|__asan_|__ubsan_|__tsan_|__msan_", syms))
+}
