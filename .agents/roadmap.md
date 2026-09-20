@@ -372,7 +372,20 @@ Exit:
 
 ## Stage 5 — Hardening and release gates
 
-**Done.** Two notes. `rchk` and `analyzers` land informational, as planned, and are gated the
+**Done, with one documented deviation.** `extra-ubsan-checks` is not passed, and the argument
+for it below still stands — it just cannot be applied only to our code. Two instrumented runs
+found two deliberate cases in the vendored tree: `aes.c`'s GF(2^8) doubling truncating to
+`uint8_t`, and `sha256.c`'s compression function adding modulo 2^32, which is the one this
+section predicted. Writing them down in `tools/ubsan.supp` is the right answer and is currently
+unavailable: passing `ubsan-suppressions` breaks the `asan` job, which runs inside a container
+where the checkout is mounted at `/__w/...` while the path is built from `github.workspace`,
+the host path. So the choice is ASan or the extra integer checks, and ASan wins — it finds
+use-after-free and double-free on exactly the cleanup paths §11 legislates about, while the
+length arithmetic is simple, validated in R before any native call, and separately exercised by
+`arch.yml`'s 32-bit leg. Both suppression entries are written down and ready; restoring is two
+lines once r-actions resolves that path. The fix belongs in `r-actions`, not here.
+
+Two further notes. `rchk` and `analyzers` land informational, as planned, and are gated the
 moment they read zero rather than in the same commit — a gate turned on before it has ever
 been green is a gate somebody turns off. And the R floor is now a measurement rather than a
 claim: `R-CMD-check.yaml` carries an explicit `4.1` leg, because `release` and `oldrel-1` prove
