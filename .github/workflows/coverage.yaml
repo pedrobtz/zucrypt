@@ -1,0 +1,63 @@
+# Test coverage, from the shared reusable workflow in pedrobtz/r-actions.
+#
+# NOTE ON ORDERING: covr needs something to instrument. This package is
+# currently an empty skeleton, so this workflow should land in the same commit
+# as roadmap.md Stage 0's first test file, not before it.
+#
+# `native: true` is the input that matters here, and it is not on yet -- see
+# the comment on it below. Turn it on in Stage 2, when there is C to measure.
+on:
+  push:
+    branches: [main, master]
+    # The badge path prevents a push loop when this workflow commits an
+    # updated badge; the rest are prose -- nothing in a .md file or in
+    # .agents/ changes what fraction of the code the tests execute.
+    paths-ignore:
+      - ".github/badges/coverage.svg"
+      - '**.md'
+      - 'vignettes/**'
+      - '_pkgdown.yml'
+      - '.agents/**'
+      - 'docs/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'vignettes/**'
+      - '_pkgdown.yml'
+      - '.agents/**'
+      - 'docs/**'
+  workflow_dispatch:
+
+name: coverage.yaml
+
+# The reusable workflow commits the rendered badge to .github/badges on push,
+# so it needs write access to contents; a called workflow cannot request more
+# than the caller grants. Pull requests still compute coverage and write the
+# job summary, but skip the commit.
+permissions:
+  contents: write
+
+jobs:
+  coverage:
+    uses: pedrobtz/r-actions/.github/workflows/coverage.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    permissions:
+      contents: write
+    # with:
+    #   # Turn on in Stage 2. This package is the shape the `native` input was
+    #   # written for: a thin R wrapper (six functions, design §7) over a C
+    #   # adapter and a vendored library. covr measures the R, and that number
+    #   # will read close to perfect while most of the C is never executed.
+    #   #
+    #   # Read the "taken at least once" column, not the line coverage. The
+    #   # adapter is error handling by volume -- design §11 requires destroying
+    #   # partial contexts after any failed init, and every one of those is an
+    #   # `if (rc != OK) goto fail;` whose line runs on the happy path and
+    #   # whose branch does not.
+    #   native: true
+    #
+    #   # native-exclude stays empty on purpose even once src/vendor/ exists.
+    #   # How much of the vendored crypto the tests actually reach is the
+    #   # question worth asking, and a low figure there may be entirely
+    #   # correct -- design §4 builds a configured subset, and a subset still
+    #   # carries code paths this package never calls.
+    #   native-exclude: ""

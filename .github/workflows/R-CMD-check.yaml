@@ -1,5 +1,28 @@
-# Workflow derived from https://github.com/r-lib/actions/tree/v2/examples
-# Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
+# R CMD check, on the GitHub runners and in the CRAN-like containers, from the
+# shared reusable workflow in pedrobtz/r-actions.
+#
+# Every r-actions call in this repo is pinned to a commit, with the tag in a
+# trailing comment. A tag is mutable, so `@v1` means "whatever it points at
+# when the job starts". Bump the pins deliberately, reading the diff.
+#
+# This replaces the r-lib/actions template that came with the package
+# skeleton. The trade is the usual one: five runner legs become four, and in
+# exchange the check reaches the two r-devel Linux flavors CRAN actually uses
+# -- clang 23 building C as -std=gnu23, and GCC 16 -- which no GitHub runner
+# provides.
+#
+# That gap is the entire reason to adopt this before there is any C to check.
+# design.md §4 commits this package to vendoring the Mbed TLS / TF-PSA-Crypto
+# crypto subset, and vendored code is written against the compilers upstream
+# tests on. Its warnings arrive in *our* check log. `-pedantic`, which CRAN
+# passes and no runner does, is what enables several of the diagnostics that
+# would otherwise show up as a rejected submission rather than a red check --
+# so the first vendoring commit lands with this already in place rather than
+# discovering the toolchain gap afterwards.
+#
+# The dropped ubuntu/devel row is not a loss: it pinned R-devel to the
+# runner's own GCC, which matches no CRAN flavor and is strictly worse than
+# the containers that now cover it.
 on:
   push:
     branches: [main, master]
@@ -11,40 +34,19 @@ permissions: read-all
 
 jobs:
   R-CMD-check:
-    runs-on: ${{ matrix.config.os }}
+    uses: pedrobtz/r-actions/.github/workflows/r-cmd-check.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      # CRAN's NOSUGGESTS flavor. This package's only Suggests is testthat,
+      # which is exactly the dependency most easily used unguarded: a helper
+      # calling library(testthat) at top level, or -- once the C API lands --
+      # an example that builds the consumer fixture without checking that its
+      # toolchain is there. Those error here and nowhere else.
+      nosuggests: true
 
-    name: ${{ matrix.config.os }} (${{ matrix.config.r }})
-
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - {os: macos-latest,   r: 'release'}
-          - {os: windows-latest, r: 'release'}
-          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
-          - {os: ubuntu-latest,   r: 'release'}
-          - {os: ubuntu-latest,   r: 'oldrel-1'}
-
-    env:
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-      R_KEEP_PKG_SOURCE: yes
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: r-lib/actions/setup-pandoc@v2
-
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          r-version: ${{ matrix.config.r }}
-          http-user-agent: ${{ matrix.config.http-user-agent }}
-
-      - uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-          extra-packages: any::rcmdcheck
-          needs: check
-
-      - uses: r-lib/actions/check-r-package@v2
-        with:
-          upload-snapshots: true
-          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
+      # `nold` is deliberately off. It is R built --disable-long-double, and
+      # it catches arithmetic relying on 80-bit intermediates -- numeric
+      # parsing, formatting, comparison. This package's arithmetic is on
+      # byte lengths and block counts (design §11: "Validate lengths and
+      # arithmetic before allocation"), all integral. arch.yml's 32-bit leg
+      # is the job that tests *that* arithmetic; see .agents/roadmap.md.
+      nold: false
