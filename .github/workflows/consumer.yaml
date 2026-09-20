@@ -39,6 +39,15 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
 
+    # `R CMD INSTALL .` is a shell command line, not a PowerShell one. On
+    # Windows the default shell is pwsh, which resolves `R` to its own
+    # Invoke-History alias and then reports "A positional parameter cannot be
+    # found that accepts argument 'INSTALL'" -- an error that names neither R
+    # nor the real problem. Rtools ships bash, so every step here uses it.
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - uses: actions/checkout@v4
 
