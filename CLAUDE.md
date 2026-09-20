@@ -4,10 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-`zucrypt` has no implementation yet. Roadmap Stage 0 (package identity) is complete: `DESCRIPTION`,
-`README.md` and `NEWS.md` are filled in, and `tests/testthat/test-package.R` holds package-level
-invariants. `R/` still contains only `zucrypt-package.R` and `NAMESPACE` exports nothing. Stage 1
-(the backend spike) is the current stage.
+Roadmap Stages 0 (package identity) and 1 (backend spike) are complete. The package builds a
+vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports one placeholder function
+(`crypt_info()`), and exports exactly one C symbol (`R_init_zucrypt`). Stage 2, the R-free
+native adapter behind `inst/include/zucrypt.h`, is the current stage.
+
+[.agents/stage-1-spike.md](.agents/stage-1-spike.md) records what the spike measured and every
+decision it settled — the pinned release, the eleven-define configuration, the 18-object trim
+and how to re-derive it, the external-RNG choice, and the measurements. Read it before touching
+`src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.
 
 The real content of this repository is [.agents/design.md](.agents/design.md) — a detailed, *proposed*
 (not implemented) design. Read it before writing code; it is the authoritative spec for the API,
@@ -62,7 +67,9 @@ shared reusable workflows — never hand-rolled jobs. Two conventions:
   which workflow lands in which stage and why. A job that is green because it inspected nothing
   is worse than no job.
 
-Today: `R-CMD-check.yaml` (runners plus CRAN's clang-23/GCC-16 containers, `nosuggests` on) and
+Today: `R-CMD-check.yaml` (runners plus CRAN's clang-23/GCC-16 containers, `nosuggests` on),
+`vendor.yaml` (the vendored tree matches its manifest, and a PR touching it updates that
+manifest), `vendor-upstream.yaml` (weekly; opens an issue when TF-PSA-Crypto releases) and
 `pkgdown.yaml` deploying to `gh-pages` on push to `main`. `pkgdown.yaml` is this repo's own, not
 an r-actions call. `coverage.yaml` returns in Stage 3: covr instruments `R/`, so until there is a
 function to measure `percent_coverage()` is `NaN` and the job fails for a reason that has nothing
@@ -105,9 +112,13 @@ Three surfaces are exposed:
    see only `inst/include/zucrypt.h`, which must compile standalone as C99 with no R or PSA
    vocabulary.
 
-The backend is a vendored, pinned Mbed TLS 4.x / TF-PSA-Crypto crypto subset (no TLS, no X.509).
-Installation must not download sources or require Python/Perl to generate them, and upstream symbols
-must be hidden or namespaced so independent vendored copies cannot bind to each other.
+The backend is a vendored, pinned TF-PSA-Crypto crypto subset (no TLS, no X.509) — currently
+1.1.1, an LTS branch. No Mbed TLS file is vendored: in the 4.x architecture TF-PSA-Crypto is the
+whole cryptography library and Mbed TLS supplies only X.509 and TLS. Installation downloads
+nothing and needs no Python or Perl; the release archive ships the generated sources. Upstream
+symbols are hidden (`PKG_CFLAGS = $(C_VISIBILITY)`) so independent vendored copies cannot bind
+to each other, and `tests/testthat/test-abi.R` asserts that the shared object exports
+`R_init_zucrypt` and nothing else.
 
 ## Non-obvious constraints from the design
 
@@ -127,6 +138,11 @@ must be hidden or namespaced so independent vendored copies cannot bind to each 
 - Vendoring uses the family layout — `src/vendor/<source>/`, `tools/patches/`,
   `tools/vendor/{manifest.tsv,checksums.sha256,fetch,record,verify}`, `inst/COPYRIGHTS` — and
   `src/Makevars` is portable make with an explicit `OBJECTS` list (no CMake, no GNU make).
+  Two local departures, both in `.agents/stage-1-spike.md`: the trim is a two-column keep list
+  (`tools/vendor/keep/<source>.txt`) rather than a `keep_files()` case arm, and the tree is
+  flattened to `inc/` and `lib/` because upstream's own paths exceed the 100-byte tarball limit.
+  Never edit `src/vendor/` in place: change the keep list or add a patch, then re-run
+  `tools/vendor/fetch` and `tools/vendor/record`, and `tools/vendor/verify` before committing.
 - API resolution and calls are main-thread only in 0.1.
 - Testing gate: published known-answer vectors per algorithm, one-shot vs incremental equivalence,
   and independent-implementation compatibility — a self round trip is explicitly not sufficient.

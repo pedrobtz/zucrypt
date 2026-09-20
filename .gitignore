@@ -1,1 +1,7 @@
 docs
+
+# Compiled objects and shared libraries from a local build.
+src/*.o
+src/*.so
+src/*.dll
+src/vendor/**/*.o

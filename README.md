@@ -8,8 +8,10 @@
 zucrypt is a narrow native cryptographic foundation for the `zu*` package
 family: message digests, HMAC, unauthenticated AES-CBC/ECB, constant-time
 comparison and secure erasure, over raw vectors. The backend is a vendored,
-pinned subset of the Mbed TLS ecosystem, so installing the package needs a C
-compiler and nothing else — no system cryptographic library, no Java, no
+pinned subset of [TF-PSA-Crypto](https://github.com/Mbed-TLS/TF-PSA-Crypto),
+the Mbed TLS project's cryptography library — 109 files of it, configured down
+to the algorithms above and nothing else. Installing the package needs a C99
+compiler and nothing else: no system cryptographic library, no Java, no
 Python, and no network access during installation.
 
 The same primitives are published to other packages twice, because the family
@@ -33,8 +35,10 @@ this package, not here.
 ## Status
 
 Early development. The design is in `.agents/design.md` and the path to the
-first release in `.agents/roadmap.md`; the R and C interfaces described there
-are not implemented yet.
+first release in `.agents/roadmap.md`. The vendored backend builds and is
+verified against published test vectors, but the R and C interfaces described
+there are not implemented yet: `crypt_info()` is the only exported function
+today.
 
 ## Installation
 

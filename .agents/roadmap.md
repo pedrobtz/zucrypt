@@ -87,6 +87,14 @@ package.)
 
 ## Stage 1 — Backend spike
 
+**Resolved. The evidence and every decision it settled are in
+[stage-1-spike.md](stage-1-spike.md); this section is the plan it was executed against, kept
+as written.** Three things came out differently from the plan below, each recorded there with
+its reason: Mbed TLS is not vendored at all (TF-PSA-Crypto is the whole crypto library in 4.x,
+so there is one manifest row, not two), the vendored tree is flattened to `inc/` and `lib/`
+because upstream's own paths exceed the 100-byte tarball limit, and `vendor-upstream.yaml` has
+one job rather than two, for the first reason.
+
 Goal: resolve the four backend decisions in design §14 with evidence, and prove a source install
 of the vendored crypto subset on macOS, Windows (Rtools) and Linux.
 
@@ -136,10 +144,11 @@ Work items:
   vendored file whose checksum was re-recorded to match passes verification and
   is still unreproducible from the manifest.
 - CI: add `vendor-upstream.yaml` calling `vendor-upstream.yml` on a weekly
-  schedule, with `upstream-repo: Mbed-TLS/mbedtls` and a `current-version`
-  command reading the pinned release out of the manifest. Add a second job for
+  schedule, with a `current-version` command reading the pinned release out of
+  the manifest. The plan called for two jobs, `Mbed-TLS/mbedtls` and
   `Mbed-TLS/TF-PSA-Crypto`, since 4.x splits the crypto dependency out and a
-  stale pin on either half is the same defect. It never fails the check, and it
+  stale pin on either half would be the same defect; the spike found that no
+  Mbed TLS file is vendored, so there is one. It never fails the check, and it
   reports upstream security advisories — which is the automation behind design
   3's "Ship security updates promptly. Vendored code does not receive fixes
   merely because the operating system is updated."

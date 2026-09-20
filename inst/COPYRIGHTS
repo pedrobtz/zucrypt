@@ -1,0 +1,51 @@
+zucrypt: copyright and licensing of all included files
+======================================================
+
+zucrypt itself
+--------------
+
+Everything outside src/vendor/ is Copyright (c) 2026 Pedro Baltazar and is
+licensed under the MIT licence; see the LICENSE file at the top of the
+package.
+
+That includes the files that configure and adapt the vendored backend:
+
+    src/zuc_crypto_config.h   the TF-PSA-Crypto build configuration, which
+                              replaces upstream's psa/crypto_config.h
+    src/zuc_random.c          the operating-system random source the backend
+                              is configured to call out to
+    src/zuc_backend.c         backend bring-up and version reporting
+    src/zucrypt_r.c           the R entry points
+    src/Makevars              the build, including the explicit object list
+
+
+Third-party code: TF-PSA-Crypto
+-------------------------------
+
+    Location:  src/vendor/tf-psa-crypto/
+    Upstream:  https://github.com/Mbed-TLS/TF-PSA-Crypto
+    Release:   tf-psa-crypto-1.1.1
+    Licence:   Apache-2.0
+    Copyright: Copyright The Mbed TLS Contributors
+
+TF-PSA-Crypto is published under a dual Apache-2.0 OR GPL-2.0-or-later
+licence, the recipient choosing between them. zucrypt takes it under
+Apache-2.0. The full text of both licences, as upstream ships it, is in
+src/vendor/tf-psa-crypto/LICENSE.
+
+Apache-2.0 and MIT are compatible: each file keeps its own terms, and a
+recipient of this package receives the vendored files under Apache-2.0 and
+everything else under MIT.
+
+Only part of the upstream release is included here. The vendored tree is the
+dependency closure of the sources that carry a symbol under
+src/zuc_crypto_config.h -- 109 files of an archive with several thousand. The
+exact list is tools/vendor/keep/tf-psa-crypto.txt, the release and its
+checksum are in tools/vendor/manifest.tsv, and tools/vendor/verify checks
+offline that the tree, the manifest, the build configuration and this file all
+agree.
+
+No upstream file is modified. Local changes, if any are ever needed, are
+carried as patch files under tools/patches/<source>/ and applied by
+tools/vendor/fetch, and each one is listed in the manifest's `patches` column
+and named here. Today there are none.

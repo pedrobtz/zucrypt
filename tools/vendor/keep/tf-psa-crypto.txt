@@ -1,0 +1,135 @@
+# Files kept from the tf-psa-crypto release archive, and where they land.
+#
+# Two columns, whitespace separated: the path inside src/vendor/tf-psa-crypto/
+# first, then the path inside the upstream archive it is copied from.
+# tools/vendor/fetch reads this file; tools/vendor/verify checks the tree
+# against it in both directions.
+#
+# The list is not hand-written. It is the dependency closure of the sources
+# that carry a symbol under src/zuc_crypto_config.h: compile all 77 upstream
+# sources under that configuration, keep the 18 whose object defines anything
+# (the rest are guarded down to empty translation units), and take every
+# header those 18 actually include, with `cc -MM`. See
+# .agents/stage-1-spike.md for the method and how to redo it after a release
+# bump.
+#
+# The layout is flattened to two directories rather than mirroring upstream's
+# six, and that is not tidiness. R CMD check rejects a tarball path over 100
+# bytes, and upstream's own
+#   drivers/builtin/include/mbedtls/private/crypto_adjust_config_enable_builtins.h
+# is over it before src/vendor/ is even prefixed. It is the same limit that
+# makes deep vendored trees fail to unpack on Windows. Two -I roots -- inc/
+# for the public and private header hierarchies, lib/ for sources and their
+# neighbouring private headers -- keep every path inside the limit, and
+# tools/vendor/verify measures them so a future release cannot creep back
+# over it. Within inc/ the mbedtls/, psa/ and tf-psa-crypto/ prefixes are
+# upstream's own #include paths and cannot be touched.
+LICENSE                                                          LICENSE
+inc/mbedtls/asn1.h                                               include/mbedtls/asn1.h
+inc/mbedtls/asn1write.h                                          include/mbedtls/asn1write.h
+inc/mbedtls/compat-3-crypto.h                                    include/mbedtls/compat-3-crypto.h
+inc/mbedtls/constant_time.h                                      include/mbedtls/constant_time.h
+inc/mbedtls/md.h                                                 include/mbedtls/md.h
+inc/mbedtls/pk.h                                                 include/mbedtls/pk.h
+inc/mbedtls/platform.h                                           include/mbedtls/platform.h
+inc/mbedtls/platform_util.h                                      include/mbedtls/platform_util.h
+inc/mbedtls/private/aes.h                                        drivers/builtin/include/mbedtls/private/aes.h
+inc/mbedtls/private/bignum.h                                     drivers/builtin/include/mbedtls/private/bignum.h
+inc/mbedtls/private/camellia.h                                   drivers/builtin/include/mbedtls/private/camellia.h
+inc/mbedtls/private/ccm.h                                        drivers/builtin/include/mbedtls/private/ccm.h
+inc/mbedtls/private/chacha20.h                                   drivers/builtin/include/mbedtls/private/chacha20.h
+inc/mbedtls/private/chachapoly.h                                 drivers/builtin/include/mbedtls/private/chachapoly.h
+inc/mbedtls/private/cipher.h                                     drivers/builtin/include/mbedtls/private/cipher.h
+inc/mbedtls/private/cmac.h                                       drivers/builtin/include/mbedtls/private/cmac.h
+inc/mbedtls/private/crypto_adjust_config_enable_builtins.h       drivers/builtin/include/mbedtls/private/crypto_adjust_config_enable_builtins.h
+inc/mbedtls/private/crypto_adjust_config_tweak_builtins.h        drivers/builtin/include/mbedtls/private/crypto_adjust_config_tweak_builtins.h
+inc/mbedtls/private/crypto_builtin_composites.h                  drivers/builtin/include/mbedtls/private/crypto_builtin_composites.h
+inc/mbedtls/private/crypto_builtin_key_derivation.h              drivers/builtin/include/mbedtls/private/crypto_builtin_key_derivation.h
+inc/mbedtls/private/crypto_builtin_primitives.h                  drivers/builtin/include/mbedtls/private/crypto_builtin_primitives.h
+inc/mbedtls/private/ecdsa.h                                      drivers/builtin/include/mbedtls/private/ecdsa.h
+inc/mbedtls/private/ecjpake.h                                    drivers/builtin/include/mbedtls/private/ecjpake.h
+inc/mbedtls/private/ecp.h                                        drivers/builtin/include/mbedtls/private/ecp.h
+inc/mbedtls/private/entropy.h                                    drivers/builtin/include/mbedtls/private/entropy.h
+inc/mbedtls/private/error_common.h                               drivers/builtin/include/mbedtls/private/error_common.h
+inc/mbedtls/private/gcm.h                                        drivers/builtin/include/mbedtls/private/gcm.h
+inc/mbedtls/private/md5.h                                        drivers/builtin/include/mbedtls/private/md5.h
+inc/mbedtls/private/pk_private.h                                 include/mbedtls/private/pk_private.h
+inc/mbedtls/private/poly1305.h                                   drivers/builtin/include/mbedtls/private/poly1305.h
+inc/mbedtls/private/ripemd160.h                                  drivers/builtin/include/mbedtls/private/ripemd160.h
+inc/mbedtls/private/rsa.h                                        drivers/builtin/include/mbedtls/private/rsa.h
+inc/mbedtls/private/sha1.h                                       drivers/builtin/include/mbedtls/private/sha1.h
+inc/mbedtls/private/sha256.h                                     drivers/builtin/include/mbedtls/private/sha256.h
+inc/mbedtls/private/sha3.h                                       drivers/builtin/include/mbedtls/private/sha3.h
+inc/mbedtls/private/sha512.h                                     drivers/builtin/include/mbedtls/private/sha512.h
+inc/mbedtls/private_access.h                                     drivers/builtin/include/mbedtls/private_access.h
+inc/mbedtls/psa_util.h                                           include/mbedtls/psa_util.h
+inc/mbedtls/threading.h                                          include/mbedtls/threading.h
+inc/psa/crypto.h                                                 include/psa/crypto.h
+inc/psa/crypto_compat.h                                          include/psa/crypto_compat.h
+inc/psa/crypto_driver_common.h                                   include/psa/crypto_driver_common.h
+inc/psa/crypto_driver_contexts_composites.h                      include/psa/crypto_driver_contexts_composites.h
+inc/psa/crypto_driver_contexts_key_derivation.h                  include/psa/crypto_driver_contexts_key_derivation.h
+inc/psa/crypto_driver_contexts_primitives.h                      include/psa/crypto_driver_contexts_primitives.h
+inc/psa/crypto_driver_random.h                                   include/psa/crypto_driver_random.h
+inc/psa/crypto_extra.h                                           include/psa/crypto_extra.h
+inc/psa/crypto_platform.h                                        include/psa/crypto_platform.h
+inc/psa/crypto_sizes.h                                           include/psa/crypto_sizes.h
+inc/psa/crypto_struct.h                                          include/psa/crypto_struct.h
+inc/psa/crypto_types.h                                           include/psa/crypto_types.h
+inc/psa/crypto_values.h                                          include/psa/crypto_values.h
+inc/tf-psa-crypto/build_info.h                                   include/tf-psa-crypto/build_info.h
+inc/tf-psa-crypto/private/crypto_adjust_config_auto_enabled.h    include/tf-psa-crypto/private/crypto_adjust_config_auto_enabled.h
+inc/tf-psa-crypto/private/crypto_adjust_config_dependencies.h    include/tf-psa-crypto/private/crypto_adjust_config_dependencies.h
+inc/tf-psa-crypto/private/crypto_adjust_config_derived.h         include/tf-psa-crypto/private/crypto_adjust_config_derived.h
+inc/tf-psa-crypto/private/crypto_adjust_config_key_pair_types.h  include/tf-psa-crypto/private/crypto_adjust_config_key_pair_types.h
+inc/tf-psa-crypto/private/crypto_adjust_config_support.h         include/tf-psa-crypto/private/crypto_adjust_config_support.h
+inc/tf-psa-crypto/private/crypto_adjust_config_synonyms.h        include/tf-psa-crypto/private/crypto_adjust_config_synonyms.h
+lib/aes.c                                                        drivers/builtin/src/aes.c
+lib/alignment.h                                                  core/alignment.h
+lib/check_crypto_config.h                                        core/check_crypto_config.h
+lib/cipher.c                                                     drivers/builtin/src/cipher.c
+lib/cipher_invasive.h                                            drivers/builtin/src/cipher_invasive.h
+lib/cipher_wrap.c                                                drivers/builtin/src/cipher_wrap.c
+lib/cipher_wrap.h                                                drivers/builtin/src/cipher_wrap.h
+lib/constant_time.c                                              utilities/constant_time.c
+lib/constant_time_impl.h                                         utilities/constant_time_impl.h
+lib/constant_time_internal.h                                     utilities/constant_time_internal.h
+lib/ctr.h                                                        drivers/builtin/src/ctr.h
+lib/pk_wrap.h                                                    extras/pk_wrap.h
+lib/platform_util.c                                              platform/platform_util.c
+lib/psa_crypto.c                                                 core/psa_crypto.c
+lib/psa_crypto_aead.h                                            drivers/builtin/src/psa_crypto_aead.h
+lib/psa_crypto_cipher.c                                          drivers/builtin/src/psa_crypto_cipher.c
+lib/psa_crypto_cipher.h                                          drivers/builtin/src/psa_crypto_cipher.h
+lib/psa_crypto_client.c                                          core/psa_crypto_client.c
+lib/psa_crypto_core.h                                            core/psa_crypto_core.h
+lib/psa_crypto_core_common.h                                     core/psa_crypto_core_common.h
+lib/psa_crypto_driver_wrappers.h                                 core/psa_crypto_driver_wrappers.h
+lib/psa_crypto_driver_wrappers_no_static.c                       core/psa_crypto_driver_wrappers_no_static.c
+lib/psa_crypto_driver_wrappers_no_static.h                       dispatch/psa_crypto_driver_wrappers_no_static.h
+lib/psa_crypto_ecp.h                                             drivers/builtin/src/psa_crypto_ecp.h
+lib/psa_crypto_ffdh.h                                            drivers/builtin/src/psa_crypto_ffdh.h
+lib/psa_crypto_hash.c                                            drivers/builtin/src/psa_crypto_hash.c
+lib/psa_crypto_hash.h                                            drivers/builtin/src/psa_crypto_hash.h
+lib/psa_crypto_invasive.h                                        core/psa_crypto_invasive.h
+lib/psa_crypto_mac.c                                             drivers/builtin/src/psa_crypto_mac.c
+lib/psa_crypto_mac.h                                             drivers/builtin/src/psa_crypto_mac.h
+lib/psa_crypto_pake.h                                            drivers/builtin/src/psa_crypto_pake.h
+lib/psa_crypto_random.h                                          core/psa_crypto_random.h
+lib/psa_crypto_random_impl.h                                     core/psa_crypto_random_impl.h
+lib/psa_crypto_rsa.c                                             drivers/builtin/src/psa_crypto_rsa.c
+lib/psa_crypto_rsa.h                                             drivers/builtin/src/psa_crypto_rsa.h
+lib/psa_crypto_slot_management.c                                 core/psa_crypto_slot_management.c
+lib/psa_crypto_slot_management.h                                 core/psa_crypto_slot_management.h
+lib/psa_crypto_storage.h                                         core/psa_crypto_storage.h
+lib/psa_crypto_xof.h                                             drivers/builtin/src/psa_crypto_xof.h
+lib/psa_util.c                                                   core/psa_util.c
+lib/psa_util_internal.c                                          drivers/builtin/src/psa_util_internal.c
+lib/psa_util_internal.h                                          drivers/builtin/src/psa_util_internal.h
+lib/rsa_internal.h                                               drivers/builtin/src/rsa_internal.h
+lib/sha1.c                                                       drivers/builtin/src/sha1.c
+lib/sha256.c                                                     drivers/builtin/src/sha256.c
+lib/sha512.c                                                     drivers/builtin/src/sha512.c
+lib/tf_psa_crypto_common.h                                       core/tf_psa_crypto_common.h
+lib/tf_psa_crypto_platform_requirements.h                        core/tf_psa_crypto_platform_requirements.h
+lib/threading_internal.h                                         platform/threading_internal.h

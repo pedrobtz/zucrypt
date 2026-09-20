@@ -1,0 +1,43 @@
+# The vendored tree matches its manifest, from the shared reusable workflow in
+# pedrobtz/r-actions.
+#
+# Two halves, and the second is the one a verifier cannot do alone.
+# tools/vendor/verify answers "is this tree internally consistent" -- and a
+# hand-edited vendored file whose checksum was re-recorded to match it passes
+# that happily. The pull-request half asks the other question: did a change
+# under src/vendor/ come with a manifest change, which is the only way the
+# tree can be reproduced from the upstream archive.
+#
+# Every r-actions call in this repo is pinned to a commit with the tag in a
+# trailing comment; a tag is mutable. Bump deliberately, reading the diff.
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'src/vendor/**'
+      - 'src/Makevars'
+      - 'src/zuc_crypto_config.h'
+      - 'tools/vendor/**'
+      - 'tools/patches/**'
+      - 'inst/COPYRIGHTS'
+      - '.github/workflows/vendor.yaml'
+  pull_request:
+  workflow_dispatch:
+
+name: vendor.yaml
+
+permissions: read-all
+
+jobs:
+  # The workflow's defaults -- src/vendor, tools/vendor/verify,
+  # tools/vendor/manifest.tsv plus checksums.sha256 -- are exactly the family
+  # layout this package adopted, so nothing is configured here. That is the
+  # intended direction: adopt the layout rather than configure around it.
+  #
+  # This package's verifier checks more than the tree, because more than the
+  # tree has to agree: src/zuc_crypto_config.h against the manifest's define
+  # column, the Makevars object list against the trim, every vendored path
+  # against the 100-byte tarball limit, and inst/COPYRIGHTS against both the
+  # licence and the (currently empty) patch set. See .agents/stage-1-spike.md.
+  vendor:
+    uses: pedrobtz/r-actions/.github/workflows/vendor.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0

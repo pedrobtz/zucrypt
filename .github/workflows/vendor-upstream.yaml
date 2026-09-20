@@ -1,0 +1,53 @@
+# Watch TF-PSA-Crypto for releases, from the shared reusable workflow in
+# pedrobtz/r-actions.
+#
+# vendor.yaml guards against drift -- a vendored file that no longer matches
+# the manifest. This guards against staleness, which no amount of green CI
+# detects: the pinned copy can sit here for a year while upstream ships fixes
+# for it. Vendoring trades a system dependency for the job of watching
+# upstream yourself, and design.md section 4 makes that explicit -- "vendored
+# code does not receive fixes merely because the operating system is updated".
+# This is the automation behind that sentence. For a static-archive consumer
+# the fix only lands when the consumer is reinstalled, so noticing early
+# matters more here than it would for a package with no ABI.
+#
+# It never fails a check; it opens an issue. A scheduled job's summary is not
+# a place anyone looks.
+on:
+  schedule:
+    # Mondays, 07:00 UTC. Upstream releases on no fixed day; weekly is often
+    # enough to act on and rare enough not to be noise.
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+name: vendor-upstream.yaml
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  # One job, not two. The roadmap called for a second one watching
+  # Mbed-TLS/mbedtls, on the reasoning that 4.x splits the crypto dependency
+  # out and a stale pin on either half is the same defect. The spike settled
+  # it the other way: this package vendors no Mbed TLS file at all. In the 4.x
+  # architecture TF-PSA-Crypto *is* the cryptography library and Mbed TLS
+  # supplies only X.509 and TLS, neither of which is built here -- the
+  # mbedtls/ headers in src/vendor/ are TF-PSA-Crypto's own compatibility
+  # headers, from its archive. A watcher on a repository this package does not
+  # vendor would open issues nobody can act on, which is how a notifier
+  # becomes noise. See .agents/stage-1-spike.md section 1.
+  #
+  # current-version prints the manifest's `tag` column rather than
+  # `version_string`, because upstream tags releases `tf-psa-crypto-1.1.1`
+  # and the workflow compares against the tag as published. Comparing "1.1.1"
+  # would differ from every upstream tag forever, which is an alert that
+  # fires on the first run and every run after it.
+  tf-psa-crypto:
+    uses: pedrobtz/r-actions/.github/workflows/vendor-upstream.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    permissions:
+      contents: read
+      issues: write
+    with:
+      upstream-repo: Mbed-TLS/TF-PSA-Crypto
+      current-version: awk -F'\t' 'NR > 1 && $1 == "tf-psa-crypto" { print $3 }' tools/vendor/manifest.tsv
