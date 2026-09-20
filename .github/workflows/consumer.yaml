@@ -1,0 +1,96 @@
+# Builds and runs the consumer fixtures: both shapes zucrypt publishes.
+#
+# Bespoke, like abi.yaml: r-actions has no consumer workflow, because what a
+# package publishes is specific to that package. This is zukomp's shape,
+# adapted for the second shape zucrypt also has to support.
+#
+# Shape one is tests/consumer/zucrypttest, a real package with Imports: +
+# LinkingTo: + a real importFrom(), compiled against the installed headers
+# with nothing linked. Shape two is tools/check-linking.sh, a plain C program
+# that links inst/lib/libzucrypt.a and never involves R at run time.
+#
+# Neither is reachable from R CMD check, and both break silently.
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - '**.md'
+      - '!tests/**'
+      - 'vignettes/**'
+      - '_pkgdown.yml'
+      - '.agents/**'
+      - 'docs/**'
+  pull_request:
+  workflow_dispatch:
+
+name: consumer.yaml
+
+permissions: read-all
+
+jobs:
+  consumer:
+    runs-on: ${{ matrix.os }}
+    name: consumer (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    # `R CMD INSTALL .` is a shell command line, not a PowerShell one. On
+    # Windows the default shell is pwsh, which resolves `R` to its own
+    # Invoke-History alias and then reports "A positional parameter cannot be
+    # found that accepts argument 'INSTALL'" -- an error that names neither R
+    # nor the real problem. Rtools ships bash, so every step here uses it.
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          http-user-agent: release
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::testthat
+          needs: check
+
+      - name: Install zucrypt
+        run: R CMD INSTALL --preclean .
+
+      - name: Install the consumer fixture
+        run: R CMD INSTALL tests/consumer/zucrypttest
+
+      # Fails when zero tests are discovered. `any()` over an empty vector is
+      # FALSE and `all()` is TRUE, so a fixture that silently stopped being
+      # found is otherwise a green job that proved nothing -- which is worse
+      # than a red one, because nobody looks at it again.
+      - name: Run the fixture's tests
+        shell: Rscript {0}
+        run: |
+          setwd("tests/consumer/zucrypttest")
+          res <- testthat::test_local(stop_on_failure = FALSE, reporter = "summary")
+          df <- as.data.frame(res)
+          n <- sum(df$passed) + sum(df$failed)
+          cat(sprintf("discovered %d assertions in %d files\n", n, nrow(df)))
+          if (nrow(df) == 0L || n == 0L) {
+            stop("no tests were discovered: the fixture proved nothing")
+          }
+          if (sum(df$failed) > 0L || any(df$error)) {
+            stop("consumer fixture failed")
+          }
+
+      # Shape two. Windows is excluded: the check compiles a plain C program
+      # with `cc`, and doing that portably under Rtools is a different script,
+      # not a different flag. The archive itself is built and installed on
+      # Windows by every R-CMD-check run, and test-linking.R audits it there.
+      - name: Link the static archive from a C program
+        if: runner.os != 'Windows'
+        run: sh tools/check-linking.sh

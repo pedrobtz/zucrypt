@@ -1,0 +1,22 @@
+Package: zucrypttest
+Title: Consumer Fixture for the zucrypt C API
+Version: 0.0.1
+Authors@R: 
+    person("Pedro", "Baltazar", , "pedrobtz@gmail.com", role = c("aut", "cre"))
+Description: Not a real package and never published. It exists to prove that
+    zucrypt's registered function table can actually be consumed from another
+    package's C code: LinkingTo for the headers, Imports plus a real
+    importFrom() in NAMESPACE so the namespace is loaded and the C-callable
+    is resolvable. It is built and run only by consumer.yaml.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: 
+    R (>= 4.1)
+Imports: 
+    zucrypt
+LinkingTo: 
+    zucrypt
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+RoxygenNote: 7.3.2

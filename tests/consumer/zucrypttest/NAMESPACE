@@ -1,0 +1,17 @@
+# Written by hand; this fixture has no roxygen pass.
+#
+# The importFrom() is not decoration. `Imports: zucrypt` alone does not load
+# zucrypt's namespace, and without a real import directive the DLL may not be
+# loaded when this package's C code first asks R_GetCCallable() for the
+# table. That failure is exactly what this fixture exists to catch, so the
+# fixture is set up the way a real consumer must be.
+importFrom(zucrypt, crypt_info)
+
+useDynLib(zucrypttest, .registration = TRUE)
+
+export(api_available)
+export(abi_rejects_wrong_version)
+export(exercise_table)
+export(derive_key)
+export(decrypt_segments)
+export(linked_backend)

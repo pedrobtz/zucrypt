@@ -298,6 +298,12 @@ Exit: `devtools::check()` clean; `NAMESPACE` exports exactly the six `crypt_*` f
 
 ## Stage 4 — Public C API
 
+**Done.** One deviation: `consumer.yaml` runs the fixture on Linux, macOS and Windows, but
+`tools/check-linking.sh` only on the first two. It compiles a plain C program with `cc`, and
+doing that portably under Rtools is a different script rather than a different flag; the
+archive itself is built and installed on Windows by every `R-CMD-check` run, and
+`test-linking.R` audits it there.
+
 Goal: the design §8.2 table, with a compiled consumer proving each shape. (The archive shape
 exists since Stage 2; this stage adds its consumer proof.)
 
