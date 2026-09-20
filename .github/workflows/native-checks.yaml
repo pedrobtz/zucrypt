@@ -36,14 +36,19 @@ jobs:
   # executes, gctorture provokes real collections and catches what static
   # reasoning misses.
   #
-  # rchk starts informational. It becomes gating the moment it reads zero, with
-  # a `baseline:` file ready for the first false positive -- a boolean gate has
-  # one bad day in it, and what happens on that day is that someone sets it to
-  # false and the gate is gone for good.
+  # Gating, as of the run that first read zero: "rchk found no PROTECT issues
+  # outside the baseline", with an empty baseline. It landed informational one
+  # commit earlier and was turned on once there was evidence, rather than
+  # optimistically -- a gate switched on before it has ever been green is a
+  # gate somebody switches off.
+  #
+  # The `baseline:` input is the answer to the first false positive. Use it
+  # rather than setting this back to false: a boolean gate has one bad day in
+  # it, and what happens on that day is that it goes to false and stays there.
   rchk:
     uses: pedrobtz/r-actions/.github/workflows/rchk.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
     with:
-      fail-on-findings: false
+      fail-on-findings: true
 
   # The entry points in src/zucrypt_crypt.c check for an interrupt between
   # chunks, which means a longjmp past whatever C had allocated -- and what it
@@ -123,13 +128,16 @@ jobs:
   # handling in the adapter, by volume.
   #
   # exclude: src/vendor because upstream's findings are not ours to fix and a
-  # report full of them is one people learn to skip. Informational until it
-  # reads zero, then gated.
+  # report full of them is one people learn to skip. The exclusion is doing
+  # real work: the run that first read zero reported "0 finding(s) outside
+  # excluded paths, 9 inside".
+  #
+  # Gating for the same reason and on the same evidence as rchk above.
   analyzers:
     uses: pedrobtz/r-actions/.github/workflows/analyzers.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
     with:
       exclude: src/vendor
-      fail-on-findings: false
+      fail-on-findings: true
 
   # Bespoke, like abi.yaml and consumer.yaml at Stage 4: r-actions has
   # no layering job, because what counts as a layer is specific to what a
