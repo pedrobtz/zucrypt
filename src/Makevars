@@ -87,6 +87,7 @@ ADAPTER_OBJECTS = \
 # nobody runs it tests nothing.
 OBJECTS = \
   zucrypt_r.o \
+  zucrypt_crypt.o \
   zucrypt_test.o \
   $(ADAPTER_OBJECTS)
 

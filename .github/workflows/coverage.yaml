@@ -1,0 +1,65 @@
+# Test coverage, from the shared reusable workflow in pedrobtz/r-actions.
+#
+# NOTE ON ORDERING: this workflow was removed at Stage 0 and returns here, at
+# Stage 3. Its first version said to land it with the first test file, and that
+# was the wrong trigger: covr instruments the package's R/, not its tests. With
+# no function to measure, covr::percent_coverage() is NaN and the badge step
+# fails comparing NaN to a threshold -- a red job that says nothing about the
+# package. Stage 3 is where R/ first holds functions, so it is where this can
+# report anything at all.
+on:
+  push:
+    branches: [main, master]
+    # The badge path prevents a push loop when this workflow commits an
+    # updated badge; the rest are prose -- nothing in a .md file or in
+    # .agents/ changes what fraction of the code the tests execute.
+    paths-ignore:
+      - ".github/badges/coverage.svg"
+      - '**.md'
+      - 'vignettes/**'
+      - '_pkgdown.yml'
+      - '.agents/**'
+      - 'docs/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'vignettes/**'
+      - '_pkgdown.yml'
+      - '.agents/**'
+      - 'docs/**'
+  workflow_dispatch:
+
+name: coverage.yaml
+
+# The reusable workflow commits the rendered badge to .github/badges on push,
+# so it needs write access to contents; a called workflow cannot request more
+# than the caller grants. Pull requests still compute coverage and write the
+# job summary, but skip the commit.
+permissions:
+  contents: write
+
+jobs:
+  coverage:
+    uses: pedrobtz/r-actions/.github/workflows/coverage.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    permissions:
+      contents: write
+    with:
+      # This package is the shape the `native` input was written for: a thin R
+      # wrapper (six functions, design §7) over a C adapter and a vendored
+      # library. covr measures the R, and that number reads close to perfect
+      # while most of the C is never executed.
+      #
+      # Read the "taken at least once" column, not the line coverage. The
+      # adapter is error handling by volume -- design §11 requires destroying
+      # partial contexts after any failed init, and every one of those is an
+      # `if (st != ZUC_OK)` whose line runs on the happy path and whose branch
+      # does not. Stage 5's alloc-failure job is what finally executes them.
+      native: true
+
+      # native-exclude stays empty on purpose, even though src/vendor/ is
+      # 18 objects of someone else's code. How much of the vendored crypto the
+      # tests actually reach is the question worth asking, and a low figure
+      # there may be entirely correct -- src/zuc_crypto_config.h builds a
+      # configured subset, and a subset still carries paths this package never
+      # calls.
+      native-exclude: ""

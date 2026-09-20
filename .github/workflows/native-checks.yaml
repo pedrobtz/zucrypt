@@ -30,6 +30,30 @@ jobs:
   lto:
     uses: pedrobtz/r-actions/.github/workflows/lto.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
 
+  # This is the first stage with R-facing C, so it is the first stage that can
+  # have PROTECT bugs. rchk and gctorture are complements, not alternatives:
+  # rchk reasons statically about the PROTECT stack and reaches code no test
+  # executes, gctorture provokes real collections and catches what static
+  # reasoning misses.
+  #
+  # rchk starts informational. It becomes gating the moment it reads zero, with
+  # a `baseline:` file ready for the first false positive -- a boolean gate has
+  # one bad day in it, and what happens on that day is that someone sets it to
+  # false and the gate is gone for good.
+  rchk:
+    uses: pedrobtz/r-actions/.github/workflows/rchk.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    with:
+      fail-on-findings: false
+
+  # The entry points in src/zucrypt_crypt.c check for an interrupt between
+  # chunks, which means a longjmp past whatever C had allocated -- and what it
+  # has allocated is a context holding key material. The external-pointer
+  # finalizer is what makes that safe, and gctorture is what actually exercises
+  # it: every allocation triggers a collection, so a context that is reachable
+  # only from an unprotected local is collected while still in use.
+  gctorture:
+    uses: pedrobtz/r-actions/.github/workflows/gctorture.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+
   # Bespoke, like abi.yaml and consumer.yaml will be at Stage 4: r-actions has
   # no layering job, because what counts as a layer is specific to what a
   # package publishes. This one enforces design.md sections 8.1 and 8.3 -- the

@@ -43,5 +43,6 @@ test_that("the backend is compiled in at the pinned version", {
   # installed, so tools/vendor/verify cross-checks this literal from the
   # other side -- the same arrangement zukomp uses for miniz.
   vendored <- crypt_info()$vendored
-  expect_identical(vendored$version[vendored$source == "tf-psa-crypto"], "1.1.1")
+  expect_identical(vendored$source, "TF-PSA-Crypto")
+  expect_identical(vendored$version, "1.1.1")
 })
