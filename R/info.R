@@ -7,9 +7,19 @@
 # Not exported. design.md section 7 fixes the R surface at six functions, and
 # this is reachable through crypt_info()$algorithms, which is where a user
 # should be looking anyway.
-available_algorithms <- function() {
-  .Call(zucrypt_algorithms)
-}
+# Cached, like zuc_status_codes() in R/conditions.R: the answer is fixed at
+# compile time, and check_algorithm() runs on every crypt_hash() and
+# crypt_hmac() call. Uncached this was a native call per call, which is the
+# whole per-call cost doubled for a loop that hashes many small inputs --
+# which is exactly the shape of the Office derivation this package exists to
+# support.
+available_algorithms <- local({
+  cache <- NULL
+  function() {
+    if (is.null(cache)) cache <<- .Call(zucrypt_algorithms)
+    cache
+  }
+})
 
 #' Report what this build of zucrypt contains
 #'
@@ -49,15 +59,15 @@ crypt_info <- function() {
 
   list(
     version = utils::packageVersion("zucrypt"),
-    abi_version = as.integer(backend[["abi_version"]]),
+    abi_version = backend[["abi_version"]],
     algorithms = available_algorithms(),
     vendored = data.frame(
-      source = unname(backend[["backend_name"]]),
-      version = unname(backend[["backend_version"]]),
+      source = backend[["backend_name"]],
+      version = backend[["backend_version"]],
       stringsAsFactors = FALSE
     ),
     build_flags = list(
-      random_backend = unname(backend[["random_backend"]]),
+      random_backend = backend[["random_backend"]],
       # Off everywhere, deliberately: MBEDTLS_HAVE_ASM, AESNI and AESCE are
       # set only by upstream's default configuration, which
       # src/zuc_crypto_config.h replaces. Every platform runs the same C and

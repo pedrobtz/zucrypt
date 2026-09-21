@@ -55,9 +55,10 @@ NULL
 #' @rdname crypt_aes_cbc
 #' @export
 crypt_aes_cbc_encrypt <- function(data, key, iv) {
-  check_raw(data, "data")
   check_aes_key(key)
   check_aes_iv(iv)
+  # check_block_multiple() checks the type as well as the length, so a
+  # separate check_raw(data) here would report the same problem twice.
   check_block_multiple(data)
 
   res <- .Call(zucrypt_aes_cbc, data, key, iv, TRUE)
@@ -70,9 +71,10 @@ crypt_aes_cbc_encrypt <- function(data, key, iv) {
 #' @rdname crypt_aes_cbc
 #' @export
 crypt_aes_cbc_decrypt <- function(data, key, iv) {
-  check_raw(data, "data")
   check_aes_key(key)
   check_aes_iv(iv)
+  # check_block_multiple() checks the type as well as the length, so a
+  # separate check_raw(data) here would report the same problem twice.
   check_block_multiple(data)
 
   res <- .Call(zucrypt_aes_cbc, data, key, iv, FALSE)
