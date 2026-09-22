@@ -4,34 +4,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Roadmap Stages 0–6 are complete; the package is at version 0.1.0 with the C ABI frozen at
-`ZUCRYPT_ABI_VERSION 1`. The package builds a vendored TF-PSA-Crypto 1.1.1 crypto
-subset from source, exports exactly the six `crypt_*` functions of design §7, and publishes
-both consumer shapes: the registered function table (`inst/include/zucrypt-r.h`,
-`zucrypt_get_api`) and the static archive (`inst/lib/libzucrypt.a`). Stage 5, hardening and the
-remaining release gates, is the current stage.
+Roadmap Stages 0–5 are complete. Stage 6 is prepared but not finished: there is no `v0.1.0` tag
+and no GitHub release yet ([#27](https://github.com/pedrobtz/zucrypt/issues/27)), and it is the
+current stage. `DESCRIPTION` says 0.1.0 and the header says `ZUCRYPT_ABI_VERSION 1`, but
+whether that ABI is frozen before any consumer exists is an open decision (#28). The package
+builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the six
+`crypt_*` functions of design §7, and publishes both consumer shapes: the registered function
+table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the static archive
+(`inst/lib/libzucrypt.a`). The 2026-09-22 review at the end of the roadmap lists what is still
+open and why.
 
 Both shapes have a consumer proof, and neither is reachable from `R CMD check`.
 `tests/consumer/zucrypttest` is a real package with `Imports:` + `LinkingTo:` + a real
 `importFrom()`, built only by `consumer.yaml`; it calls every table entry, because a pointer
 that was never assigned is indistinguishable from a working one until something calls it.
-`tools/check-linking.sh` compiles a plain C program against the archive with no R involved.
-The next tracked work is the Agile integration in `zuxlsx`, which lives in that repository.
+`tools/check-linking.sh` compiles a plain C program against the archive with no R involved,
+which proves less than it looks: it never links into a package shared object, never runs
+beside `zucrypt.so`, and does not run on Windows (#32).
+The next tracked work is the Agile integration in `zuxlsx`, which lives in that repository
+([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)).
 
-**The ABI is frozen.** Within major version 1, functions and table fields may be *added*;
-nothing is removed, reordered or given a new meaning; enumerator values are permanent; and a
+**The ABI promise, pending #28.** Within major version 1, functions and table fields may be
+*added*; nothing is removed, reordered or given a new meaning; enumerator values are permanent; and a
 `ZUC_*_REQUIRED_SIZE` macro never grows. A layout change to a type `struct_size` cannot see
 renames the registered callable instead, so an old consumer fails at `R_GetCCallable()` rather
 than reading a structure that has moved. `?zucrypt_c_api` is the published statement of this.
 The Office derivation rehearsal lives in the fixture and is the ABI validation gate: it runs
-the generic `H_n = hash(int32le(n) || H_{n-1})` loop through one reused incremental context and
-compares it with an independent R implementation. It is not Office support and must not become
-it — no constants, no block keys, no salts.
+the generic `H_n = hash(int32le(n-1) || H_{n-1})` loop through one reused incremental context and
+compares it with an R implementation. That R implementation calls `crypt_hash()`, so it is
+independent of the reset path but not of the backend: it catches a missing or broken reset,
+not a wrong primitive. It is not Office support and must not become it — no constants, no
+block keys, no salts.
 
 The native layer is in two halves and the split is load-bearing. `src/zuc_*.c` is the adapter:
-R-free, and what goes into the archive. `src/zucrypt_r.c` and `src/zucrypt_test.c` are the R
-glue: backend-free, and not in the archive. `tools/check-layering.sh` enforces both directions
-in CI, because neither breaks loudly — including `R.h` in the adapter compiles fine here and
+R-free, and what goes into the archive. `src/zucrypt_r.c`, `src/zucrypt_crypt.c`,
+`src/zucrypt_api.c` and `src/zucrypt_test.c` are the R glue: backend-free, and not in the
+archive. `tools/check-layering.sh` enforces both directions in CI, because neither breaks loudly — including `R.h` in the adapter compiles fine here and
 fails much later in a consumer's build.
 
 `src/zucrypt_crypt.c` holds the entry points behind the six exports. Every context there is
@@ -50,8 +58,9 @@ decision it settled — the pinned release, the eleven-define configuration, the
 and how to re-derive it, the external-RNG choice, and the measurements. Read it before touching
 `src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.
 
-The real content of this repository is [.agents/design.md](.agents/design.md) — a detailed, *proposed*
-(not implemented) design. Read it before writing code; it is the authoritative spec for the API,
+The real content of this repository is [.agents/design.md](.agents/design.md) — the design,
+implemented in v0.1.0 for §3–§8 and §11–§12; §9 and §13 steps 3–6 are plans owned by `zuxlsx`
+and `zuhttp`. Read it before writing code; it is the authoritative spec for the API,
 boundaries and constraints summarised below, and it is where design changes belong.
 [.agents/roadmap.md](.agents/roadmap.md) breaks the path to v0.1.0 into stages with exit criteria;
 check which stage is current before starting work.
@@ -103,7 +112,8 @@ shared reusable workflows — never hand-rolled jobs. Two conventions:
   which workflow lands in which stage and why. A job that is green because it inspected nothing
   is worse than no job.
 
-Today: `R-CMD-check.yaml` (runners plus CRAN's clang-23/GCC-16 containers, `nosuggests` on),
+Today: `R-CMD-check.yaml` (runners plus the `clang23`, `ubuntu-clang` and `ubuntu-gcc16`
+containers, `nosuggests` on),
 `native-checks.yaml` (LTO, rchk, gctorture, sanitizers, valgrind, analyzers, and the bespoke
 layering check), `abi.yaml` and `consumer.yaml` (both bespoke), `coverage.yaml` (with
 `native: true`), `arch.yaml` and `alloc-failure.yaml` (weekly), `vendor.yaml` (the vendored tree matches its manifest, and a PR touching it updates that
@@ -112,6 +122,11 @@ manifest), `vendor-upstream.yaml` (weekly; opens an issue when TF-PSA-Crypto rel
 an r-actions call. The `nosuggests` leg checks with no `Suggests` installed, which is why `tests/testthat.R` wraps
 its `library(testthat)` in `requireNamespace()`. Anything else that reaches for a suggested
 package from a top-level test or example file must be guarded the same way.
+
+That guard has a cost the weekly jobs show. `arch.yaml` installs no `Suggests`, so its i386,
+musl and aarch64 legs build and check the package and run **no tests** — its first run, on
+2026-09-22, finished the test step in 0.2 s, and the i386 leg was green with a WARNING.
+`alloc-failure.yaml` has never run. Neither is evidence of anything until #31 closes.
 
 `rchk` and `analyzers` are informational until they read zero, then gated with
 `fail-on-findings: true`. A `baseline:` file is the answer to the first false positive: a
@@ -124,7 +139,7 @@ the sibling `zukomp` repo. `consumer.yaml` fails when zero tests are discovered:
 an empty vector is `FALSE`, so a fixture that silently stopped being found would otherwise be
 a green job that proved nothing.
 
-## Architecture (planned)
+## Architecture
 
 `zucrypt` is one package in the `zu*` family (siblings are checked out alongside it:
 `zuxlsx`, `zuxml`, `zukomp`, `zuhttp`, …). The boundary is strict and is the main thing to preserve:
@@ -132,7 +147,8 @@ a green job that proved nothing.
 - **`zucrypt` owns cryptographic primitives only** — hashes, HMAC, AES-CBC/ECB, constant-time
   compare, secure cleanup. It must never acquire XML, ZIP, Office, socket or TLS dependencies.
 - **Family conventions are binding** (design §3): C ABI prefix `zuc_`/`ZUC_` (never `zu_`,
-  which is `zukomp`'s public namespace and would not compile beside `zukomp.h` in `zuxlsx`);
+  which is `zukomp`'s public namespace and `zuhttp`'s internal one, so a `zucrypt.h` using it
+  could not be included beside `zukomp.h`; `zuxlsx` itself includes `miniz.h`, not `zukomp.h`);
   R exports `crypt_*`; entry points `zucrypt_*`; internal `zuc_int_*`; test-only
   `zucrypt_test_*`; condition classes `zucrypt_*`. `zukomp`'s CLAUDE.md is the reference.
 - **Office/Excel decryption orchestration lives in `zuxlsx`**, not here. The Office adapter owns
@@ -146,8 +162,12 @@ Three surfaces are exposed:
 1. A small R surface: `crypt_info()`, `crypt_hash()`, `crypt_hmac()`, `crypt_equal()`,
    `crypt_aes_cbc_encrypt()` / `crypt_aes_cbc_decrypt()`.
 2. A registered function table (`inst/include/zucrypt-r.h`, `zucrypt_api_v1`, resolved lazily
-   via `zucrypt_get_api`) for `zuhttp`-style consumers: `Imports:` + `LinkingTo:` + a real
-   `importFrom()`.
+   via `zucrypt_get_api`) for consumers that can carry `Imports:` + `LinkingTo:` + a real
+   `importFrom()`. `zuhttp` is the consumer this was *hoped* for, not a real one: its
+   `DESCRIPTION` has no `Imports:`, its design and roadmap never mention `zucrypt`, and its one
+   pin implementation hashes with the TLS backend's own SHA-256 (`EVP_sha256()` in
+   `zu_tls_openssl.c`; the other two backends refuse a pin) (#14). No table consumer exists
+   today (#28).
 3. A static archive `inst/lib/libzucrypt.a` for `zuxlsx`-style consumers (`LinkingTo:` +
    `configure` resolving `system.file("lib")`, no `Imports:`). It contains the R-free adapter
    plus vendored crypto — **not** raw upstream, unlike `zukomp`/`zuxml`'s archives — so consumers
@@ -170,6 +190,13 @@ to each other, and `tests/testthat/test-abi.R` asserts that the shared object ex
 - AES wrappers add/strip **no padding and no authentication**; keys must be 16/24/32 bytes, IVs
   exactly 16, data a multiple of 16. Authentication is the caller's responsibility.
 - SHA-1 and AES-ECB exist purely for Office compatibility and are never defaults for new formats.
+  ECB's only named use was Office Standard encryption, which `zuxlsx` put out of scope
+  (design-zuxlsx §21c, 2026-09-20), so it has no consumer; removal is proposed in #29.
+- The PSA key store is static: `src/zuc_crypto_config.h` does not define
+  `MBEDTLS_PSA_KEY_STORE_DYNAMIC`, so upstream's 32-slot default applies. Each `zuc_aes` takes
+  two slots (a CBC key and an ECB key) and each `zuc_hmac` one, so at most 16 AES handles can be
+  live per backend copy — shared, in `zucrypt.so`, by the R functions and every table consumer.
+  Exhaustion is reported as `ZUC_ERR_MEMORY`, not as a limit (#30).
 - No `encrypt_file(password = )`, no PBKDF2/HKDF/AEAD/RNG in the initial scope — each needs a
   concrete consumer first.
 - Any future randomness uses platform entropy or a seeded backend RNG, **never R's RNG**.

@@ -26,8 +26,8 @@ archive.
 
 The design named "Mbed TLS 4.1 LTS" as the candidate; the matching crypto
 release is TF-PSA-Crypto 1.1, and 1.1.1 is its current patch release. The
-version pairing matters for `vendor-upstream.yaml`, which watches both
-repositories: a new Mbed TLS 4.1.x with no TF-PSA-Crypto change is not a
+version pairing is why `vendor-upstream.yaml` watches TF-PSA-Crypto only, not
+both repositories: a new Mbed TLS 4.1.x with no TF-PSA-Crypto change is not a
 reason to move.
 
 ## 2. The minimal configuration
@@ -45,8 +45,11 @@ listed in the manifest's `defines` column and cross-checked by
 Nothing else. No public-key cryptography, no AEAD, no key derivation, no
 ChaCha20, no SHA-3, no SHA-224, no PKCS#7 padding, no X.509, no TLS, no
 persistent key storage. Everything is disabled through upstream's own
-configuration mechanism; no upstream file is edited, and `tools/patches/` is
-empty.
+configuration mechanism, and no upstream file is edited in place. When this
+section was written `tools/patches/` was empty; later in the same stage
+(515df48) it gained `0001-avoid-zero-size-pubkey-array.patch`, which removes a
+zero-size array upstream declares when no public-key algorithm is enabled — a
+GNU extension that `-Wpedantic` reports.
 
 The probe asserted the negative side too: `PSA_ALG_MD5` and `PSA_ALG_SHA_224`
 both return `PSA_ERROR_NOT_SUPPORTED` rather than working by accident.
@@ -132,9 +135,9 @@ source file with and there is no `configure` to probe with:
 | glibc ≥ 2.25 | `getrandom` |
 | anything else (musl, older glibc, Solaris) | `/dev/urandom` |
 
-`crypt_info()$random_backend` reports which one was compiled in, and
-`test-info.R` asserts it is one of those four — a preprocessor chain that fell
-through would report an empty string.
+`crypt_info()$build_flags$random_backend` reports which one was compiled in,
+and `tests/testthat/test-interface.R` asserts it is one of those four — a
+preprocessor chain that fell through would report an empty string.
 
 ## 6. Hardware acceleration: off, uniformly
 
