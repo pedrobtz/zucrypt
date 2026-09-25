@@ -1,7 +1,7 @@
 /* zucrypt: the native entry points behind the crypt_* functions.
  *
  * R-facing, so it speaks zuc_* and never PSA; tools/check-layering.sh
- * enforces that. It is not in inst/lib/libzucrypt.a.
+ * enforces that. It is not in libzucrypt.a.
  *
  * Two rules shape every function here.
  *

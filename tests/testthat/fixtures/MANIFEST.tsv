@@ -16,9 +16,6 @@ kat.tsv	hmac-sha384-01	RFC 4231 test case 1	tools/make-kat.R
 kat.tsv	hmac-sha512-01	RFC 4231 test case 1	tools/make-kat.R
 kat.tsv	hmac-sha256-02	RFC 4231 test case 2	tools/make-kat.R
 kat.tsv	hmac-sha512-02	RFC 4231 test case 2	tools/make-kat.R
-kat.tsv	aes-ecb-aes128-01	NIST SP 800-38A F.1.1 (ECB-AES128.Encrypt)	tools/make-kat.R
-kat.tsv	aes-ecb-aes192-01	NIST SP 800-38A F.1.3 (ECB-AES192.Encrypt)	tools/make-kat.R
-kat.tsv	aes-ecb-aes256-01	NIST SP 800-38A F.1.5 (ECB-AES256.Encrypt)	tools/make-kat.R
 kat.tsv	aes-cbc-aes128-01	NIST SP 800-38A F.2.1 (CBC-AES128.Encrypt)	tools/make-kat.R
 kat.tsv	aes-cbc-aes192-01	NIST SP 800-38A F.2.3 (CBC-AES192.Encrypt)	tools/make-kat.R
 kat.tsv	aes-cbc-aes256-01	NIST SP 800-38A F.2.5 (CBC-AES256.Encrypt)	tools/make-kat.R

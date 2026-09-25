@@ -22,10 +22,10 @@ installed_path <- function(...) {
 # Where the archive lives, resolved exactly the way a consumer resolves it.
 #
 # This mirrors zuxlsx's configure line for its sibling archives: try
-# lib/<r_arch> first, fall back to plain lib. Both layouts exist in the
-# family -- zukomp installs under R_ARCH, zuxml and this package install
-# arch-neutral -- and a consumer has to cope with either, so the test asserts
-# what the consumer actually does rather than one hard-coded spelling.
+# lib/<r_arch> first, fall back to plain lib. This package installs under
+# R_ARCH, as zukomp does, but zuxml still installs arch-neutral and a
+# consumer's configure copes with either, so the helper resolves the way that
+# configure does; test-linking.R separately asserts where the archive is.
 #
 # Assuming lib/<r_arch> here is what failed on Windows: .Platform$r_arch is
 # "x64" there and empty on Linux and macOS, so a single-path helper passes on

@@ -3,9 +3,11 @@
 #' @description
 #' zucrypt publishes its primitives to other packages twice, because the
 #' `zu*` family consumes siblings in two different ways. Both deliver the
-#' same library; they differ in what the consumer has to carry.
+#' same library; they differ in what the consumer has to carry, and in how
+#' stable they are: the static archive is the primary shape, and the
+#' registered table is experimental. See the Stability section.
 #'
-#' @section Shape one, the registered function table:
+#' @section Shape one, the registered function table (experimental):
 #' For a package that can carry an `Imports:`. Nothing is linked: R's
 #' registered C-callable mechanism hands over a single versioned table of
 #' function pointers.
@@ -26,7 +28,7 @@
 #'
 #' const zucrypt_api_v1 *api = zucrypt_api();
 #' if (api == NULL) {
-#'     /* zucrypt is missing, or too old for the ABI this was built against */
+#'     /* zucrypt does not implement the ABI version this was built against */
 #' }
 #' uint8_t out[ZUC_MAX_DIGEST_SIZE];
 #' size_t n;
@@ -42,7 +44,16 @@
 #' sidesteps the remaining ordering problem, but the import directive is
 #' still required.
 #'
-#' @section Shape two, the static archive:
+#' **`NULL` means a version mismatch, and nothing else.** When zucrypt is not
+#' installed or not loaded, `R_GetCCallable()` does not return `NULL`: it
+#' raises an R error, which longjmps out of your C code. Resolve the table
+#' before you acquire anything such a jump would strand.
+#'
+#' A table field added after the one you built against may be missing from
+#' an older zucrypt: test with `ZUCRYPT_API_HAS(api, field)` before calling
+#' it.
+#'
+#' @section Shape two, the static archive (primary):
 #' For a package that cannot carry an `Imports:` -- `zuxlsx` links its
 #' siblings statically and has no runtime dependency on them by design.
 #'
@@ -59,9 +70,15 @@
 #' the linker as two arguments. Then include `<zucrypt.h>` and call the
 #' functions directly.
 #'
+#' The archive is installed to `lib/` plus the R sub-architecture -- plain
+#' `lib/` on Linux and macOS, `lib/x64/` on Windows -- which is why the lookup
+#' above tries the sub-architecture first. The licence of the backend
+#' compiled into it is installed as `licenses/tf-psa-crypto-LICENSE`; a
+#' binary of your package redistributes that code, so ship the notice too.
+#'
 #' This shape owns the backend's lifetime: call `zuc_init()` before anything
 #' else and `zuc_shutdown()` when finished. It is reference counted, so
-#' nesting is safe.
+#' nesting is safe. A call outside that window returns `ZUC_ERR_NOT_READY`.
 #'
 #' Two consequences worth stating plainly. Your shared object contains its own
 #' copy of the backend, kept private by hidden visibility. And upgrading
@@ -82,10 +99,24 @@
 #'   change to any other type in the header renames the registered callable
 #'   instead, so an old consumer fails at `R_GetCCallable()` rather than
 #'   reading a structure that has moved.
+#' * Each AES and HMAC handle holds one key in a key store that grows on
+#'   demand, so the number of live handles is bounded only by memory.
 #' * Main thread only, in this version.
 #'
 #' @section Stability:
-#' `ZUCRYPT_ABI_VERSION` is `1`, frozen at v0.1.0. Within a major version:
+#' The three surfaces are at different stages:
+#'
+#' * **The six `crypt_*()` R functions** are stable.
+#' * **The static archive** -- `zucrypt.h`, `libzucrypt.a` and where it is
+#'   installed -- is *provisional* in 0.1.0 and becomes frozen ABI 1 in
+#'   0.2.0, once its first consumer (`zuxlsx`'s decryption of password
+#'   protected workbooks) has linked it. Until then a change is possible, and
+#'   every one is recorded in `NEWS.md`.
+#' * **The registered table** (`zucrypt-r.h`) is *experimental*: no package
+#'   uses it yet. It may change in any release until one does, again with
+#'   every change recorded in `NEWS.md`.
+#'
+#' `ZUCRYPT_ABI_VERSION` is `1`. Once frozen, within a major version:
 #' functions and table fields may be added; nothing is removed, reordered or
 #' given a new meaning; enumerator values are permanent, so an algorithm
 #' compiled out of a build keeps its number and reports itself unavailable;

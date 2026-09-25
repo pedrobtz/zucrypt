@@ -11,8 +11,9 @@ A list with elements:
 \describe{
 \item{\code{version}}{the \code{zucrypt} package version, as a \code{package_version}.}
 \item{\code{abi_version}}{the C ABI version published to \code{LinkingTo}
-consumers, as an integer. \code{0} while the interface is still moving;
-it becomes \code{1} at the first release.}
+consumers, as an integer: \code{1}. The archive's ABI is provisional until
+its first consumer links it, and frozen from v0.2.0; see
+\link{zucrypt_c_api}.}
 \item{\code{algorithms}}{the digest algorithms this build provides, which
 is exactly the set \code{crypt_hash()} and \code{crypt_hmac()} accept.}
 \item{\code{vendored}}{a data frame with one row per vendored source, giving

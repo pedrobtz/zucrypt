@@ -15,7 +15,7 @@
  *     #include <zucrypt-r.h>
  *
  *     const zucrypt_api_v1 *api = zucrypt_api();
- *     if (api == NULL) { ... zucrypt is missing or too old ... }
+ *     if (api == NULL) { ... zucrypt does not implement this ABI version ... }
  *
  *     uint8_t out[ZUC_MAX_DIGEST_SIZE];
  *     size_t n;
@@ -33,8 +33,13 @@
  * import the DLL may not be loaded when your R_init_ runs.
  *
  * If you cannot carry an Imports: -- because you link the static archive
- * inst/lib/libzucrypt.a instead -- you do not want this header. Include
+ * libzucrypt.a instead -- you do not want this header. Include
  * <zucrypt.h>, link the archive, and call zuc_init() yourself.
+ *
+ * STABILITY: the table is EXPERIMENTAL (design.md section 8.6). No package
+ * uses it yet; a test fixture calls every entry on every push. Until a real
+ * consumer does, it may change in any release, and every change is recorded
+ * in NEWS.md. The static archive is the primary C shape.
  *
  * Copyright (c) 2026 Pedro Baltazar. MIT licence; see the LICENSE file.
  */
@@ -119,15 +124,24 @@ typedef struct {
                                    uint8_t *out);
     zuc_status  (*aes_cbc_decrypt)(zuc_aes *aes, const uint8_t *in, size_t len,
                                    uint8_t *out);
-    zuc_status  (*aes_ecb_encrypt)(zuc_aes *aes, const uint8_t *in, size_t len,
-                                   uint8_t *out);
-    zuc_status  (*aes_ecb_decrypt)(zuc_aes *aes, const uint8_t *in, size_t len,
-                                   uint8_t *out);
 
     /* Utilities. */
     int         (*equal)(const uint8_t *a, const uint8_t *b, size_t len);
     void        (*secure_zero)(void *buffer, size_t len);
 } zucrypt_api_v1;
+
+/* Does this table have `field`? Fields are appended over time, and a
+ * consumer built against a newer header can meet an older zucrypt: test
+ * before calling any field added after the one you first built against.
+ *
+ *     if (ZUCRYPT_API_HAS(api, secure_zero)) api->secure_zero(buf, n);
+ *
+ * The same idea as zuxml.h's ZUXML_API_HAS: the table's own struct_size
+ * says how far the provider filled it in. */
+#define ZUCRYPT_API_HAS(api, field)                                   \
+    ((api) != NULL &&                                                 \
+     (size_t) (api)->struct_size >=                                   \
+         offsetof(zucrypt_api_v1, field) + sizeof((api)->field))
 
 /* The backend's lifetime is not the consumer's problem on this path.
  *
@@ -153,9 +167,17 @@ typedef struct {
  * zucrypt's DLL is not loaded yet. Resolving on first use instead sidesteps
  * the ordering problem entirely.
  *
- * Returns NULL if zucrypt cannot satisfy the requested ABI version, so a
- * mismatch is a clean error at your call site rather than a wild call
- * through a garbage pointer.
+ * Returns NULL if zucrypt does not implement the ABI version this header
+ * asks for, so a mismatch is a clean error at your call site rather than a
+ * wild call through a garbage pointer.
+ *
+ * NULL is the ONLY failure it reports by returning. If zucrypt is not
+ * installed, not loaded, or too old to register "zucrypt_get_api" at all,
+ * R_GetCCallable() does not return NULL: it raises an R error, which
+ * longjmps out of your C code. So resolve the table before you acquire
+ * anything a longjmp would strand -- an unprotected SEXP, a malloc'd buffer,
+ * an open file -- and make sure your NAMESPACE imports zucrypt so the
+ * missing case cannot arise in a correctly installed package.
  *
  * `static inline`, not plain `static`: a header-defined plain static function
  * is an unused-function warning in every translation unit that includes this

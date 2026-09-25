@@ -1,6 +1,6 @@
 #!/bin/sh
 # The second consumer shape, proved: a plain C program that links
-# inst/lib/libzucrypt.a and calls the library directly.
+# libzucrypt.a and calls the library directly.
 #
 # This is how zuxlsx consumes its siblings -- LinkingTo for the header, a
 # configure script resolving system.file("lib"), and no Imports: at all, so

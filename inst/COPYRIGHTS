@@ -31,7 +31,10 @@ Third-party code: TF-PSA-Crypto
 TF-PSA-Crypto is published under a dual Apache-2.0 OR GPL-2.0-or-later
 licence, the recipient choosing between them. zucrypt takes it under
 Apache-2.0. The full text of both licences, as upstream ships it, is in
-src/vendor/tf-psa-crypto/LICENSE.
+src/vendor/tf-psa-crypto/LICENSE in the source package, and is installed as
+licenses/tf-psa-crypto-LICENSE in the installed package -- so that it travels
+with the compiled backend, including inside libzucrypt.a when another package
+links it (Apache-2.0 section 4(a)).
 
 Apache-2.0 and MIT are compatible: each file keeps its own terms, and a
 recipient of this package receives the vendored files under Apache-2.0 and

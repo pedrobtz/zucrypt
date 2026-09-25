@@ -9,9 +9,8 @@ Authors@R: c(
 Description: Provides a small, predictable set of cryptographic
     primitives over raw vectors: message digests, keyed-hash message
     authentication codes (HMAC), unauthenticated Advanced Encryption
-    Standard (AES) encryption in cipher block chaining (CBC) and
-    electronic codebook (ECB) modes, constant-time comparison and secure
-    erasure. The backend is vendored and pinned, so no system
+    Standard (AES) encryption in cipher block chaining (CBC) mode,
+    constant-time comparison and secure erasure. The backend is vendored and pinned, so no system
     cryptographic library, 'Java' or 'Python' is required at install or run
     time. Binary arguments are raw vectors only, algorithm names are
     matched exactly, and failures are reported as structured conditions.

@@ -125,6 +125,8 @@ hmac_vectors <- function() {
 }
 
 ## NIST SP 800-38A appendix F. The same four plaintext blocks throughout.
+## Only the CBC vectors: ECB left in design revision 3 (#29), and its three
+## F.1 vectors with it.
 PT <- paste0("6bc1bee22e409f96e93d7e117393172a",
              "ae2d8a571e03ac9c9eb76fac45af8e51",
              "30c81c46a35ce411e5fbc1191a0a52ef",
@@ -136,28 +138,6 @@ K256 <- "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"
 
 aes_vectors <- function() {
   rbind(
-    data.frame(family = "aes-ecb", algorithm = "aes128", key = K128, iv = "",
-               input = PT,
-               output = paste0("3ad77bb40d7a3660a89ecaf32466ef97",
-                               "f5d3d58503b9699de785895a96fdbaaf",
-                               "43b1cd7f598ece23881b00e3ed030688",
-                               "7b0c785e27e8ad3f8223207104725dd4"),
-               source = "NIST SP 800-38A F.1.1 (ECB-AES128.Encrypt)"),
-    data.frame(family = "aes-ecb", algorithm = "aes192", key = K192, iv = "",
-               input = PT,
-               output = paste0("bd334f1d6e45f25ff712a214571fa5cc",
-                               "974104846d0ad3ad7734ecb3ecee4eef",
-                               "ef7afd2270e2e60adce0ba2face6444e",
-                               "9a4b41ba738d6c72fb16691603c18e0e"),
-               source = "NIST SP 800-38A F.1.3 (ECB-AES192.Encrypt)"),
-    data.frame(family = "aes-ecb", algorithm = "aes256", key = K256, iv = "",
-               input = PT,
-               output = paste0("f3eed1bdb5d2a03c064b5a7e3db181f8",
-                               "591ccb10d410ed26dc5ba74a31362870",
-                               "b6ed21b99ca6f4f9f153e7b1beafed1d",
-                               "23304b7a39f9f3ff067d8d8f9e24ecc7"),
-               source = "NIST SP 800-38A F.1.5 (ECB-AES256.Encrypt)"),
-
     data.frame(family = "aes-cbc", algorithm = "aes128", key = K128, iv = IV,
                input = PT,
                output = paste0("7649abac8119b246cee98e9b12e9197d",
@@ -202,23 +182,6 @@ all_vectors <- function() {
 ## Recompute every vector with openssl, which shares no code with the backend
 ## this package vendors. A wrong transcription fails here rather than looking
 ## like a backend bug later.
-## ECB through the openssl command line: -nopad, raw key, no IV.
-openssl_cli_ecb <- function(row) {
-  bin <- Sys.which("openssl")
-  if (!nzchar(bin)) return(NULL)
-  cipher <- switch(row$algorithm,
-                   aes128 = "aes-128-ecb", aes192 = "aes-192-ecb",
-                   aes256 = "aes-256-ecb")
-  input <- tempfile(); output <- tempfile()
-  on.exit(unlink(c(input, output)), add = TRUE)
-  writeBin(unhex(row$input), input)
-  status <- system2(bin, c("enc", paste0("-", cipher), "-K", row$key, "-nopad",
-                           "-in", shQuote(input), "-out", shQuote(output)),
-                    stdout = FALSE, stderr = FALSE)
-  if (status != 0L || !file.exists(output)) return(NULL)
-  readBin(output, "raw", n = file.size(output))
-}
-
 cross_check <- function(v) {
   if (!requireNamespace("openssl", quietly = TRUE)) {
     message("openssl is not installed: skipping the independent cross-check.")
@@ -243,11 +206,6 @@ cross_check <- function(v) {
                     sha512 = openssl::sha512(input, key = unhex(row$key))),
       "aes-cbc" = openssl::aes_cbc_encrypt(input, key = unhex(row$key),
                                            iv = unhex(row$iv)),
-      ## The openssl *package* exposes no unpadded ECB interface, so those
-      ## rows go through the openssl command line instead. Skipped, with a
-      ## message, where that binary is absent -- which is the difference
-      ## between "not checked here" and "checked and agreed".
-      "aes-ecb" = openssl_cli_ecb(row),
       NULL
     )
     if (is.null(got)) {

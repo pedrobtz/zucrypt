@@ -12,10 +12,11 @@
  * disagree. Adding a line here without adding it there is the way a feature
  * silently joins the supported profile.
  *
- * Scope is design.md section 6: hashes, HMAC, and unauthenticated AES. No
- * public-key cryptography, no AEAD, no key derivation, no X.509, no TLS.
- * SHA-1 and ECB are present for Office compatibility only and are never a
- * default for a new format.
+ * Scope is design.md section 6: hashes, HMAC, and unauthenticated AES-CBC.
+ * No public-key cryptography, no AEAD, no key derivation, no X.509, no TLS.
+ * SHA-1 is present for Office compatibility only and is never a default for
+ * a new format. ECB was here too, for Office Standard encryption; it left in
+ * design revision 3 (#29) when that format left zuxlsx's scope.
  */
 
 #ifndef ZUC_CRYPTO_CONFIG_H
@@ -32,15 +33,23 @@
 #define PSA_WANT_ALG_HMAC                1
 #define PSA_WANT_KEY_TYPE_HMAC           1
 
-/* AES with no padding, in the two modes the Office formats need. PKCS#7
+/* AES-CBC with no padding, the mode Office agile encryption uses. PKCS#7
  * padding is not enabled: design.md section 7 makes padding the caller's
  * business, and a padding mode the wrappers never select is a code path the
  * tests would never reach. */
 #define PSA_WANT_ALG_CBC_NO_PADDING      1
-#define PSA_WANT_ALG_ECB_NO_PADDING      1
 #define PSA_WANT_KEY_TYPE_AES            1
 
 #define MBEDTLS_PSA_CRYPTO_C             1
+
+/* A key store that grows. Without this, upstream's static store has 32 slots
+ * (MBEDTLS_PSA_KEY_SLOT_COUNT), shared by every live zuc_aes and zuc_hmac in
+ * the process -- including, in zucrypt.so, every table consumer's -- and the
+ * 33rd key failed as PSA_ERROR_INSUFFICIENT_MEMORY, which reached the caller
+ * as ZUC_ERR_MEMORY although no allocation had failed (#30). The dynamic
+ * store keeps volatile keys in slices that double in size, up to about
+ * 6.7e7 keys, so running out of it really is running out of memory. */
+#define MBEDTLS_PSA_KEY_STORE_DYNAMIC    1
 
 /* MBEDTLS_PSA_CRYPTO_C requires an RNG: CTR-DRBG, HMAC-DRBG, or an external
  * one (core/tf_psa_crypto_check_config.h). External is the smallest of the

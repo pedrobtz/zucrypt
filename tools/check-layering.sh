@@ -3,7 +3,7 @@
 #
 # design.md sections 8.1 and 8.3 put a hard boundary through src/: the
 # adapter is R-free and the R glue is backend-free. It matters because
-# src/zuc_*.c and src/vendor/ are what go into inst/lib/libzucrypt.a, which a
+# src/zuc_*.c and src/vendor/ are what go into libzucrypt.a, which a
 # consumer links into its own shared object. R glue in that archive is a
 # duplicate symbol; a backend header reaching the R layer is the start of PSA
 # types appearing in an installed header.

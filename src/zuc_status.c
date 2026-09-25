@@ -21,6 +21,7 @@ const char *zuc_status_string(zuc_status status)
     case ZUC_ERR_BACKEND:          return "the cryptographic backend reported a failure";
     case ZUC_ERR_ABI:              return "ABI version or structure size mismatch";
     case ZUC_ERR_INTERNAL:         return "internal error";
+    case ZUC_ERR_NOT_READY:        return "the library is not initialised; call zuc_init() first";
     }
     /* No default label above, so a new enumerator is a compiler warning
      * here rather than a silent fall-through. This line is for a value that
@@ -40,6 +41,7 @@ const char *zuc_status_name(zuc_status status)
     case ZUC_ERR_BACKEND:          return "ZUC_ERR_BACKEND";
     case ZUC_ERR_ABI:              return "ZUC_ERR_ABI";
     case ZUC_ERR_INTERNAL:         return "ZUC_ERR_INTERNAL";
+    case ZUC_ERR_NOT_READY:        return "ZUC_ERR_NOT_READY";
     }
     return "ZUC_ERR_UNKNOWN";
 }

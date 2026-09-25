@@ -445,9 +445,10 @@ Two consumer shapes exist in the family. They are not equally supported; §8.6 r
     `ZUC_ERR_ABI`, `ZUC_ERR_INTERNAL`, and now `ZUC_ERR_NOT_READY = 9`.
   - No negative value is ever returned, so `if (st)` reliably means "not success".
   - `zuc_status_string()` covers every enumerator and never returns `NULL`; a test asserts this.
-- **`zuc_alg`**: fixed-width identifiers for SHA-1, SHA-256/384/512 and AES-128/192/256.
+- **`zuc_alg`**: fixed-width identifiers for SHA-1 and SHA-256/384/512.
   - Values are permanent. An algorithm compiled out keeps its number and reports unavailable.
-  - Removing ECB changes no value, because the AES identifiers name key sizes, not modes.
+  - AES has no identifier: the key length selects AES-128/192/256, and CBC is the only mode.
+    Removing ECB therefore renumbered nothing.
 - **Opaque handles**: `zuc_hash`, `zuc_hmac` and `zuc_aes`. The provider allocates them, and only
   provider functions destroy them.
   - Each `zuc_aes` and `zuc_hmac` holds one volatile key in the dynamic key store. The number of

@@ -108,9 +108,6 @@ static const uint8_t CBC_CT[32] = {
     0x76,0x49,0xab,0xac,0x81,0x19,0xb2,0x46,0xce,0xe9,0x8e,0x9b,0x12,0xe9,0x19,0x7d,
     0x50,0x86,0xcb,0x9b,0x50,0x72,0x19,0xee,0x95,0xdb,0x11,0x3a,0x91,0x76,0x78,0xb2
 };
-static const uint8_t ECB_CT1[16] = {
-    0x3a,0xd7,0x7b,0xb4,0x0d,0x7a,0x36,0x60,0xa8,0x9e,0xca,0xf3,0x24,0x66,0xef,0x97
-};
 
 SEXP zucrypttest_exercise(void)
 {
@@ -247,15 +244,6 @@ SEXP zucrypttest_exercise(void)
         check(&f, memcmp(buf, CBC_PT, 32) == 0,
               "aes_cbc_decrypt produced the wrong plaintext");
 
-        check(&f, api->aes_ecb_encrypt(aes, CBC_PT, 16, buf) == ZUC_OK,
-              "aes_ecb_encrypt failed");
-        check(&f, memcmp(buf, ECB_CT1, 16) == 0,
-              "aes_ecb_encrypt produced the wrong ciphertext");
-        check(&f, api->aes_ecb_decrypt(aes, ECB_CT1, 16, buf) == ZUC_OK,
-              "aes_ecb_decrypt failed");
-        check(&f, memcmp(buf, CBC_PT, 16) == 0,
-              "aes_ecb_decrypt produced the wrong plaintext");
-
         /* The lengths the header promises to refuse. */
         check(&f, api->aes_cbc_encrypt(aes, CBC_PT, 17, buf) == ZUC_ERR_BAD_LENGTH,
               "a partial block was not refused");
@@ -268,7 +256,14 @@ SEXP zucrypttest_exercise(void)
         check(&f, bad == NULL, "a failed aes_new returned a handle anyway");
     }
 
-    /* Utilities. */
+    /* Utilities. ZUCRYPT_API_HAS is how a consumer tests for a field before
+     * calling it; secure_zero is the table's last field, so the test covers
+     * the whole struct_size arithmetic. Every field this fixture calls is
+     * present in the table it was built against, so it must say yes. */
+    check(&f, ZUCRYPT_API_HAS(api, equal) && ZUCRYPT_API_HAS(api, secure_zero),
+          "ZUCRYPT_API_HAS denies a field the table has");
+    check(&f, !ZUCRYPT_API_HAS((const zucrypt_api_v1 *) NULL, equal),
+          "ZUCRYPT_API_HAS accepted a NULL table");
     check(&f, api->equal(SHA256_ABC, SHA256_ABC, 32) == 1,
           "equal said two identical buffers differ");
     memcpy(buf, SHA256_ABC, 32);

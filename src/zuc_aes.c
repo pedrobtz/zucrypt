@@ -1,4 +1,4 @@
-/* zucrypt: AES in CBC and ECB, without padding and without authentication.
+/* zucrypt: AES-CBC, without padding and without authentication.
  *
  * The chaining state is explicit and owned by the caller's handle, which is
  * the design point (design.md section 8.1): a document format that restarts
@@ -16,6 +16,11 @@
  * make the handle's validity depend on the order of the caller's calls and
  * would still need this state exposed. It buys one setup per call, and a
  * caller passing whole segments makes that immeasurable.
+ *
+ * ECB lived here too until design revision 3 (#29): its one consumer was
+ * Office Standard encryption, which zuxlsx put out of scope. Each handle
+ * used to import the key twice -- a PSA key policy names one algorithm --
+ * which is half of why the static key store ran out at 16 handles (#30).
  */
 
 #include <stdlib.h>
@@ -24,14 +29,13 @@
 #include "zuc_internal.h"
 
 struct zuc_aes {
-    psa_key_id_t cbc_key;
-    psa_key_id_t ecb_key;
+    psa_key_id_t key;
     uint8_t      chain[ZUC_AES_BLOCK_SIZE];
 };
 
-/* A PSA key policy names one algorithm, and there is no wildcard covering
- * both cipher modes, so the same material is imported twice. Both are
- * destroyed together, and neither is reachable from outside this file. */
+/* One volatile key per handle, in the dynamic key store
+ * (MBEDTLS_PSA_KEY_STORE_DYNAMIC), so the number of live handles is bounded
+ * by memory alone. The key is not reachable from outside this file. */
 static zuc_status import_aes_key(const uint8_t *key, size_t key_len,
                                  psa_algorithm_t alg, psa_key_id_t *out)
 {
@@ -58,7 +62,7 @@ zuc_status zuc_aes_new(const uint8_t *key, size_t key_len, zuc_aes **out)
     *out = NULL;
 
     if (!zuc_int_ready()) {
-        return ZUC_ERR_INVALID_ARGUMENT;
+        return ZUC_ERR_NOT_READY;
     }
     if (key == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
@@ -77,18 +81,8 @@ zuc_status zuc_aes_new(const uint8_t *key, size_t key_len, zuc_aes **out)
         return ZUC_ERR_MEMORY;
     }
 
-    st = import_aes_key(key, key_len, PSA_ALG_CBC_NO_PADDING, &aes->cbc_key);
+    st = import_aes_key(key, key_len, PSA_ALG_CBC_NO_PADDING, &aes->key);
     if (st != ZUC_OK) {
-        zuc_secure_zero(aes, sizeof *aes);
-        free(aes);
-        return st;
-    }
-    st = import_aes_key(key, key_len, PSA_ALG_ECB_NO_PADDING, &aes->ecb_key);
-    if (st != ZUC_OK) {
-        /* The first key is already in the global key store. Destroying it
-         * before returning is the difference between a failed constructor
-         * and a leaked key. */
-        psa_destroy_key(aes->cbc_key);
         zuc_secure_zero(aes, sizeof *aes);
         free(aes);
         return st;
@@ -102,8 +96,7 @@ void zuc_aes_free(zuc_aes *aes)
     if (aes == NULL) {
         return;
     }
-    psa_destroy_key(aes->cbc_key);
-    psa_destroy_key(aes->ecb_key);
+    psa_destroy_key(aes->key);
     /* The chaining state is not secret in the way a key is, but it is
      * derived from the data, so it goes too. */
     zuc_secure_zero(aes, sizeof *aes);
@@ -128,7 +121,7 @@ zuc_status zuc_aes_cbc_get_state(const zuc_aes *aes, uint8_t *state)
     return ZUC_OK;
 }
 
-/* Everything both modes check before touching the backend. */
+/* Everything both directions check before touching the backend. */
 static zuc_status check_block_args(const zuc_aes *aes, const uint8_t *in,
                                    size_t len, const uint8_t *out)
 {
@@ -136,7 +129,7 @@ static zuc_status check_block_args(const zuc_aes *aes, const uint8_t *in,
         return ZUC_ERR_INVALID_ARGUMENT;
     }
     if (!zuc_int_ready()) {
-        return ZUC_ERR_INVALID_ARGUMENT;
+        return ZUC_ERR_NOT_READY;
     }
     if (len == 0) {
         return ZUC_OK;
@@ -156,11 +149,11 @@ static zuc_status check_block_args(const zuc_aes *aes, const uint8_t *in,
     return ZUC_OK;
 }
 
-/* One cipher pass with an explicit IV, or none for ECB. */
-static zuc_status cipher_run(psa_key_id_t key, psa_algorithm_t alg, int encrypt,
-                             const uint8_t *iv,
+/* One CBC pass from an explicit IV. */
+static zuc_status cipher_run(psa_key_id_t key, int encrypt, const uint8_t *iv,
                              const uint8_t *in, size_t len, uint8_t *out)
 {
+    const psa_algorithm_t alg = PSA_ALG_CBC_NO_PADDING;
     psa_cipher_operation_t op = psa_cipher_operation_init();
     psa_status_t ps;
     size_t produced = 0, finished = 0;
@@ -170,11 +163,9 @@ static zuc_status cipher_run(psa_key_id_t key, psa_algorithm_t alg, int encrypt,
     if (ps != PSA_SUCCESS) {
         goto fail;
     }
-    if (iv != NULL) {
-        ps = psa_cipher_set_iv(&op, iv, ZUC_AES_BLOCK_SIZE);
-        if (ps != PSA_SUCCESS) {
-            goto fail;
-        }
+    ps = psa_cipher_set_iv(&op, iv, ZUC_AES_BLOCK_SIZE);
+    if (ps != PSA_SUCCESS) {
+        goto fail;
     }
     ps = psa_cipher_update(&op, in, len, out, len, &produced);
     if (ps != PSA_SUCCESS) {
@@ -207,8 +198,7 @@ zuc_status zuc_aes_cbc_encrypt(zuc_aes *aes,
     if (st != ZUC_OK || len == 0) {
         return st;
     }
-    st = cipher_run(aes->cbc_key, PSA_ALG_CBC_NO_PADDING, 1,
-                    aes->chain, in, len, out);
+    st = cipher_run(aes->key, 1, aes->chain, in, len, out);
     if (st != ZUC_OK) {
         return st;
     }
@@ -231,8 +221,7 @@ zuc_status zuc_aes_cbc_decrypt(zuc_aes *aes,
      * input, and the next chaining value is the last *ciphertext* block. */
     memcpy(next, in + len - ZUC_AES_BLOCK_SIZE, ZUC_AES_BLOCK_SIZE);
 
-    st = cipher_run(aes->cbc_key, PSA_ALG_CBC_NO_PADDING, 0,
-                    aes->chain, in, len, out);
+    st = cipher_run(aes->key, 0, aes->chain, in, len, out);
     if (st != ZUC_OK) {
         zuc_secure_zero(next, sizeof next);
         return st;
@@ -240,31 +229,4 @@ zuc_status zuc_aes_cbc_decrypt(zuc_aes *aes,
     memcpy(aes->chain, next, ZUC_AES_BLOCK_SIZE);
     zuc_secure_zero(next, sizeof next);
     return ZUC_OK;
-}
-
-zuc_status zuc_aes_ecb_encrypt(zuc_aes *aes,
-                               const uint8_t *in, size_t len, uint8_t *out)
-{
-    zuc_status st = check_block_args(aes, in, len, out);
-
-    if (st != ZUC_OK || len == 0) {
-        return st;
-    }
-    /* No IV, and the chaining state is neither read nor advanced: ECB has no
-     * chaining, and pretending otherwise would make a mixed sequence of ECB
-     * and CBC calls produce silently wrong CBC output. */
-    return cipher_run(aes->ecb_key, PSA_ALG_ECB_NO_PADDING, 1,
-                      NULL, in, len, out);
-}
-
-zuc_status zuc_aes_ecb_decrypt(zuc_aes *aes,
-                               const uint8_t *in, size_t len, uint8_t *out)
-{
-    zuc_status st = check_block_args(aes, in, len, out);
-
-    if (st != ZUC_OK || len == 0) {
-        return st;
-    }
-    return cipher_run(aes->ecb_key, PSA_ALG_ECB_NO_PADDING, 0,
-                      NULL, in, len, out);
 }

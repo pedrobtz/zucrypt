@@ -1,7 +1,7 @@
 # The LinkingTo surface, audited on the installed package.
 #
 # This is the shape zuxlsx consumes: LinkingTo only, no Imports, a configure
-# script resolving system.file("lib") and linking inst/lib/libzucrypt.a. None
+# script resolving system.file("lib") and linking libzucrypt.a. None
 # of it is visible to R CMD check, and all of it breaks silently -- an archive
 # that quietly stopped being installed looks exactly like one that installs
 # fine until a consumer tries to link it.
@@ -32,7 +32,6 @@ test_that("the archive defines every public entry point", {
     "zuc_aes_new", "zuc_aes_free",
     "zuc_aes_cbc_set_state", "zuc_aes_cbc_get_state",
     "zuc_aes_cbc_encrypt", "zuc_aes_cbc_decrypt",
-    "zuc_aes_ecb_encrypt", "zuc_aes_ecb_decrypt",
     "zuc_equal", "zuc_secure_zero"
   )
   defined <- archive_defined()
@@ -40,6 +39,35 @@ test_that("the archive defines every public entry point", {
   for (name in entry_points) {
     expect_length(grep(paste0("\\b_?", name, "$"), defined, value = TRUE), 1L)
   }
+})
+
+test_that("the archive defines no ECB entry point", {
+  # ECB left in design revision 3 (#29). A symbol that survived its header
+  # declaration would be reachable by anyone who declared it themselves.
+  defined <- archive_defined()
+  expect_length(grep("zuc_aes_ecb_", defined, value = TRUE), 0L)
+})
+
+test_that("the archive is installed under lib${R_ARCH}", {
+  skip_if_not_installed_layout()
+
+  # Where src/install.libs.R puts it, spelled out rather than resolved: the
+  # helper's fallback to plain lib/ would hide a regression to the old path
+  # on Windows, the one platform where R_ARCH is not empty.
+  arch <- .Platform$r_arch
+  dir <- if (nzchar(arch)) file.path("lib", arch) else "lib"
+  expect_true(file.exists(installed_path(dir, "libzucrypt.a")))
+})
+
+test_that("the backend's licence is installed with the backend", {
+  skip_if_not_installed_layout()
+
+  # Apache-2.0 section 4(a): the licence travels with the object code, and
+  # libzucrypt.a carries that object code into every consumer.
+  licence <- installed_path("licenses", "tf-psa-crypto-LICENSE")
+  expect_true(file.exists(licence))
+  text <- readLines(licence, warn = FALSE)
+  expect_gt(length(grep("Apache License", text, fixed = TRUE)), 0L)
 })
 
 test_that("the archive contains no R glue", {

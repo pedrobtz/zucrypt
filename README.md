@@ -7,7 +7,7 @@
 <!-- badges: end -->
 
 zucrypt is a narrow native cryptographic foundation for the `zu*` package
-family: message digests, HMAC, unauthenticated AES-CBC/ECB, constant-time
+family: message digests, HMAC, unauthenticated AES-CBC, constant-time
 comparison and secure erasure, over raw vectors. The backend is a vendored,
 pinned subset of [TF-PSA-Crypto](https://github.com/Mbed-TLS/TF-PSA-Crypto),
 the Mbed TLS project's cryptography library — 109 files of it, configured down
@@ -18,7 +18,7 @@ Python, and no network access during installation.
 The same primitives are published to other packages twice, because the family
 consumes siblings in two different ways: as a registered C function table for
 consumers that can carry an `Imports:`, and as a static archive
-(`inst/lib/libzucrypt.a`) for consumers that cannot.
+(`libzucrypt.a`) for consumers that cannot.
 
 It is **not** a replacement for
 [openssl](https://cran.r-project.org/package=openssl) or
@@ -73,13 +73,15 @@ suggest they are a general-purpose way to encrypt something. See
 Other packages can use these primitives without going through R, in either of
 the two ways the `zu*` family links siblings: a registered function table for
 a package that can carry an `Imports:`, or the static archive
-`inst/lib/libzucrypt.a` for one that cannot. The C ABI is frozen at version 1.
-See `?zucrypt_c_api`.
+`libzucrypt.a` for one that cannot. The archive is provisional until its
+first consumer links it, and the table is experimental; see
+`?zucrypt_c_api`.
 
 ## Status
 
-Version 0.1.0. The R and C interfaces are complete and frozen within major
-version 1. The design is in `.agents/design.md`; `.agents/roadmap.md` records
+Version 0.1.0, in development. The six R functions are stable; the C
+interface is provisional (the archive) or experimental (the table) until a
+consumer has linked it. The design is in `.agents/design.md`; `.agents/roadmap.md` records
 how it was built and what was deliberately left out.
 
 ## Installation
