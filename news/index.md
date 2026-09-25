@@ -92,13 +92,19 @@ OpenSSL-ABI name is exported beside the `libcrypto` other packages link.
 Checked on every push: Linux, macOS (ARM64) and Windows; R release,
 oldrel-1 and 4.1; CRAN’s clang-23 and GCC-16 containers; the no-Suggests
 flavour; LTO; rchk and gctorture; ASan, UBSan, valgrind and GCC’s
-`-fanalyzer`. Weekly: a 32-bit and a musl build, and a sweep that fails
-every allocation in turn.
+`-fanalyzer`. Weekly: i386, musl and aarch64 builds that run the test
+suite and fail on a WARNING, and a sweep that fails each allocation the
+`crypt_*()` calls make, one run per allocation — about 250 of them, of
+which some 77 land in zucrypt’s own code — checking that each surfaces
+as an error rather than a crash or a wrong answer.
 
 Correctness is checked against published vectors — FIPS 180-2, RFC 2202,
-RFC 4231 and NIST SP 800-38A — every one of which is also recomputed
-with OpenSSL, an implementation sharing no code with the vendored
-backend.
+RFC 4231, RFC 6234 and NIST SP 800-38A, including the one-million-byte
+messages and HMAC keys longer than the block — every one of which is
+also recomputed with OpenSSL, an implementation sharing no code with the
+vendored backend. Inputs up to 4 MiB are compared with OpenSSL directly,
+and the iterated hash Office agile encryption uses is checked against
+msoffcrypto-tool.
 
 ### Not in this release
 
