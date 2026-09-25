@@ -4,14 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Roadmap Stages 0–5 are complete. Stage 6 is prepared but not finished: there is no `v0.1.0` tag
+Roadmap Stages 0–4 are complete. Stage 5 closed on an exit criterion that did not hold and is
+reopened until its weekly gates run real tests ([#26](https://github.com/pedrobtz/zucrypt/issues/26), #31). Stage 6 is prepared but not finished: there is no `v0.1.0` tag
 and no GitHub release yet ([#27](https://github.com/pedrobtz/zucrypt/issues/27)), and it is the
 current stage. `DESCRIPTION` says 0.1.0 and the header says `ZUCRYPT_ABI_VERSION 1`, but
 whether that ABI is frozen before any consumer exists is an open decision (#28). The package
 builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the six
 `crypt_*` functions of design §7, and publishes both consumer shapes: the registered function
 table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the static archive
-(`inst/lib/libzucrypt.a`). The 2026-09-22 review at the end of the roadmap lists what is still
+(`libzucrypt.a`, which `src/install.libs.R` installs to the package's `lib/`; there is no
+`inst/lib/` in the sources). The 2026-09-22 review at the end of the roadmap lists what is still
 open and why.
 
 Both shapes have a consumer proof, and neither is reachable from `R CMD check`.
@@ -125,8 +127,11 @@ package from a top-level test or example file must be guarded the same way.
 
 That guard has a cost the weekly jobs show. `arch.yaml` installs no `Suggests`, so its i386,
 musl and aarch64 legs build and check the package and run **no tests** — its first run, on
-2026-09-22, finished the test step in 0.2 s, and the i386 leg was green with a WARNING.
-`alloc-failure.yaml` has never run. Neither is evidence of anything until #31 closes.
+2026-09-22, finished the test step in 0.2 s, and the i386 and aarch64 legs were green with a
+WARNING.
+`alloc-failure.yaml` first ran on 2026-09-23 and failed: r-actions' interposer aborts every
+run (`free(): invalid pointer`), and its 300-allocation window lies inside R's namespace
+loading, so it never reaches the adapter. Neither job is evidence of anything until #31 closes.
 
 `rchk` and `analyzers` are informational until they read zero, then gated with
 `fail-on-findings: true`. A `baseline:` file is the answer to the first false positive: a
@@ -168,7 +173,7 @@ Three surfaces are exposed:
    pin implementation hashes with the TLS backend's own SHA-256 (`EVP_sha256()` in
    `zu_tls_openssl.c`; the other two backends refuse a pin) (#14). No table consumer exists
    today (#28).
-3. A static archive `inst/lib/libzucrypt.a` for `zuxlsx`-style consumers (`LinkingTo:` +
+3. A static archive `lib/libzucrypt.a` (installed path) for `zuxlsx`-style consumers (`LinkingTo:` +
    `configure` resolving `system.file("lib")`, no `Imports:`). It contains the R-free adapter
    plus vendored crypto — **not** raw upstream, unlike `zukomp`/`zuxml`'s archives — so consumers
    see only `inst/include/zucrypt.h`, which must compile standalone as C99 with no R or PSA

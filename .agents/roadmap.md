@@ -15,7 +15,7 @@ v0.1.0 is the **core package**: a vendored TF-PSA-Crypto backend (no Mbed TLS fi
 [stage-1-spike.md](stage-1-spike.md) §1), the six-function R
 interface, and the C API in both shapes the family uses — the registered function table
 (`zucrypt-r.h`, for consumers that can carry an `Imports:` — `zuhttp` was the hoped-for one
-and is not, #14) and the static archive (`inst/lib/libzucrypt.a`,
+and is not, #14) and the static archive (`libzucrypt.a`, installed to `lib/`;
 for `zuxlsx`, which has no `Imports:` by design). It ships when a consumer of each shape can run
 the Office-style key derivation loop against it, on all CI platforms, from a source install with
 no network access and no Python/Perl.
@@ -176,7 +176,7 @@ Exit:
 ## Stage 2 — Private native adapter
 
 Goal: one **R-free** C layer (`src/zuc_*.c`, `src/zuc_internal.h`) that wraps PSA and is the
-only code that includes upstream headers. It is what goes into `inst/lib/libzucrypt.a`, so it
+only code that includes upstream headers. It is what goes into `libzucrypt.a`, so it
 must never include `R.h` — `zuxlsx` links the archive into its own shared object, where R glue
 would be a duplicate symbol. The R wrappers (Stage 3) and the public table (Stage 4) call this
 layer; neither touches PSA directly. Its exported functions are the `zuc_*` declarations of
@@ -205,7 +205,7 @@ Work items:
   macro giving the prefix the core dereferences — never the full current `sizeof`.
 - The archive: `src/Makevars` builds `libzucrypt.a` from the adapter and vendored objects with
   `$(ALL_CFLAGS)` (position-independent), `all: $(SHLIB) libzucrypt.a` as the first target;
-  `src/install.libs.R` installs the shared object *and* the archive to `inst/lib/` (defining that
+  `src/install.libs.R` installs the shared object *and* the archive, the latter to the installed package's `lib/` — there is no `inst/lib/` (defining that
   file stops R installing the `.so` by itself). No upstream header is installed — design §8.3.
 - Length and arithmetic checks before every allocation; partial contexts destroyed on any
   failed init; key material wiped on free.
@@ -221,7 +221,7 @@ plus `test-linking.R` against the installed package:
 - Reset behaviour: a reset context matches a fresh one.
 - CBC chaining: two half-length calls with retained state equal one full call; reset restores
   the original IV.
-- `test-linking.R` (skips under `load_all()`): `inst/lib/libzucrypt.a` and `zucrypt.h` exist after
+- `test-linking.R` (skips under `load_all()`): the installed `lib/libzucrypt.a` and `zucrypt.h` exist after
   the install-step merge; the archive defines every `zuc_*` entry point and no `R_init_`,
   `zucrypt_` or R symbol.
 - KAT fixtures committed with a `MANIFEST.tsv` recording their source (NIST CAVP / RFC), and a
@@ -341,7 +341,7 @@ Work items:
   `.Rbuildignore`d; built only by `consumer.yaml` (`R CMD INSTALL .`, then the fixture, then
   `testthat::test_local()`, failing if zero tests ran).
 - Consumer fixture, shape two: `tools/check-linking.sh` compiles a C program against
-  `zucrypt.h` and links `inst/lib/libzucrypt.a` from the installed package, calls `zuc_init()`,
+  `zucrypt.h` and links `lib/libzucrypt.a` from the installed package, calls `zuc_init()`,
   hashes a KAT, and exits non-zero on mismatch — `zukomp`'s pattern for its ZIP reader.
 - Office derivation rehearsal (the ABI validation gate): inside the consumer fixture, implement
   the generic iterative loop `H_n = hash(int32le(n-1) || H_{n-1})` for a configurable spin count
@@ -399,11 +399,14 @@ entries are written down and ready; restoring is two lines once r-actions resolv
 The fix belongs in `r-actions`, not here.
 
 **Second deviation, found 2026-09-22.** The exit criterion "every job green" was not met when
-this stage closed, because two of its jobs had not run. `alloc-failure.yaml` still has no run
-at all. `arch.yaml` first ran two days later (run 35716615253), with `install-dependencies: ""`:
+this stage closed, because two of its jobs had not run. `alloc-failure.yaml` first ran on
+2026-09-23 (run 35850281104) and failed, for two independent reasons: r-actions' interposer
+does not interpose `free`, so every injected run aborts on `free(): invalid pointer`; and the
+300-allocation sweep window starts at the startup floor, inside R's namespace loading, so no
+`zuc_*_new()` call is ever failed. `arch.yaml` first ran two days later (run 35716615253), with `install-dependencies: ""`:
 no `Suggests` were installed, `tests/testthat.R`'s `requireNamespace()` guard skipped the suite,
-and the i386, musl and aarch64 legs finished the test step in 0.2 s. The i386 leg was green with
-a WARNING. A job that has not run is not green, and one that runs no tests is the vacuous tick
+and the i386, musl and aarch64 legs finished the test step in 0.2 s. The i386 and aarch64 legs were
+green with a WARNING. A job that has not run is not green, and one that runs no tests is the vacuous tick
 this roadmap's CI rule exists to prevent. #31 tracks making both real.
 
 Two further notes. `rchk` and `analyzers` land informational, as planned, and are gated the
@@ -537,8 +540,8 @@ all passed, so the tag belongs on `954284e` or later, not on #8's merge.
 - Record whether the pin stays on the TF-PSA-Crypto 1.1 LTS line or moves to 1.2.0 (#19); the
   tag names the release it ships.
 - Fix or document the 16-handle limit of the static PSA key store (#30).
-- Make the two Stage 5 gates real: `arch.yaml` running the suite, `alloc-failure.yaml` run at
-  least once (#31).
+- Make the two Stage 5 gates real: `arch.yaml` running the suite, `alloc-failure.yaml`
+  green with failures actually injected into the adapter (#31).
 - Correct the README example, whose printed digest is not SHA-256 of its input (#36).
 - CRAN timing is not settled by this stage: see "Scope of v0.1.0" above, which conflicts with
   `cran-comments.md` as drafted.
@@ -622,8 +625,9 @@ what follows is what the evidence says about them.
   strong check on offer: a known-answer vector taken from zuxlsx's committed agile fixture,
   with msoffcrypto-tool as the independent oracle. The rehearsal never uses per-segment IVs or
   an HMAC over the whole stream, which are the calls the real consumer makes.
-- **Gates were declared green before they ran.** `alloc-failure.yaml` has never run, and
-  `arch.yaml` runs no tests (#31). #18's unprotected vector was found by reading the code after
+- **Gates were declared green before they ran.** `alloc-failure.yaml` ran for the first
+  time after the freeze and failed without ever reaching the adapter, and `arch.yaml` runs no
+  tests (#31). #18's unprotected vector was found by reading the code after
   the freeze; rchk had analysed 496 functions and passed, and nothing now guards the pattern
   (#35). The published vectors are all shorter than one compression block, so every multi-block
   result is checked only against zucrypt itself (#34).

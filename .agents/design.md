@@ -15,7 +15,7 @@ and `zuhttp` — and the changes are all in one direction: making `zucrypt` cons
 packages exactly the way they already consume each other. The material differences:
 
 1. **Two consumer shapes, not one.** `zuxlsx` links its siblings as static archives
-   (`inst/lib/lib<pkg>.a`, resolved by `configure`, `LinkingTo` only, no `Imports:`). The draft
+   (`lib<pkg>.a` under the installed package's `lib/` or `lib${R_ARCH}/`, resolved by `configure`, `LinkingTo` only, no `Imports:`). The draft
    supported only the registered function table. Both are now required; see §8.
 2. **A C-symbol prefix, chosen for non-collision.** `zu_` is `zukomp`'s public ABI namespace
    (`zu_status`, `zu_buffer`, `ZU_OK`, `ZU_ERR_MEMORY`…) and `zuhttp`'s internal one. A
@@ -113,7 +113,7 @@ Vendoring requirements:
 | Package | Owns | Does not acquire through `zucrypt` | How it consumes `zucrypt` |
 | --- | --- | --- | --- |
 | `zucrypt` | Crypto primitives, state and native API | XML, ZIP, Office, sockets, TLS or trust stores | — |
-| `zuxlsx` | Workbook interpretation; initially the Office encryption adapter and CFB reader | TLS | `LinkingTo` + `configure` + `inst/lib/libzucrypt.a`; no `Imports:` (its design §3) |
+| `zuxlsx` | Workbook interpretation; initially the Office encryption adapter and CFB reader | TLS | `LinkingTo` + `configure` + the installed `lib/libzucrypt.a`; no `Imports:` (its design §3) |
 | `zuxml` | XML parsing, reused for Agile encryption metadata | Cryptographic policy | does not |
 | `zukomp` | ZIP entry access and decompression after decryption | Office password handling | does not |
 | `zuhttp` | HTTP, sockets, TLS backend selection and certificate trust | Office processing | not at all today; a future engine would vendor its own build, aligned on the same manifest rows (§10); a digest for SPKI pinning could come through the table — *but `zuhttp` hashes with each backend's native SHA-256 and has recorded no use for it (#14, 2026-09-22)* |
@@ -201,7 +201,7 @@ The consumer's `DESCRIPTION` needs `Imports: zucrypt` and `LinkingTo: zucrypt`; 
 
 ### 8.3 Shape two: the static archive (`zuxlsx`-style)
 
-`src/Makevars` builds `libzucrypt.a` beside the shared object — the `all: $(SHLIB) libzucrypt.a` pattern, with `all` as the first target — and `src/install.libs.R` installs it to `inst/lib/`, exactly as `zukomp` and `zuxml` do. `install.libs.R` also has to install the shared object itself: defining that file stops R doing it. The archive installs to a single arch-neutral path, which every current platform needs; it would have to move under `R_ARCH` before a multi-arch installation could be supported.
+`src/Makevars` builds `libzucrypt.a` beside the shared object — the `all: $(SHLIB) libzucrypt.a` pattern, with `all` as the first target — and `src/install.libs.R` installs it to the installed package's `lib/` (there is no `inst/lib/` in the sources). `zuxml` does the same; `zukomp` installs under `lib${R_ARCH}/`, the family's convergence target (#33). `install.libs.R` also has to install the shared object itself: defining that file stops R doing it. The archive installs to a single arch-neutral path, which every current platform needs; it would have to move under `R_ARCH` before a multi-arch installation could be supported.
 
 The archive holds the R-free core: the adapter objects and the vendored crypto objects, compiled with `$(ALL_CFLAGS)` so they are position-independent. **No R glue is in it** — `test-linking.R` greps the archive for `R_init_`, `zucrypt_` and any R symbol and expects none — and no upstream header is installed. That is the departure from `zukomp`/`zuxml`, whose archives are raw miniz and Expat with `miniz.h`/`expat.h` installed beside them. It is deliberate: a consumer of those must reproduce the provider's define set (`XML_STATIC`, `MINIZ_NO_ZLIB_COMPATIBLE_NAMES`) or its declarations describe a different library. PSA headers are worse — sizes and key-identifier types are generated from the configuration — so a consumer of `libzucrypt.a` sees `zucrypt.h` only and there is no define to match.
 
@@ -219,7 +219,7 @@ API resolution and backend initialisation happen on the R main thread. In 0.1 al
 
 ### 8.5 Enforced by tests
 
-`test-abi.R` (against the shared object): no `mbedtls_`/`psa_`/OpenSSL-ABI name exported; the installed header leaks no upstream or R vocabulary, carries its guard and C++ wrapper; the backend is compiled in at the pinned version. `test-linking.R` (against the installed package; skipped under `load_all()`): `inst/lib/libzucrypt.a` and both headers exist after the install-step merge; the archive defines every `zuc_*` entry point a consumer needs and no R symbol. `tests/consumer/zucrypttest` is a package consuming shape one, `.Rbuildignore`d and built only by `consumer.yaml`; a C program linking the archive covers shape two (`tools/check-linking.sh`). [Writing R Extensions: native routines in other packages](https://cran.r-project.org/doc/manuals/r-release/R-exts.html#Linking-to-native-routines-in-other-packages).
+`test-abi.R` (against the shared object): no `mbedtls_`/`psa_`/OpenSSL-ABI name exported; the installed header leaks no upstream or R vocabulary, carries its guard and C++ wrapper; the backend is compiled in at the pinned version. `test-linking.R` (against the installed package; skipped under `load_all()`): `lib/libzucrypt.a` and both headers exist in the installed package after the install-step merge; the archive defines every `zuc_*` entry point a consumer needs and no R symbol. `tests/consumer/zucrypttest` is a package consuming shape one, `.Rbuildignore`d and built only by `consumer.yaml`; a C program linking the archive covers shape two (`tools/check-linking.sh`). [Writing R Extensions: native routines in other packages](https://cran.r-project.org/doc/manuals/r-release/R-exts.html#Linking-to-native-routines-in-other-packages).
 
 ## 9. Excel integration contract
 
