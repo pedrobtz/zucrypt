@@ -15,8 +15,15 @@ kat_vectors <- function(family = NULL, algorithm = NULL) {
   v
 }
 
+# Hex, or the fixture's repeat notation "HH*N": byte HH, N times -- how the
+# one-million-'a' messages and the 131-byte HMAC keys are written without
+# megabytes of hex. Kept identical to unhex() in tools/make-kat.R.
 unhex <- function(x) {
   if (!nzchar(x)) return(raw(0))
+  if (grepl("^[0-9a-f]{2}\\*[0-9]+$", x)) {
+    parts <- strsplit(x, "*", fixed = TRUE)[[1L]]
+    return(rep(as.raw(strtoi(parts[1L], 16L)), as.integer(parts[2L])))
+  }
   as.raw(strtoi(substring(x, seq(1, nchar(x), 2), seq(2, nchar(x), 2)), 16L))
 }
 

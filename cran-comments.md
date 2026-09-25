@@ -7,8 +7,10 @@
   flavours, and `nosuggests`
 * Additional checks on every push: link-time optimisation, `rchk`,
   `gctorture`, AddressSanitizer, UndefinedBehaviorSanitizer, valgrind with
-  `--leak-check=full`, and GCC's `-fanalyzer`. Weekly: 32-bit and musl
-  builds, and a sweep that fails every allocation in turn.
+  `--leak-check=full`, and GCC's `-fanalyzer`. Weekly: i386, musl and
+  aarch64 builds that run the test suite and fail on a WARNING, and a sweep
+  that fails each allocation the `crypt_*()` calls make, one run per
+  allocation, checking that every failure surfaces as an error.
 
 ## R CMD check results
 

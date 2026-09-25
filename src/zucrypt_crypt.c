@@ -18,6 +18,13 @@
  * and is released eagerly on the success path with the pointer cleared first.
  * That is the family's pattern, and it is why the interrupt check below is
  * safe to have at all.
+ *
+ * "From the moment it exists" is literal: the external pointer is made
+ * first, empty, with its finalizer registered, and the context is created
+ * into it. Making the pointer second -- as this file did until Stage 8 --
+ * leaves one allocation (R_MakeExternalPtr's) that can fail with a live
+ * context and no owner, and an R allocation failure longjmps.
+ * tests/testthat/test-lifetime.R counts live contexts to hold this.
  */
 
 #include <stdlib.h>
@@ -117,13 +124,17 @@ SEXP zucrypt_hash(SEXP data, SEXP algorithm)
     zuc_status st;
     size_t got = 0, offset = 0;
 
+    /* The owner first, then the context into it: nothing between the
+     * context's creation and its owner can longjmp. */
+    ptr = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
+    R_RegisterCFinalizerEx(ptr, hash_finalizer, TRUE);
     st = zuc_hash_new(alg, &h);
     if (st != ZUC_OK) {
-        return result(st, R_NilValue);
+        res = result(st, R_NilValue);
+        UNPROTECT(1);
+        return res;
     }
-    /* Owned from here on, before anything below can longjmp. */
-    ptr = PROTECT(R_MakeExternalPtr(h, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, hash_finalizer, TRUE);
+    R_SetExternalPtrAddr(ptr, h);
 
     while (offset < total && st == ZUC_OK) {
         size_t n = total - offset;
@@ -170,12 +181,15 @@ SEXP zucrypt_hmac(SEXP data, SEXP key, SEXP algorithm)
     zuc_status st;
     size_t got = 0, offset = 0;
 
+    ptr = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
+    R_RegisterCFinalizerEx(ptr, hmac_finalizer, TRUE);
     st = zuc_hmac_new(alg, (const uint8_t *) RAW(key), (size_t) XLENGTH(key), &h);
     if (st != ZUC_OK) {
-        return result(st, R_NilValue);
+        res = result(st, R_NilValue);
+        UNPROTECT(1);
+        return res;
     }
-    ptr = PROTECT(R_MakeExternalPtr(h, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, hmac_finalizer, TRUE);
+    R_SetExternalPtrAddr(ptr, h);
 
     while (offset < total && st == ZUC_OK) {
         size_t n = total - offset;
@@ -223,12 +237,15 @@ SEXP zucrypt_aes_cbc(SEXP data, SEXP key, SEXP iv, SEXP encrypt)
     zuc_status st;
     size_t offset = 0;
 
+    ptr = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
+    R_RegisterCFinalizerEx(ptr, aes_finalizer, TRUE);
     st = zuc_aes_new((const uint8_t *) RAW(key), (size_t) XLENGTH(key), &aes);
     if (st != ZUC_OK) {
-        return result(st, R_NilValue);
+        res = result(st, R_NilValue);
+        UNPROTECT(1);
+        return res;
     }
-    ptr = PROTECT(R_MakeExternalPtr(aes, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, aes_finalizer, TRUE);
+    R_SetExternalPtrAddr(ptr, aes);
 
     st = zuc_aes_cbc_set_state(aes, (const uint8_t *) RAW(iv));
 

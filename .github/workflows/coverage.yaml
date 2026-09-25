@@ -40,7 +40,7 @@ permissions:
 
 jobs:
   coverage:
-    uses: pedrobtz/r-actions/.github/workflows/coverage.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
+    uses: pedrobtz/r-actions/.github/workflows/coverage.yml@68c22c173f9ddbb7e51284fe230053174e941afc # v1.15.0
     permissions:
       contents: write
     with:

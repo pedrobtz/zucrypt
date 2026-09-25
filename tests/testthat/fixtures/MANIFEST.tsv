@@ -9,6 +9,12 @@ kat.tsv	hash-sha384-01	FIPS 180-2, empty message	tools/make-kat.R
 kat.tsv	hash-sha384-02	FIPS 180-2 D.1	tools/make-kat.R
 kat.tsv	hash-sha512-01	FIPS 180-2, empty message	tools/make-kat.R
 kat.tsv	hash-sha512-02	FIPS 180-2 C.1	tools/make-kat.R
+kat.tsv	hash-sha1-04	FIPS 180-2 A.3 (one million 'a')	tools/make-kat.R
+kat.tsv	hash-sha256-04	FIPS 180-2 B.3 (one million 'a')	tools/make-kat.R
+kat.tsv	hash-sha384-03	FIPS 180-2 D.2	tools/make-kat.R
+kat.tsv	hash-sha384-04	RFC 6234 SHA-384 test 3 (one million 'a')	tools/make-kat.R
+kat.tsv	hash-sha512-03	FIPS 180-2 C.2	tools/make-kat.R
+kat.tsv	hash-sha512-04	FIPS 180-2 C.3 (one million 'a')	tools/make-kat.R
 kat.tsv	hmac-sha1-01	RFC 2202 test case 1	tools/make-kat.R
 kat.tsv	hmac-sha1-02	RFC 2202 test case 2	tools/make-kat.R
 kat.tsv	hmac-sha256-01	RFC 4231 test case 1	tools/make-kat.R
@@ -16,6 +22,14 @@ kat.tsv	hmac-sha384-01	RFC 4231 test case 1	tools/make-kat.R
 kat.tsv	hmac-sha512-01	RFC 4231 test case 1	tools/make-kat.R
 kat.tsv	hmac-sha256-02	RFC 4231 test case 2	tools/make-kat.R
 kat.tsv	hmac-sha512-02	RFC 4231 test case 2	tools/make-kat.R
+kat.tsv	hmac-sha1-03	RFC 2202 test case 6	tools/make-kat.R
+kat.tsv	hmac-sha1-04	RFC 2202 test case 7	tools/make-kat.R
+kat.tsv	hmac-sha256-03	RFC 4231 test case 6	tools/make-kat.R
+kat.tsv	hmac-sha384-02	RFC 4231 test case 6	tools/make-kat.R
+kat.tsv	hmac-sha512-03	RFC 4231 test case 6	tools/make-kat.R
+kat.tsv	hmac-sha256-04	RFC 4231 test case 7	tools/make-kat.R
+kat.tsv	hmac-sha384-03	RFC 4231 test case 7	tools/make-kat.R
+kat.tsv	hmac-sha512-04	RFC 4231 test case 7	tools/make-kat.R
 kat.tsv	aes-cbc-aes128-01	NIST SP 800-38A F.2.1 (CBC-AES128.Encrypt)	tools/make-kat.R
 kat.tsv	aes-cbc-aes192-01	NIST SP 800-38A F.2.3 (CBC-AES192.Encrypt)	tools/make-kat.R
 kat.tsv	aes-cbc-aes256-01	NIST SP 800-38A F.2.5 (CBC-AES256.Encrypt)	tools/make-kat.R

@@ -116,6 +116,7 @@ zuc_status zuc_hash_new(zuc_alg alg, zuc_hash **out)
     }
     h->active = 1;
     *out = h;
+    zuc_int_live_add(1);
     return ZUC_OK;
 }
 
@@ -189,6 +190,7 @@ void zuc_hash_free(zuc_hash *hash)
     psa_hash_abort(&hash->op);
     zuc_secure_zero(hash, sizeof *hash);
     free(hash);
+    zuc_int_live_add(-1);
 }
 
 /* ------------------------------------------------------------------ *
@@ -302,6 +304,7 @@ zuc_status zuc_hmac_new(zuc_alg alg, const uint8_t *key, size_t key_len,
     }
     h->active = 1;
     *out = h;
+    zuc_int_live_add(1);
     return ZUC_OK;
 }
 
@@ -371,4 +374,5 @@ void zuc_hmac_free(zuc_hmac *hmac)
     psa_destroy_key(hmac->key);
     zuc_secure_zero(hmac, sizeof *hmac);
     free(hmac);
+    zuc_int_live_add(-1);
 }

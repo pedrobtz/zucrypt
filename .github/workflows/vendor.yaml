@@ -40,4 +40,4 @@ jobs:
   # against the 100-byte tarball limit, and inst/COPYRIGHTS against both the
   # licence and the (currently empty) patch set. See .agents/stage-1-spike.md.
   vendor:
-    uses: pedrobtz/r-actions/.github/workflows/vendor.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
+    uses: pedrobtz/r-actions/.github/workflows/vendor.yml@68c22c173f9ddbb7e51284fe230053174e941afc # v1.15.0

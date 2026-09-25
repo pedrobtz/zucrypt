@@ -1,11 +1,20 @@
 # The ABI validation gate (roadmap Stage 4).
 #
-# This is not Office support and must not become it: no constants, no block
-# keys, no salts. It is the generic shape of the iterative derivation those
-# formats specify, run through the C table, and compared against an
-# independent implementation written in R. The point is to find out whether
-# the incremental and chaining interfaces actually suit the real consumer
-# *before* the ABI is frozen, when changing them is still free.
+# This is not Office support and must not become it: no constants and no
+# block keys. It is the generic shape of the iterative derivation those
+# formats specify, run through the C table, and compared two ways:
+#
+#   - against the same loop written in R over crypt_hash(), which catches a
+#     missing or broken reset but shares the backend, so it cannot catch a
+#     wrong primitive;
+#   - against one known-answer vector whose oracle is msoffcrypto-tool,
+#     which shares no code with this package (#34). The vector's seed is a
+#     real salt and password from zuxlsx's encrypted fixture, stored as
+#     bytes; see fixtures/MANIFEST.tsv and tools/make-derivation-kat.py.
+#
+# The point is to find out whether the incremental and chaining interfaces
+# suit the real consumer *before* the ABI is frozen, when changing them is
+# still free.
 
 # The same loop in R, using zucrypt's own public functions rather than the
 # table. Independent in the sense that matters here: a missing hash_reset, or
@@ -84,4 +93,20 @@ test_that("a segmented stream differs from one continuous CBC stream", {
   expect_false(identical(segmented, continuous))
   # The first segment is the one place they must agree.
   expect_identical(segmented[1:32], continuous[1:32])
+})
+
+test_that("the loop reproduces msoffcrypto-tool on a real agile salt", {
+  kat <- utils::read.delim(test_path("fixtures", "derivation.tsv"),
+                           colClasses = "character")
+  expect_gt(nrow(kat), 0L)
+  unhex <- function(x) {
+    as.raw(strtoi(substring(x, seq(1, nchar(x), 2), seq(2, nchar(x), 2)), 16L))
+  }
+
+  for (i in seq_len(nrow(kat))) {
+    got <- derive_key(unhex(kat$seed[i]), as.integer(kat$spin_count[i]),
+                      kat$algorithm[i])
+    expect_identical(paste(format(got, width = 2), collapse = ""),
+                     kat$output[i], info = kat$id[i])
+  }
 })
