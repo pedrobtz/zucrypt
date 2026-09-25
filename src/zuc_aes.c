@@ -88,6 +88,7 @@ zuc_status zuc_aes_new(const uint8_t *key, size_t key_len, zuc_aes **out)
         return st;
     }
     *out = aes;
+    zuc_int_live_add(1);
     return ZUC_OK;
 }
 
@@ -101,6 +102,7 @@ void zuc_aes_free(zuc_aes *aes)
      * derived from the data, so it goes too. */
     zuc_secure_zero(aes, sizeof *aes);
     free(aes);
+    zuc_int_live_add(-1);
 }
 
 zuc_status zuc_aes_cbc_set_state(zuc_aes *aes, const uint8_t *state)

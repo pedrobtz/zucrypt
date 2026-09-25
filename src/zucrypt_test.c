@@ -30,6 +30,7 @@
 #include <R_ext/Rdynload.h>
 
 #include "zucrypt.h"
+#include "zuc_live.h"
 
 /* ------------------------------------------------------------------ *
  * Argument helpers
@@ -607,6 +608,12 @@ SEXP zucrypt_test_live_handles(SEXP n_)
     return res;
 }
 
+/* Live native contexts in zucrypt.so; see zuc_live.h. */
+SEXP zucrypt_test_live_contexts(void)
+{
+    return Rf_ScalarReal((double) zuc_int_live_contexts());
+}
+
 /* ------------------------------------------------------------------ *
  * Registration
  * ------------------------------------------------------------------ */
@@ -626,5 +633,6 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_required_sizes", (DL_FUNC) &zucrypt_test_required_sizes, 0},
     {"zucrypt_test_not_ready",      (DL_FUNC) &zucrypt_test_not_ready,      0},
     {"zucrypt_test_live_handles",   (DL_FUNC) &zucrypt_test_live_handles,   1},
+    {"zucrypt_test_live_contexts",  (DL_FUNC) &zucrypt_test_live_contexts,  0},
     {NULL, NULL, 0}
 };

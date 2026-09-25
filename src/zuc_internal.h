@@ -17,6 +17,7 @@
 #include <psa/crypto.h>
 
 #include "zucrypt.h"
+#include "zuc_live.h"
 
 /* Map a backend status onto the public enum. Every unrecognised failure
  * becomes ZUC_ERR_BACKEND: the upstream code is meaningful only against a
@@ -44,5 +45,10 @@ const char *zuc_int_random_backend(void);
  * that calling into a library that was never started is ZUC_ERR_NOT_READY
  * rather than undefined behaviour inside the backend. */
 int zuc_int_ready(void);
+
+/* Adjust the count zuc_int_live_contexts() reports: +1 when a handle is
+ * handed to a caller, -1 when it is freed. Only the constructors and the
+ * free functions call it. */
+void zuc_int_live_add(int delta);
 
 #endif /* ZUC_INTERNAL_H */

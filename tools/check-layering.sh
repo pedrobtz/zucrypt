@@ -21,7 +21,7 @@ cd "$ROOT"
 status=0
 
 # The R-free half: the adapter and the public header.
-for f in src/zuc_*.c src/zuc_internal.h inst/include/zucrypt.h; do
+for f in src/zuc_*.c src/zuc_internal.h src/zuc_live.h inst/include/zucrypt.h; do
     [ -e "$f" ] || continue
     if grep -nE '^[[:space:]]*#[[:space:]]*include[[:space:]]*[<"](R\.h|Rinternals\.h|Rdefines\.h|R_ext/|Rmath\.h)' "$f" >/dev/null; then
         printf 'FAIL %s includes an R header; it belongs to the archive\n' "$f" >&2
@@ -77,7 +77,53 @@ for fn in $declared; do
     fi
 done
 
+# The shape #18 fixed, which rchk, gctorture and the sanitizers had all
+# passed:
+#
+#     UNPROTECT(2);
+#     return result(st, out);
+#
+# result() allocates, and `out` is no longer protected, so a collection
+# inside it can take `out` and store a dangling pointer -- a wrong answer
+# returned successfully. The rule for the R glue is simple enough to check
+# textually: after UNPROTECT, return a variable or a constant, never a call.
+# Compute the value while everything it needs is protected, then unprotect.
+unprotect_then_call() {
+    awk '
+        /^[[:space:]]*UNPROTECT[[:space:]]*\(/ { pending = FNR; next }
+        pending && /^[[:space:]]*$/ { next }
+        pending && /^[[:space:]]*return[[:space:]]+[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\(/ {
+            printf "%s:%d: return of a call after UNPROTECT (line %d)\n", FILENAME, FNR, pending
+            found = 1
+        }
+        { pending = 0 }
+        END { exit found ? 1 : 0 }
+    ' "$@"
+}
+
+if ! unprotect_then_call src/zucrypt_*.c >&2; then
+    printf 'FAIL a call is returned after UNPROTECT; compute it while protected\n' >&2
+    status=1
+fi
+
+# And the canary: the lint above is only worth its line if it fires on the
+# shape it names. A regex that silently stopped matching would pass every
+# file forever.
+canary=$(mktemp)
+printf 'SEXP f(void)\n{\n    UNPROTECT(2);\n    return result(st, out);\n}\n' > "$canary"
+if unprotect_then_call "$canary" >/dev/null 2>&1; then
+    printf 'FAIL the UNPROTECT/return lint did not fire on its canary\n' >&2
+    status=1
+fi
+printf 'SEXP f(void)\n{\n    res = result(st, out);\n    UNPROTECT(2);\n    return res;\n}\n' > "$canary"
+if ! unprotect_then_call "$canary" >/dev/null 2>&1; then
+    printf 'FAIL the UNPROTECT/return lint fired on the safe shape\n' >&2
+    status=1
+fi
+rm -f "$canary"
+
 if [ "$status" -eq 0 ]; then
     printf 'ok  src/ layering holds: the adapter is R-free, the glue is backend-free\n'
+    printf 'ok  no call is returned after UNPROTECT, and the lint fires on its canary\n'
 fi
 exit "$status"

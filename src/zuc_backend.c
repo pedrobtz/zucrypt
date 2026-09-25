@@ -20,6 +20,19 @@
  * suggest a thread-safety guarantee the rest of the library does not make. */
 static unsigned int zuc_refcount = 0;
 
+/* See zuc_live.h. Same threading argument as the refcount above. */
+static long zuc_live = 0;
+
+void zuc_int_live_add(int delta)
+{
+    zuc_live += delta;
+}
+
+long zuc_int_live_contexts(void)
+{
+    return zuc_live;
+}
+
 int zuc_int_ready(void)
 {
     return zuc_refcount > 0;
