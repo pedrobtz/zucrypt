@@ -5,21 +5,35 @@ with code in this repository.
 
 ## Current state
 
-Roadmap Stages 0–4 are complete. Stage 5 closed on an exit criterion
-that did not hold and is reopened until its weekly gates run real tests
-([\#26](https://github.com/pedrobtz/zucrypt/issues/26), \#31). Stage 6
-is prepared but not finished: there is no `v0.1.0` tag and no GitHub
-release yet ([\#27](https://github.com/pedrobtz/zucrypt/issues/27)), and
-it is the current stage. `DESCRIPTION` says 0.1.0 and the header says
-`ZUCRYPT_ABI_VERSION 1`, but whether that ABI is frozen before any
-consumer exists is an open decision (#28). The package builds a vendored
-TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the six
-`crypt_*` functions of design §7, and publishes both consumer shapes:
-the registered function table (`inst/include/zucrypt-r.h`,
-`zucrypt_get_api`) and the static archive (`libzucrypt.a`, which
-`src/install.libs.R` installs to the package’s `lib/`; there is no
-`inst/lib/` in the sources). The 2026-09-22 review at the end of the
-roadmap lists what is still open and why.
+The plan of record is
+[design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md)
+revision 3 and Part A of
+[roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
+(Stages 7–12), adopted 2026-09-25. **Stage 7 — settle the surface before
+anything links it — is the current stage.** Stages 0–4 are complete.
+Stage 5 is reopened
+([\#26](https://github.com/pedrobtz/zucrypt/issues/26)) and closes with
+Stage 8. Stage 6 was prepared and never tagged; its remaining items are
+Stages 7–9, and nothing is tagged yet
+([\#27](https://github.com/pedrobtz/zucrypt/issues/27)).
+
+The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from
+source, exports exactly the six `crypt_*` functions of design §7, and
+publishes both consumer shapes: the registered function table
+(`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the static archive
+(`libzucrypt.a`, which `src/install.libs.R` installs to the package’s
+`lib/`; there is no `inst/lib/` in the sources). Until Stage 7 lands,
+the code still carries what revision 3 removes or changes: AES-ECB
+(#29), the static 32-slot key store (#30), and the `lib/` install path
+(#33).
+
+**Stability comes in tiers (design §8.6).** The six R functions are
+stable. The archive (`zucrypt.h`, `libzucrypt.a`,
+`ZUCRYPT_ABI_VERSION 1`) is *provisional* until `zuxlsx`’s agile C path
+([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) has merged
+against it, and is frozen in v0.2.0 (Stage 11). The table is
+*experimental*: no package uses it (#14). Until the freeze, an archive
+change is allowed but must be recorded in `NEWS.md`.
 
 Both shapes have a consumer proof, and neither is reachable from
 `R CMD check`. `tests/consumer/zucrypttest` is a real package with
@@ -29,13 +43,14 @@ never assigned is indistinguishable from a working one until something
 calls it. `tools/check-linking.sh` compiles a plain C program against
 the archive with no R involved, which proves less than it looks: it
 never links into a package shared object, never runs beside
-`zucrypt.so`, and does not run on Windows (#32). The next tracked work
-is the Agile integration in `zuxlsx`, which lives in that repository
+`zucrypt.so`, and does not run on Windows (#32). Stage 10 replaces that
+script with a `LinkingTo`-only fixture package, `tools/zucryptlink`. The
+Agile integration that the freeze waits for lives in `zuxlsx`
 ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)).
 
-**The ABI promise, pending \#28.** Within major version 1, functions and
-table fields may be *added*; nothing is removed, reordered or given a
-new meaning; enumerator values are permanent; and a
+**The ABI promise, from the Stage 11 freeze.** Within major version 1,
+functions and table fields may be *added*; nothing is removed, reordered
+or given a new meaning; enumerator values are permanent; and a
 `ZUC_*_REQUIRED_SIZE` macro never grows. A layout change to a type
 `struct_size` cannot see renames the registered callable instead, so an
 old consumer fails at `R_GetCCallable()` rather than reading a structure
@@ -48,9 +63,10 @@ incremental context and compares it with an R implementation. That R
 implementation calls
 [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
 so it is independent of the reset path but not of the backend: it
-catches a missing or broken reset, not a wrong primitive. It is not
-Office support and must not become it — no constants, no block keys, no
-salts.
+catches a missing or broken reset, not a wrong primitive. Stage 8 adds
+one known-answer vector with msoffcrypto-tool as the oracle, stored as
+input and output bytes. It is not Office support and must not become it
+— no constants, no block keys.
 
 The native layer is in two halves and the split is load-bearing.
 `src/zuc_*.c` is the adapter: R-free, and what goes into the archive.
@@ -83,14 +99,18 @@ it before touching `src/vendor/`, `src/Makevars` or
 `src/zuc_crypto_config.h`.
 
 The real content of this repository is
-[.agents/design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md)
-— the design, implemented in v0.1.0 for §3–§8 and §11–§12; §9 and §13
-steps 3–6 are plans owned by `zuxlsx` and `zuhttp`. Read it before
-writing code; it is the authoritative spec for the API, boundaries and
+[.agents/design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md),
+now at revision 3. §3–§8 and §11–§12 describe `main` as amended by
+revision 3’s decisions, which Stages 7–12 implement; §9 and §13 steps
+3–5 are plans owned by `zuxlsx` and `zuhttp`. Read it before writing
+code; it is the authoritative spec for the API, boundaries and
 constraints summarised below, and it is where design changes belong.
 [.agents/roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
-breaks the path to v0.1.0 into stages with exit criteria; check which
-stage is current before starting work.
+Part A is the plan from here (Stages 7–12, v0.1.0 then v0.2.0 on CRAN);
+Part B is the executed v0.1.0 roadmap, kept as the record. Check which
+stage is current before starting work. One rule added by the re-plan: a
+stage that adds or changes a scheduled job closes only after that job’s
+first real run, dispatched by hand.
 
 ## Working rhythm: one pull request per roadmap stage
 
@@ -201,8 +221,8 @@ alongside it: `zuxlsx`, `zuxml`, `zukomp`, `zuhttp`, …). The boundary is
 strict and is the main thing to preserve:
 
 - **`zucrypt` owns cryptographic primitives only** — hashes, HMAC,
-  AES-CBC/ECB, constant-time compare, secure cleanup. It must never
-  acquire XML, ZIP, Office, socket or TLS dependencies.
+  AES-CBC, constant-time compare, secure cleanup. It must never acquire
+  XML, ZIP, Office, socket or TLS dependencies.
 - **Family conventions are binding** (design §3): C ABI prefix
   `zuc_`/`ZUC_` (never `zu_`, which is `zukomp`’s public namespace and
   `zuhttp`’s internal one, so a `zucrypt.h` using it could not be
@@ -263,17 +283,18 @@ shared object exports `R_init_zucrypt` and nothing else.
 - AES wrappers add/strip **no padding and no authentication**; keys must
   be 16/24/32 bytes, IVs exactly 16, data a multiple of 16.
   Authentication is the caller’s responsibility.
-- SHA-1 and AES-ECB exist purely for Office compatibility and are never
-  defaults for new formats. ECB’s only named use was Office Standard
-  encryption, which `zuxlsx` put out of scope (design-zuxlsx §21c,
-  2026-09-20), so it has no consumer; removal is proposed in \#29.
+- SHA-1 exists for Office compatibility and is never a default for new
+  formats. AES-ECB is removed in Stage 7 (#29): its only use was Office
+  Standard encryption, which `zuxlsx` put out of scope (design-zuxlsx
+  §21c). A primitive enters only with a named consumer (design §6).
 - The PSA key store is static: `src/zuc_crypto_config.h` does not define
   `MBEDTLS_PSA_KEY_STORE_DYNAMIC`, so upstream’s 32-slot default
   applies. Each `zuc_aes` takes two slots (a CBC key and an ECB key) and
   each `zuc_hmac` one, so at most 16 AES handles can be live per backend
   copy — shared, in `zucrypt.so`, by the R functions and every table
   consumer. Exhaustion is reported as `ZUC_ERR_MEMORY`, not as a limit
-  (#30).
+  (#30). Stage 7 defines `MBEDTLS_PSA_KEY_STORE_DYNAMIC`, after which
+  live handles are bounded only by memory.
 - No `encrypt_file(password = )`, no PBKDF2/HKDF/AEAD/RNG in the initial
   scope — each needs a concrete consumer first.
 - Any future randomness uses platform entropy or a seeded backend RNG,
