@@ -5,11 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Current state
 
 The plan of record is [design.md](.agents/design.md) revision 3 and Part A of
-[roadmap.md](.agents/roadmap.md) (Stages 7–12), adopted 2026-09-25. Stages 0–5, 7 and 8 are complete (Stage 5 closed with
-Stage 8, once its weekly gates ran real tests). **Stage 9 — documentation that matches the
-code, and the tag — is the current stage** ([#41](https://github.com/pedrobtz/zucrypt/issues/41)).
-Stage 6 was prepared and never tagged; its remaining items are Stages 7–9, and nothing is
-tagged yet ([#27](https://github.com/pedrobtz/zucrypt/issues/27)).
+[roadmap.md](.agents/roadmap.md) (Stages 7–12), adopted 2026-09-25. Stages 0–5 and 7–9 are complete (Stage 5 closed with
+Stage 8, once its weekly gates ran real tests; Stage 6 was superseded by Stages 7–9). **The one
+item left for v0.1.0 is the tag itself**, which is the maintainer's
+([#27](https://github.com/pedrobtz/zucrypt/issues/27)): tag `v0.1.0` on `main`, publish the
+release, then move `DESCRIPTION` to `0.1.0.9000`. After that, **Stage 10 — the archive proved
+the way a consumer uses it — is next** ([#42](https://github.com/pedrobtz/zucrypt/issues/42)).
+
+`README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
+it in CI and fails on any difference, so never edit `README.md` by hand.
 
 The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the
 six `crypt_*` functions of design §7, and publishes both consumer shapes: the registered function

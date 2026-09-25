@@ -32,7 +32,7 @@
 #' A format that restarts the chaining at segment boundaries -- which is what
 #' the Office Agile profiles do -- is expressed as one call per segment, each
 #' with that segment's own IV. The C interface exposes the running chaining
-#' state directly for consumers that need finer control; see `?zucrypt`.
+#' state directly for consumers that need finer control; see [zucrypt_c_api].
 #'
 #' @examples
 #' key <- as.raw(rep(0x2b, 16))
@@ -56,14 +56,15 @@ NULL
 #' @export
 crypt_aes_cbc_encrypt <- function(data, key, iv) {
   check_aes_key(key)
-  check_aes_iv(iv)
+  algorithm <- aes_algorithm(key)
+  check_aes_iv(iv, algorithm)
   # check_block_multiple() checks the type as well as the length, so a
   # separate check_raw(data) here would report the same problem twice.
-  check_block_multiple(data)
+  check_block_multiple(data, algorithm)
 
   res <- .Call(zucrypt_aes_cbc, data, key, iv, TRUE)
   if (res$status != 0L) {
-    abort_native(res$status)
+    abort_native(res$status, algorithm = algorithm)
   }
   res$value
 }
@@ -72,14 +73,15 @@ crypt_aes_cbc_encrypt <- function(data, key, iv) {
 #' @export
 crypt_aes_cbc_decrypt <- function(data, key, iv) {
   check_aes_key(key)
-  check_aes_iv(iv)
+  algorithm <- aes_algorithm(key)
+  check_aes_iv(iv, algorithm)
   # check_block_multiple() checks the type as well as the length, so a
   # separate check_raw(data) here would report the same problem twice.
-  check_block_multiple(data)
+  check_block_multiple(data, algorithm)
 
   res <- .Call(zucrypt_aes_cbc, data, key, iv, FALSE)
   if (res$status != 0L) {
-    abort_native(res$status)
+    abort_native(res$status, algorithm = algorithm)
   }
   res$value
 }

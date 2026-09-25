@@ -47,7 +47,7 @@ Each call starts from \code{iv} and treats \code{data} as one continuous CBC str
 A format that restarts the chaining at segment boundaries -- which is what
 the Office Agile profiles do -- is expressed as one call per segment, each
 with that segment's own IV. The C interface exposes the running chaining
-state directly for consumers that need finer control; see \code{?zucrypt}.
+state directly for consumers that need finer control; see \link{zucrypt_c_api}.
 }
 
 \examples{

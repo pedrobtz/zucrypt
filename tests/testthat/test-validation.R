@@ -112,3 +112,23 @@ test_that("an unmapped native status still raises a catchable condition", {
   expect_s3_class(cond, "zucrypt_internal_error")
   expect_identical(cond$native_status, 4242L)
 })
+
+test_that("AES conditions say which cipher they are about", {
+  # design.md section 11: every condition carries `algorithm`. Until Stage 9
+  # the AES wrappers left it NA (#36).
+  catch <- function(expr) tryCatch(expr, zucrypt_error = function(e) e)
+
+  # The key is what is wrong, so the key size is unknown: plain "aes-cbc".
+  e <- catch(crypt_aes_cbc_encrypt(raw(16), raw(15), raw(16)))
+  expect_s3_class(e, "zucrypt_bad_length")
+  expect_identical(e$algorithm, "aes-cbc")
+
+  # A valid key names the cipher exactly, whatever else is wrong.
+  e <- catch(crypt_aes_cbc_encrypt(raw(16), raw(32), raw(8)))
+  expect_identical(e$algorithm, "aes-256-cbc")
+  e <- catch(crypt_aes_cbc_decrypt(raw(17), raw(24), raw(16)))
+  expect_identical(e$algorithm, "aes-192-cbc")
+  e <- catch(crypt_aes_cbc_encrypt("text", raw(16), raw(16)))
+  expect_s3_class(e, "zucrypt_invalid_argument")
+  expect_identical(e$algorithm, "aes-128-cbc")
+})
