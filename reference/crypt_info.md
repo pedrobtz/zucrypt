@@ -20,9 +20,10 @@ A list with elements:
 
 - `abi_version`:
 
-  the C ABI version published to `LinkingTo` consumers, as an integer.
-  `0` while the interface is still moving; it becomes `1` at the first
-  release.
+  the C ABI version published to `LinkingTo` consumers, as an integer:
+  `1`. The archive's ABI is provisional until its first consumer links
+  it, and frozen from v0.2.0; see
+  [zucrypt_c_api](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md).
 
 - `algorithms`:
 

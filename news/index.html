@@ -50,11 +50,19 @@
 </div>
 <div class="section level3">
 <h3 id="c-interface-0-1-0">C interface<a class="anchor" aria-label="anchor" href="#c-interface-0-1-0"></a></h3>
-<p>Both shapes the <code>zu*</code> family consumes siblings by, with the ABI frozen at <code>ZUCRYPT_ABI_VERSION 1</code>:</p>
-<ul><li>A registered function table, <code>inst/include/zucrypt-r.h</code>, for a package that can carry an <code>Imports:</code>. Resolved lazily through <code>zucrypt_api()</code>.</li>
-<li>A static archive, <code>inst/lib/libzucrypt.a</code>, for a package that cannot — <code>LinkingTo:</code> only, no runtime dependency, and the consumer owns the backend’s lifetime through <code>zuc_init()</code>/<code>zuc_shutdown()</code>.</li>
-</ul><p><code>inst/include/zucrypt.h</code> compiles standalone as C99 against <code>&lt;stddef.h&gt;</code> and <code>&lt;stdint.h&gt;</code>, and names no backend type: a consumer never has to reproduce this package’s build configuration. Within major version 1, functions and table fields may be added and nothing is removed, reordered, or given a new meaning; see <code><a href="../reference/zucrypt_c_api.html">?zucrypt_c_api</a></code>.</p>
-</div>
+<p>Both shapes the <code>zu*</code> family consumes siblings by, at <code>ZUCRYPT_ABI_VERSION 1</code>, with different stability (<code><a href="../reference/zucrypt_c_api.html">?zucrypt_c_api</a></code>):</p>
+<ul><li>A static archive, <code>libzucrypt.a</code>, installed to <code>lib/</code> plus the R sub-architecture (<code>lib/x64/</code> on Windows), for a package that cannot carry an <code>Imports:</code> — <code>LinkingTo:</code> only, no runtime dependency, and the consumer owns the backend’s lifetime through <code>zuc_init()</code>/<code>zuc_shutdown()</code>. This is the primary shape. It is <strong>provisional</strong> in 0.1.0 and is frozen in 0.2.0, once its first consumer has linked it.</li>
+<li>A registered function table, <code>inst/include/zucrypt-r.h</code>, for a package that can carry an <code>Imports:</code>. Resolved lazily through <code>zucrypt_api()</code>; test an appended field with <code>ZUCRYPT_API_HAS()</code>. <strong>Experimental</strong> until a package uses it.</li>
+</ul><p><code>inst/include/zucrypt.h</code> compiles standalone as C99 against <code>&lt;stddef.h&gt;</code> and <code>&lt;stdint.h&gt;</code>, and names no backend type: a consumer never has to reproduce this package’s build configuration.</p>
+<p>Settled before any consumer linked the ABI (design revision 3):</p>
+<ul><li>AES-ECB is not provided. Its one use was Office Standard encryption, which <code>zuxlsx</code> does not implement.</li>
+<li>The backend’s key store grows on demand, so the number of live AES and HMAC handles is bounded only by memory. The static store it replaces allowed 16 live AES handles per process and reported the 17th as an allocation failure.</li>
+<li>
+<code>ZUC_ERR_NOT_READY</code> (9) is returned by a call made before <code>zuc_init()</code> or after the last <code>zuc_shutdown()</code>.</li>
+<li>
+<code>zuc_info</code> gains <code>hardware_acceleration</code>, appended after the required prefix, and <code>crypt_info()$build_flags$hardware_acceleration</code> now reads it from the compiled library.</li>
+<li>TF-PSA-Crypto’s licence is installed as <code>licenses/tf-psa-crypto-LICENSE</code>, since the archive carries its object code into every consumer.</li>
+</ul></div>
 <div class="section level3">
 <h3 id="backend-0-1-0">Backend<a class="anchor" aria-label="anchor" href="#backend-0-1-0"></a></h3>
 <p>Vendored TF-PSA-Crypto 1.1.1, an LTS release, trimmed to 109 files — the dependency closure of the 18 sources that carry a symbol under this package’s configuration. Installation needs a C99 compiler and nothing else: no system cryptographic library, no CMake, no Python or Perl, and no network access. Hardware acceleration is disabled on every platform, so every platform produces the same bytes.</p>

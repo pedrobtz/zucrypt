@@ -55,8 +55,9 @@ compiled against.</p>
 
 <dt><code>abi_version</code></dt>
 <dd><p>the C ABI version published to <code>LinkingTo</code>
-consumers, as an integer. <code>0</code> while the interface is still moving;
-it becomes <code>1</code> at the first release.</p></dd>
+consumers, as an integer: <code>1</code>. The archive's ABI is provisional until
+its first consumer links it, and frozen from v0.2.0; see
+<a href="zucrypt_c_api.html">zucrypt_c_api</a>.</p></dd>
 
 <dt><code>algorithms</code></dt>
 <dd><p>the digest algorithms this build provides, which
