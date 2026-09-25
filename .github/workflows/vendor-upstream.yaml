@@ -44,10 +44,14 @@ jobs:
   # would differ from every upstream tag forever, which is an alert that
   # fires on the first run and every run after it.
   tf-psa-crypto:
-    uses: pedrobtz/r-actions/.github/workflows/vendor-upstream.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    uses: pedrobtz/r-actions/.github/workflows/vendor-upstream.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
     permissions:
       contents: read
       issues: write
     with:
       upstream-repo: Mbed-TLS/TF-PSA-Crypto
       current-version: awk -F'\t' 'NR > 1 && $1 == "tf-psa-crypto" { print $3 }' tools/vendor/manifest.tsv
+      # The 1.1 LTS line only (design.md section 4, #19). Without this every
+      # 1.2.x feature release opens an issue that is closed with the same
+      # reason, which trains everyone to ignore the one that matters.
+      tag-pattern: '^tf-psa-crypto-1\.1\.[0-9]+$'

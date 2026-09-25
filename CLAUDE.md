@@ -120,7 +120,7 @@ state gets stale.
 CI is adopted from [`pedrobtz/r-actions`](https://github.com/pedrobtz/r-actions), the family's
 shared reusable workflows — never hand-rolled jobs. Two conventions:
 
-- **Pin calls to a commit**, with the tag in a trailing comment (`@1878271... # v1.9.0`). A tag
+- **Pin calls to a commit**, with the tag in a trailing comment (`@8ac2b8a... # v1.13.0`). A tag
   is mutable; `@v1` means "whatever it points at when the job starts". Bump deliberately.
 - **Add a workflow at the stage where it has something to check.** The roadmap's CI table says
   which workflow lands in which stage and why. A job that is green because it inspected nothing

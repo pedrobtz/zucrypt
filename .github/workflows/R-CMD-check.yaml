@@ -34,7 +34,7 @@ permissions: read-all
 
 jobs:
   R-CMD-check:
-    uses: pedrobtz/r-actions/.github/workflows/r-cmd-check.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    uses: pedrobtz/r-actions/.github/workflows/r-cmd-check.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
     with:
       # The default matrix plus one leg at the version DESCRIPTION declares.
       #

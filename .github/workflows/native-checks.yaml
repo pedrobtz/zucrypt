@@ -28,7 +28,7 @@ jobs:
   # and a signature that disagrees across them compiles happily under an
   # ordinary check and shows up at runtime as corruption.
   lto:
-    uses: pedrobtz/r-actions/.github/workflows/lto.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    uses: pedrobtz/r-actions/.github/workflows/lto.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
 
   # This is the first stage with R-facing C, so it is the first stage that can
   # have PROTECT bugs. rchk and gctorture are complements, not alternatives:
@@ -46,7 +46,7 @@ jobs:
   # rather than setting this back to false: a boolean gate has one bad day in
   # it, and what happens on that day is that it goes to false and stays there.
   rchk:
-    uses: pedrobtz/r-actions/.github/workflows/rchk.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    uses: pedrobtz/r-actions/.github/workflows/rchk.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
     with:
       fail-on-findings: true
 
@@ -57,7 +57,7 @@ jobs:
   # it: every allocation triggers a collection, so a context that is reachable
   # only from an unprotected local is collected while still in use.
   gctorture:
-    uses: pedrobtz/r-actions/.github/workflows/gctorture.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    uses: pedrobtz/r-actions/.github/workflows/gctorture.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
 
   # Memory safety, once there is a suite that reaches it -- which there now is:
   # every error path in the adapter frees a context, and the R layer frees one
@@ -104,7 +104,7 @@ jobs:
   # the input here and the one there -- once r-actions resolves the path
   # inside the container. The fix belongs there, not in this repository.
   sanitizers:
-    uses: pedrobtz/r-actions/.github/workflows/sanitizers.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    uses: pedrobtz/r-actions/.github/workflows/sanitizers.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
     with:
       asan: true
 
@@ -114,7 +114,7 @@ jobs:
   # stranded when R_CheckUserInterrupt() longjmps past the free below it. A
   # total with no stack is exactly what would not find it.
   valgrind:
-    uses: pedrobtz/r-actions/.github/workflows/valgrind.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    uses: pedrobtz/r-actions/.github/workflows/valgrind.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
     with:
       valgrind-opts: >-
         --leak-check=full
@@ -134,7 +134,7 @@ jobs:
   #
   # Gating for the same reason and on the same evidence as rchk above.
   analyzers:
-    uses: pedrobtz/r-actions/.github/workflows/analyzers.yml@1878271fd55900994a1b04dae87dd2d23af547a1 # v1.9.0
+    uses: pedrobtz/r-actions/.github/workflows/analyzers.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
     with:
       exclude: src/vendor
       fail-on-findings: true
