@@ -36,22 +36,6 @@ test_that("CBC decryption chains on the ciphertext, not the plaintext", {
   expect_identical(tohex(whole), v$input)
 })
 
-test_that("ECB ignores the chaining state entirely", {
-  v <- kat_vectors("aes-ecb", "aes128")[1, ]
-  key <- unhex(v$key); pt <- unhex(v$input)
-
-  # Two different IVs must give the same ECB answer. A shared chaining state
-  # between the modes would show up here and nowhere else.
-  a <- native_aes("ecb", TRUE, key, raw(16), pt)
-  b <- native_aes("ecb", TRUE, key, as.raw(rep(0xff, 16)), pt)
-  expect_identical(a, b)
-  expect_identical(tohex(a), v$output)
-
-  # Splitting an ECB call changes nothing either, since there is no state.
-  expect_identical(native_aes("ecb", TRUE, key, raw(16), pt,
-                              splits = c(16L, 48L)), a)
-})
-
 test_that("exact in-place AES is supported and correct", {
   v <- kat_vectors("aes-cbc", "aes128")[1, ]
   key <- unhex(v$key); iv <- unhex(v$iv)
@@ -173,7 +157,6 @@ test_that("empty input is valid for digests and HMAC", {
 test_that("empty AES input is a no-op after validation", {
   key <- unhex(kat_vectors("aes-cbc", "aes128")$key[1])
   expect_identical(native_aes("cbc", TRUE, key, raw(16), raw(0)), raw(0))
-  expect_identical(native_aes("ecb", TRUE, key, raw(16), raw(0)), raw(0))
 })
 
 test_that("a non-block-multiple length is refused", {
@@ -200,4 +183,46 @@ test_that("an unknown algorithm name is refused, with no partial matching", {
     expect_error(native_hash(name, raw(0)), "unknown algorithm",
                  info = name)
   }
+})
+
+test_that("a call outside an initialised window is ZUC_ERR_NOT_READY", {
+  # The harness drops the reference R_init_zucrypt holds, calls every
+  # backend-touching constructor and one-shot, then takes the reference back.
+  # Tearing the backend down destroys every key, so nothing else may be live:
+  # collect first, so no finalizer-owned context from an earlier test is.
+  gc()
+  got <- native_not_ready()
+
+  expect_identical(got[["shutdown"]], "ZUC_OK")
+  expect_identical(got[["init"]], "ZUC_OK")
+  calls <- setdiff(names(got), c("shutdown", "init"))
+  expect_length(calls, 6L)
+  for (call in calls) {
+    expect_identical(got[[call]], "ZUC_ERR_NOT_READY", info = call)
+  }
+
+  # And the backend is back: the R functions work afterwards.
+  expect_identical(
+    tohex(crypt_hash(charToRaw("abc"))),
+    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  )
+})
+
+test_that("64 live handles of each kind coexist (#30)", {
+  # The static key store failed at the 17th live AES handle, and reported it
+  # as ZUC_ERR_MEMORY. The dynamic store is bounded by memory alone.
+  got <- native_live_handles(64L)
+  expect_identical(got$aes_created, 64L)
+  expect_identical(got$hmac_created, 64L)
+  expect_identical(got$aes_new, "ZUC_OK")
+  expect_identical(got$hmac_new, "ZUC_OK")
+  # With all 128 keys live, a one-shot that needs a key of its own still works.
+  expect_identical(got$hmac_compute, "ZUC_OK")
+  expect_identical(got$aes_cbc_encrypt, "ZUC_OK")
+
+  # Well past the old limit, and everything is freed again afterwards: a
+  # second round must not start where the first left off.
+  again <- native_live_handles(1000L)
+  expect_identical(again$aes_created, 1000L)
+  expect_identical(again$hmac_created, 1000L)
 })

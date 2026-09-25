@@ -7,9 +7,11 @@
 \description{
 zucrypt publishes its primitives to other packages twice, because the
 \verb{zu*} family consumes siblings in two different ways. Both deliver the
-same library; they differ in what the consumer has to carry.
+same library; they differ in what the consumer has to carry, and in how
+stable they are: the static archive is the primary shape, and the
+registered table is experimental. See the Stability section.
 }
-\section{Shape one, the registered function table}{
+\section{Shape one, the registered function table (experimental)}{
 
 For a package that can carry an \verb{Imports:}. Nothing is linked: R's
 registered C-callable mechanism hands over a single versioned table of
@@ -28,7 +30,7 @@ importFrom(zucrypt, crypt_info)
 
 const zucrypt_api_v1 *api = zucrypt_api();
 if (api == NULL) \{
-    /* zucrypt is missing, or too old for the ABI this was built against */
+    /* zucrypt does not implement the ABI version this was built against */
 \}
 uint8_t out[ZUC_MAX_DIGEST_SIZE];
 size_t n;
@@ -43,9 +45,18 @@ an unloaded namespace has no registered callable to find. \code{zucrypt_api()}
 resolves lazily on first use rather than from your \code{R_init_}, which
 sidesteps the remaining ordering problem, but the import directive is
 still required.
+
+\strong{\code{NULL} means a version mismatch, and nothing else.} When zucrypt is not
+installed or not loaded, \code{R_GetCCallable()} does not return \code{NULL}: it
+raises an R error, which longjmps out of your C code. Resolve the table
+before you acquire anything such a jump would strand.
+
+A table field added after the one you built against may be missing from
+an older zucrypt: test with \code{ZUCRYPT_API_HAS(api, field)} before calling
+it.
 }
 
-\section{Shape two, the static archive}{
+\section{Shape two, the static archive (primary)}{
 
 For a package that cannot carry an \verb{Imports:} -- \code{zuxlsx} links its
 siblings statically and has no runtime dependency on them by design.
@@ -62,9 +73,15 @@ path containing a space, which is the norm on Windows, otherwise reaches
 the linker as two arguments. Then include \verb{<zucrypt.h>} and call the
 functions directly.
 
+The archive is installed to \verb{lib/} plus the R sub-architecture -- plain
+\verb{lib/} on Linux and macOS, \verb{lib/x64/} on Windows -- which is why the lookup
+above tries the sub-architecture first. The licence of the backend
+compiled into it is installed as \code{licenses/tf-psa-crypto-LICENSE}; a
+binary of your package redistributes that code, so ship the notice too.
+
 This shape owns the backend's lifetime: call \code{zuc_init()} before anything
 else and \code{zuc_shutdown()} when finished. It is reference counted, so
-nesting is safe.
+nesting is safe. A call outside that window returns \code{ZUC_ERR_NOT_READY}.
 
 Two consequences worth stating plainly. Your shared object contains its own
 copy of the backend, kept private by hidden visibility. And upgrading
@@ -88,13 +105,28 @@ this package's build configuration.
 change to any other type in the header renames the registered callable
 instead, so an old consumer fails at \code{R_GetCCallable()} rather than
 reading a structure that has moved.
+\item Each AES and HMAC handle holds one key in a key store that grows on
+demand, so the number of live handles is bounded only by memory.
 \item Main thread only, in this version.
 }
 }
 
 \section{Stability}{
 
-\code{ZUCRYPT_ABI_VERSION} is \code{1}, frozen at v0.1.0. Within a major version:
+The three surfaces are at different stages:
+\itemize{
+\item \strong{The six \verb{crypt_*()} R functions} are stable.
+\item \strong{The static archive} -- \code{zucrypt.h}, \code{libzucrypt.a} and where it is
+installed -- is \emph{provisional} in 0.1.0 and becomes frozen ABI 1 in
+0.2.0, once its first consumer (\code{zuxlsx}'s decryption of password
+protected workbooks) has linked it. Until then a change is possible, and
+every one is recorded in \code{NEWS.md}.
+\item \strong{The registered table} (\code{zucrypt-r.h}) is \emph{experimental}: no package
+uses it yet. It may change in any release until one does, again with
+every change recorded in \code{NEWS.md}.
+}
+
+\code{ZUCRYPT_ABI_VERSION} is \code{1}. Once frozen, within a major version:
 functions and table fields may be added; nothing is removed, reordered or
 given a new meaning; enumerator values are permanent, so an algorithm
 compiled out of a build keeps its number and reports itself unavailable;

@@ -71,6 +71,9 @@ jobs:
           SEXP probe(void) {
               const zucrypt_api_v1 *api = zucrypt_api();
               if (api == NULL) return Rf_ScalarLogical(0);
+              /* ZUCRYPT_API_HAS expands offsetof/sizeof arithmetic in the
+               * consumer's translation unit, under the consumer's flags. */
+              if (!ZUCRYPT_API_HAS(api, secure_zero)) return Rf_ScalarLogical(0);
               return Rf_ScalarLogical(api->alg_by_name("sha256") == ZUC_ALG_SHA256);
           }
           C

@@ -36,8 +36,9 @@ available_algorithms <- local({
 #'   \describe{
 #'     \item{`version`}{the `zucrypt` package version, as a `package_version`.}
 #'     \item{`abi_version`}{the C ABI version published to `LinkingTo`
-#'       consumers, as an integer. `0` while the interface is still moving;
-#'       it becomes `1` at the first release.}
+#'       consumers, as an integer: `1`. The archive's ABI is provisional until
+#'       its first consumer links it, and frozen from v0.2.0; see
+#'       [zucrypt_c_api].}
 #'     \item{`algorithms`}{the digest algorithms this build provides, which
 #'       is exactly the set `crypt_hash()` and `crypt_hmac()` accept.}
 #'     \item{`vendored`}{a data frame with one row per vendored source, giving
@@ -68,11 +69,11 @@ crypt_info <- function() {
     ),
     build_flags = list(
       random_backend = backend[["random_backend"]],
-      # Off everywhere, deliberately: MBEDTLS_HAVE_ASM, AESNI and AESCE are
-      # set only by upstream's default configuration, which
-      # src/zuc_crypto_config.h replaces. Every platform runs the same C and
-      # produces the same bytes. See .agents/stage-1-spike.md.
-      hardware_acceleration = FALSE
+      # Read from the compiled library, like everything else here. It is
+      # FALSE in every current build: src/zuc_crypto_config.h enables none
+      # of upstream's assembly or AES instructions, so every platform runs
+      # the same C and produces the same bytes (.agents/stage-1-spike.md).
+      hardware_acceleration = backend[["hardware_acceleration"]]
     )
   )
 }

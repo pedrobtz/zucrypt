@@ -2,7 +2,7 @@
  * Never installed, never part of any ABI.
  *
  * Everything that includes this header is R-free and goes into
- * inst/lib/libzucrypt.a, which a consumer links into its own shared object.
+ * libzucrypt.a, which a consumer links into its own shared object.
  * Including R.h anywhere below this line would put R glue in that archive,
  * where it is a duplicate symbol at best.
  *
@@ -41,7 +41,7 @@ const char *zuc_int_random_backend(void);
 
 /* Non-zero once zuc_init() has succeeded and before the last
  * zuc_shutdown(). Every entry point that touches the backend checks it, so
- * that calling into a library that was never started is ZUC_ERR_INVALID_ARGUMENT
+ * that calling into a library that was never started is ZUC_ERR_NOT_READY
  * rather than undefined behaviour inside the backend. */
 int zuc_int_ready(void);
 

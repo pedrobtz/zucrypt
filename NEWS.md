@@ -26,20 +26,39 @@ key, an IV or plaintext.
 
 ## C interface
 
-Both shapes the `zu*` family consumes siblings by, with the ABI frozen at
-`ZUCRYPT_ABI_VERSION 1`:
+Both shapes the `zu*` family consumes siblings by, at `ZUCRYPT_ABI_VERSION 1`,
+with different stability (`?zucrypt_c_api`):
 
+* A static archive, `libzucrypt.a`, installed to `lib/` plus the R
+  sub-architecture (`lib/x64/` on Windows), for a package that cannot carry
+  an `Imports:` — `LinkingTo:` only, no runtime dependency, and the consumer
+  owns the backend's lifetime through `zuc_init()`/`zuc_shutdown()`. This is
+  the primary shape. It is **provisional** in 0.1.0 and is frozen in 0.2.0,
+  once its first consumer has linked it.
 * A registered function table, `inst/include/zucrypt-r.h`, for a package that
-  can carry an `Imports:`. Resolved lazily through `zucrypt_api()`.
-* A static archive, `inst/lib/libzucrypt.a`, for a package that cannot —
-  `LinkingTo:` only, no runtime dependency, and the consumer owns the
-  backend's lifetime through `zuc_init()`/`zuc_shutdown()`.
+  can carry an `Imports:`. Resolved lazily through `zucrypt_api()`; test an
+  appended field with `ZUCRYPT_API_HAS()`. **Experimental** until a package
+  uses it.
 
 `inst/include/zucrypt.h` compiles standalone as C99 against `<stddef.h>` and
 `<stdint.h>`, and names no backend type: a consumer never has to reproduce
-this package's build configuration. Within major version 1, functions and
-table fields may be added and nothing is removed, reordered, or given a new
-meaning; see `?zucrypt_c_api`.
+this package's build configuration.
+
+Settled before any consumer linked the ABI (design revision 3):
+
+* AES-ECB is not provided. Its one use was Office Standard encryption, which
+  `zuxlsx` does not implement.
+* The backend's key store grows on demand, so the number of live AES and
+  HMAC handles is bounded only by memory. The static store it replaces
+  allowed 16 live AES handles per process and reported the 17th as an
+  allocation failure.
+* `ZUC_ERR_NOT_READY` (9) is returned by a call made before `zuc_init()` or
+  after the last `zuc_shutdown()`.
+* `zuc_info` gains `hardware_acceleration`, appended after the required
+  prefix, and `crypt_info()$build_flags$hardware_acceleration` now reads it
+  from the compiled library.
+* TF-PSA-Crypto's licence is installed as `licenses/tf-psa-crypto-LICENSE`,
+  since the archive carries its object code into every consumer.
 
 ## Backend
 

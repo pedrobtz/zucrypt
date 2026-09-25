@@ -93,7 +93,7 @@ OBJECTS = \
   $(ADAPTER_OBJECTS)
 
 # ---------------------------------------------------------------------------
-# The LinkingTo surface: inst/lib/libzucrypt.a
+# The LinkingTo surface: libzucrypt.a, installed to lib${R_ARCH}/
 #
 # For a consumer that cannot carry an Imports: -- zuxlsx links its siblings as
 # static archives with no runtime dependency at all. It gets the adapter and

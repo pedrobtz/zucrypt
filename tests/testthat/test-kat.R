@@ -30,21 +30,20 @@ test_that("every published HMAC vector reproduces", {
 })
 
 test_that("every published AES vector reproduces, both directions", {
-  v <- kat_vectors(c("aes-cbc", "aes-ecb"))
+  v <- kat_vectors("aes-cbc")
   expect_gt(nrow(v), 0L)
 
   for (i in seq_len(nrow(v))) {
-    mode <- if (v$family[i] == "aes-cbc") "cbc" else "ecb"
     key <- unhex(v$key[i])
-    iv <- if (nzchar(v$iv[i])) unhex(v$iv[i]) else raw(16)
+    iv <- unhex(v$iv[i])
     pt <- unhex(v$input[i])
 
-    ct <- native_aes(mode, TRUE, key, iv, pt)
+    ct <- native_aes("cbc", TRUE, key, iv, pt)
     expect_identical(tohex(ct), v$output[i], info = paste(v$id[i], "encrypt"))
 
     # Decryption is a separate code path with its own chaining bookkeeping,
     # not the inverse of the line above.
-    back <- native_aes(mode, FALSE, key, iv, unhex(v$output[i]))
+    back <- native_aes("cbc", FALSE, key, iv, unhex(v$output[i]))
     expect_identical(tohex(back), v$input[i], info = paste(v$id[i], "decrypt"))
   }
 })

@@ -36,7 +36,7 @@ static zuc_status check_digest_args(zuc_alg alg, const uint8_t *data,
                                     size_t out_size, const size_t *out_len)
 {
     if (!zuc_int_ready()) {
-        return ZUC_ERR_INVALID_ARGUMENT;
+        return ZUC_ERR_NOT_READY;
     }
     if (out == NULL || out_len == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
@@ -90,7 +90,7 @@ zuc_status zuc_hash_new(zuc_alg alg, zuc_hash **out)
     *out = NULL;
 
     if (!zuc_int_ready()) {
-        return ZUC_ERR_INVALID_ARGUMENT;
+        return ZUC_ERR_NOT_READY;
     }
     if (!zuc_alg_available(alg)) {
         return ZUC_ERR_UNSUPPORTED;
@@ -268,7 +268,7 @@ zuc_status zuc_hmac_new(zuc_alg alg, const uint8_t *key, size_t key_len,
     *out = NULL;
 
     if (!zuc_int_ready()) {
-        return ZUC_ERR_INVALID_ARGUMENT;
+        return ZUC_ERR_NOT_READY;
     }
     if (key == NULL && key_len != 0) {
         return ZUC_ERR_INVALID_ARGUMENT;

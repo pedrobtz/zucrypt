@@ -1,13 +1,13 @@
 /* zucrypt: the R-facing translation unit.
  *
- * One of exactly two files in src/ that include an R header -- this one and
- * zucrypt_test.c -- and neither goes into inst/lib/libzucrypt.a. A consumer
- * links that archive into its own shared object, where R glue would be a
- * duplicate symbol and could not work anyway.
+ * One of the four zucrypt_*.c files that include an R header -- with
+ * zucrypt_crypt.c, zucrypt_api.c and zucrypt_test.c -- none of which goes
+ * into libzucrypt.a. A consumer links that archive into its own shared
+ * object, where R glue would be a duplicate symbol and could not work anyway.
+ * tools/check-layering.sh enforces the split.
  *
- * The six crypt_* functions and the condition system arrive in Stage 3. What
- * is here is what crypt_info() needs, plus the status-code table that
- * Stage 3's condition mapping will be built on.
+ * What is here: package registration, what crypt_info() reads, and the
+ * status-code table the R condition mapping is keyed on.
  */
 
 #include <stdio.h>
@@ -43,8 +43,8 @@ SEXP zucrypt_backend_info(void)
     zuc_status st;
     SEXP out, nms;
     const char *names[] = {"backend_name", "backend_version", "random_backend",
-                           "abi_version"};
-    int i, n = 4;
+                           "abi_version", "hardware_acceleration"};
+    int i, n = 5;
 
     info.struct_size = (uint32_t) sizeof info;
     st = zuc_get_info(&info);
@@ -62,6 +62,7 @@ SEXP zucrypt_backend_info(void)
     SET_VECTOR_ELT(out, 1, Rf_mkString(info.backend_version));
     SET_VECTOR_ELT(out, 2, Rf_mkString(info.random_backend));
     SET_VECTOR_ELT(out, 3, Rf_ScalarInteger((int) info.abi_version));
+    SET_VECTOR_ELT(out, 4, Rf_ScalarLogical(info.hardware_acceleration != 0));
     for (i = 0; i < n; i++) {
         SET_STRING_ELT(nms, i, Rf_mkChar(names[i]));
     }
@@ -74,7 +75,7 @@ SEXP zucrypt_status_codes(void)
 {
     /* A named integer vector: enumerator name to value.
      *
-     * Stage 3's condition classes are keyed on the *name*, fetched from here
+     * The R condition classes are keyed on the *name*, fetched from here
      * at runtime rather than written as literals in R. That is the point: a
      * renumbering of zuc_status would otherwise silently remap every
      * condition class, and nothing would fail until a user caught the wrong
@@ -82,7 +83,7 @@ SEXP zucrypt_status_codes(void)
     static const zuc_status all[] = {
         ZUC_OK, ZUC_ERR_INVALID_ARGUMENT, ZUC_ERR_UNSUPPORTED,
         ZUC_ERR_BAD_LENGTH, ZUC_ERR_OVERLAP, ZUC_ERR_MEMORY,
-        ZUC_ERR_BACKEND, ZUC_ERR_ABI, ZUC_ERR_INTERNAL
+        ZUC_ERR_BACKEND, ZUC_ERR_ABI, ZUC_ERR_INTERNAL, ZUC_ERR_NOT_READY
     };
     int n = (int) (sizeof all / sizeof all[0]);
     SEXP out = PROTECT(Rf_allocVector(INTSXP, n));

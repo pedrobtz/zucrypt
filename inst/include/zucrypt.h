@@ -3,7 +3,7 @@
  * This header is the entire public C surface. It compiles standalone as C99
  * against <stddef.h> and <stdint.h> and nothing else -- no R header, no
  * backend header, and no type, macro or identifier belonging to either. That
- * is a hard rule, not a preference: a consumer linking inst/lib/libzucrypt.a
+ * is a hard rule, not a preference: a consumer linking libzucrypt.a
  * has no way to reproduce the backend's build configuration, and a leaked
  * backend type would make its translation unit depend on a configuration it
  * cannot see. A comment here may name the backend; a declaration may not.
@@ -12,8 +12,11 @@
  *
  *   1. The registered function table, for a consumer that can carry an
  *      Imports:. Include <zucrypt-r.h> instead, which includes this file.
- *   2. The static archive inst/lib/libzucrypt.a, for a consumer that cannot.
- *      Link it and call these functions directly.
+ *   2. The static archive libzucrypt.a, for a consumer that cannot. It is
+ *      installed to lib${R_ARCH}/ in the zucrypt package -- on Windows that
+ *      is lib/x64/, elsewhere plain lib/ -- so resolve
+ *      system.file("lib", .Platform$r_arch, package = "zucrypt") first and
+ *      plain "lib" second. Link it and call these functions directly.
  *
  * Shape 2 owns the backend's lifetime: call zuc_init() before anything else
  * and zuc_shutdown() when done. Shape 1 does not -- the zucrypt package
@@ -38,9 +41,16 @@ extern "C" {
  * Versioning
  * ------------------------------------------------------------------ */
 
-/* The ABI this header describes, frozen at v0.1.0.
+/* The ABI this header describes.
  *
- * The promise, within a major version:
+ * Stability (design.md section 8.6): this header and libzucrypt.a are
+ * PROVISIONAL in v0.1.0. They become frozen ABI 1 in v0.2.0, once the first
+ * consumer -- zuxlsx's agile decryption -- has linked the archive. Until
+ * then a change is allowed, and every one is recorded in NEWS.md. The
+ * registered function table in zucrypt-r.h is EXPERIMENTAL and outside the
+ * promise below until a package that is not a test fixture uses it.
+ *
+ * The promise, within a major version, once frozen:
  *
  *   - Functions may be added. Nothing declared here is removed, renamed, or
  *     given a different signature or meaning.
@@ -81,7 +91,9 @@ typedef enum {
     ZUC_ERR_MEMORY           = 5,  /* allocation failed */
     ZUC_ERR_BACKEND          = 6,  /* the backend refused; details are not public */
     ZUC_ERR_ABI              = 7,  /* version or struct_size mismatch */
-    ZUC_ERR_INTERNAL         = 8   /* a broken invariant; report it */
+    ZUC_ERR_INTERNAL         = 8,  /* a broken invariant; report it */
+    ZUC_ERR_NOT_READY        = 9   /* called before zuc_init() or after the
+                                      last zuc_shutdown() */
 } zuc_status;
 
 /* A short, stable, English description. Never returns NULL, including for a
@@ -103,7 +115,7 @@ const char *zuc_status_name(zuc_status status);
  * configuration.
  *
  * SHA-1 exists for compatibility with document formats that specify it. It
- * is not a default for anything new, and neither is ECB below. */
+ * is not a default for anything new. */
 typedef enum {
     ZUC_ALG_NONE   = 0,
 
@@ -170,6 +182,12 @@ typedef struct {
     const char *backend_name;      /* out: e.g. "TF-PSA-Crypto" */
     const char *backend_version;   /* out: e.g. "1.1.1" */
     const char *random_backend;    /* out: the OS random source compiled in */
+    /* Appended after the required prefix: written only when struct_size
+     * covers it, so a caller built against an older header is unaffected. */
+    int         hardware_acceleration; /* out: 1 if AES-NI, AESCE or assembly
+                                          is compiled in; 0 in every current
+                                          build, so all platforms produce the
+                                          same bytes from the same C */
 } zuc_info;
 
 /* The prefix zuc_get_info() dereferences -- deliberately not sizeof(zuc_info),
@@ -179,6 +197,10 @@ typedef struct {
     (offsetof(zuc_info, random_backend) + sizeof(const char *))
 
 zuc_status zuc_get_info(zuc_info *info);
+
+/* Every function below that needs the backend returns ZUC_ERR_NOT_READY
+ * when called outside an initialised window. zuc_status_string(),
+ * zuc_status_name() and the zuc_alg_* functions do not need it. */
 
 /* ------------------------------------------------------------------ *
  * Digests
@@ -245,6 +267,10 @@ void zuc_hmac_free(zuc_hmac *hmac);
 
 /* An AES key, plus the chaining state that CBC advances.
  *
+ * Each handle (and each zuc_hmac) holds one key in the backend's key store,
+ * which grows on demand: the number of live handles is bounded only by
+ * memory, and running out is ZUC_ERR_MEMORY.
+ *
  * NO PADDING IS EVER ADDED OR REMOVED, and no authentication is provided.
  * Every buffer length must be a multiple of ZUC_AES_BLOCK_SIZE. A ciphertext
  * produced here can be modified by anyone who can reach it, undetectably;
@@ -282,15 +308,6 @@ zuc_status zuc_aes_cbc_get_state(const zuc_aes *aes, uint8_t *state);
 zuc_status zuc_aes_cbc_encrypt(zuc_aes *aes,
                                const uint8_t *in, size_t len, uint8_t *out);
 zuc_status zuc_aes_cbc_decrypt(zuc_aes *aes,
-                               const uint8_t *in, size_t len, uint8_t *out);
-
-/* ECB, for compatibility with formats that specify it. Stateless: it neither
- * reads nor advances the chaining state. Identical plaintext blocks produce
- * identical ciphertext blocks, which is why this is not a general-purpose
- * tool. Same length rule and same overlap rule as CBC. */
-zuc_status zuc_aes_ecb_encrypt(zuc_aes *aes,
-                               const uint8_t *in, size_t len, uint8_t *out);
-zuc_status zuc_aes_ecb_decrypt(zuc_aes *aes,
                                const uint8_t *in, size_t len, uint8_t *out);
 
 /* ------------------------------------------------------------------ *

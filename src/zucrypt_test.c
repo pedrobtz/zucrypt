@@ -1,9 +1,8 @@
 /* zucrypt: the permanently-compiled test harness.
  *
- * Stage 2 of the roadmap has no public R interface yet -- the six crypt_*
- * functions are Stage 3 -- but it does have an adapter that has to be proved
- * against published vectors on every platform. These entry points are how the
- * test suite reaches it.
+ * The adapter has to be proved against published vectors on every platform,
+ * at split points and in states the six crypt_* functions never reach.
+ * These entry points are how the test suite reaches it.
  *
  * Compiled into every build, never removed, and never exported to R's search
  * path: this is zukomp's zu_test_stream() arrangement, and the reason is the
@@ -244,7 +243,7 @@ SEXP zucrypt_test_hmac_reset(SEXP algorithm, SEXP key, SEXP first, SEXP second)
  * AES
  * ------------------------------------------------------------------ */
 
-/* mode: "cbc" or "ecb"; encrypt: logical; splits: chunk sizes, each a
+/* mode: "cbc", the only mode since ECB left (#29); encrypt: logical; splits: chunk sizes, each a
  * multiple of the block size; reset_each: restore the original IV before
  * every chunk, which is what a segmented document format does. */
 SEXP zucrypt_test_aes(SEXP mode, SEXP encrypt, SEXP key, SEXP iv, SEXP data,
@@ -263,12 +262,12 @@ SEXP zucrypt_test_aes(SEXP mode, SEXP encrypt, SEXP key, SEXP iv, SEXP data,
         Rf_error("zucrypt: mode must be a single string");
     }
     is_cbc = strcmp(CHAR(STRING_ELT(mode, 0)), "cbc") == 0;
-    if (!is_cbc && strcmp(CHAR(STRING_ELT(mode, 0)), "ecb") != 0) {
-        Rf_error("zucrypt: mode must be \"cbc\" or \"ecb\"");
+    if (!is_cbc) {
+        Rf_error("zucrypt: mode must be \"cbc\"");
     }
     do_encrypt = Rf_asLogical(encrypt) == TRUE;
     do_reset = Rf_asLogical(reset_each) == TRUE;
-    if (is_cbc && iv_len != ZUC_AES_BLOCK_SIZE) {
+    if (iv_len != ZUC_AES_BLOCK_SIZE) {
         Rf_error("zucrypt: a CBC iv must be %d bytes", ZUC_AES_BLOCK_SIZE);
     }
     check_splits(splits, len);
@@ -280,9 +279,7 @@ SEXP zucrypt_test_aes(SEXP mode, SEXP encrypt, SEXP key, SEXP iv, SEXP data,
         R_xlen_t i, n = XLENGTH(splits);
         size_t offset = 0;
 
-        if (is_cbc) {
-            st = zuc_aes_cbc_set_state(aes, iv_bytes);
-        }
+        st = zuc_aes_cbc_set_state(aes, iv_bytes);
         if (n == 0) {
             n = 1;   /* one chunk covering everything */
         } else {
@@ -292,23 +289,15 @@ SEXP zucrypt_test_aes(SEXP mode, SEXP encrypt, SEXP key, SEXP iv, SEXP data,
             size_t chunk = (XLENGTH(splits) == 0)
                 ? len : (size_t) INTEGER(splits)[i];
 
-            if (is_cbc && do_reset && i > 0) {
+            if (do_reset && i > 0) {
                 st = zuc_aes_cbc_set_state(aes, iv_bytes);
                 if (st != ZUC_OK) break;
             }
-            if (is_cbc) {
-                st = do_encrypt
-                    ? zuc_aes_cbc_encrypt(aes, bytes + offset, chunk,
-                                          RAW(out) + offset)
-                    : zuc_aes_cbc_decrypt(aes, bytes + offset, chunk,
-                                          RAW(out) + offset);
-            } else {
-                st = do_encrypt
-                    ? zuc_aes_ecb_encrypt(aes, bytes + offset, chunk,
-                                          RAW(out) + offset)
-                    : zuc_aes_ecb_decrypt(aes, bytes + offset, chunk,
-                                          RAW(out) + offset);
-            }
+            st = do_encrypt
+                ? zuc_aes_cbc_encrypt(aes, bytes + offset, chunk,
+                                      RAW(out) + offset)
+                : zuc_aes_cbc_decrypt(aes, bytes + offset, chunk,
+                                      RAW(out) + offset);
             offset += chunk;
         }
         zuc_aes_free(aes);
@@ -477,6 +466,148 @@ SEXP zucrypt_test_required_sizes(void)
 }
 
 /* ------------------------------------------------------------------ *
+ * Lifetime and capacity
+ * ------------------------------------------------------------------ */
+
+/* What every backend-touching entry point returns outside an initialised
+ * window. Drops the reference R_init_zucrypt holds, calls each entry point,
+ * and takes the reference back -- always, whatever happened in between.
+ *
+ * Tearing the backend down destroys every key in the store, so this is safe
+ * only when no other zucrypt context is live in the process; the test calls
+ * gc() first, and the public entry points free their contexts eagerly. The
+ * one handle made here is freed right after re-initialisation, before any
+ * other key can be imported and reuse its identifier. No R allocation
+ * happens between the shutdown and the init, so no longjmp can leave the
+ * backend down. */
+SEXP zucrypt_test_not_ready(void)
+{
+    static const char *names[] = {
+        "hash_compute", "hash_new", "hmac_compute", "hmac_new", "aes_new",
+        "aes_cbc_encrypt", "shutdown", "init"
+    };
+    enum { N = 8 };
+    zuc_status st[N];
+    uint8_t key[ZUC_AES_KEY_SIZE_128] = {0}, block[ZUC_AES_BLOCK_SIZE] = {0};
+    uint8_t out[ZUC_MAX_DIGEST_SIZE];
+    size_t out_len = 0;
+    zuc_hash *hash = NULL;
+    zuc_hmac *hmac = NULL;
+    zuc_aes *aes = NULL, *live = NULL;
+    SEXP res, nms;
+    int i;
+
+    if (zuc_aes_new(key, sizeof key, &live) != ZUC_OK) {
+        Rf_error("zucrypt: could not create the handle this test needs");
+    }
+
+    st[6] = zuc_shutdown();
+    st[0] = zuc_hash_compute(ZUC_ALG_SHA256, block, sizeof block,
+                             out, sizeof out, &out_len);
+    st[1] = zuc_hash_new(ZUC_ALG_SHA256, &hash);
+    st[2] = zuc_hmac_compute(ZUC_ALG_SHA256, key, sizeof key, block,
+                             sizeof block, out, sizeof out, &out_len);
+    st[3] = zuc_hmac_new(ZUC_ALG_SHA256, key, sizeof key, &hmac);
+    st[4] = zuc_aes_new(key, sizeof key, &aes);
+    st[5] = zuc_aes_cbc_encrypt(live, block, sizeof block, block);
+    st[7] = zuc_init();
+
+    /* Anything the calls above wrongly created goes too. */
+    zuc_aes_free(live);
+    zuc_hash_free(hash);
+    zuc_hmac_free(hmac);
+    zuc_aes_free(aes);
+
+    res = PROTECT(Rf_allocVector(STRSXP, N));
+    nms = PROTECT(Rf_allocVector(STRSXP, N));
+    for (i = 0; i < N; i++) {
+        SET_STRING_ELT(res, i, Rf_mkChar(zuc_status_name(st[i])));
+        SET_STRING_ELT(nms, i, Rf_mkChar(names[i]));
+    }
+    Rf_setAttrib(res, R_NamesSymbol, nms);
+    UNPROTECT(2);
+    return res;
+}
+
+/* Hold `n` live AES handles and `n` live HMAC handles at once, then run a
+ * one-shot HMAC and a CBC call with all of them live, then free everything.
+ * Under the static key store this failed at the 17th AES handle (#30).
+ *
+ * Returns the number of each actually created and the first failing status
+ * of each step. The handles live in malloc'd arrays and the R result is
+ * allocated only after they are all freed, so no longjmp can strand one. */
+SEXP zucrypt_test_live_handles(SEXP n_)
+{
+    int n = Rf_asInteger(n_), i, made_aes = 0, made_hmac = 0;
+    zuc_aes **aes;
+    zuc_hmac **hmac;
+    zuc_status st_aes = ZUC_OK, st_hmac = ZUC_OK, st_mac = ZUC_OK,
+               st_cbc = ZUC_OK;
+    uint8_t key[ZUC_AES_KEY_SIZE_256], block[ZUC_AES_BLOCK_SIZE] = {0};
+    uint8_t out[ZUC_MAX_DIGEST_SIZE];
+    size_t out_len = 0;
+    SEXP res, nms;
+    static const char *names[] = {
+        "aes_created", "hmac_created", "aes_new", "hmac_new",
+        "hmac_compute", "aes_cbc_encrypt"
+    };
+
+    if (n == NA_INTEGER || n < 1 || n > 100000) {
+        Rf_error("zucrypt: n must be between 1 and 100000");
+    }
+    aes = calloc((size_t) n, sizeof *aes);
+    hmac = calloc((size_t) n, sizeof *hmac);
+    if (aes == NULL || hmac == NULL) {
+        free(aes);
+        free(hmac);
+        Rf_error("zucrypt: out of memory");
+    }
+    for (i = 0; i < (int) sizeof key; i++) {
+        key[i] = (uint8_t) i;
+    }
+
+    for (i = 0; i < n && st_aes == ZUC_OK; i++) {
+        st_aes = zuc_aes_new(key, sizeof key, &aes[i]);
+        if (st_aes == ZUC_OK) made_aes++;
+    }
+    for (i = 0; i < n && st_hmac == ZUC_OK; i++) {
+        st_hmac = zuc_hmac_new(ZUC_ALG_SHA256, key, sizeof key, &hmac[i]);
+        if (st_hmac == ZUC_OK) made_hmac++;
+    }
+    st_mac = zuc_hmac_compute(ZUC_ALG_SHA256, key, sizeof key, block,
+                              sizeof block, out, sizeof out, &out_len);
+    if (made_aes > 0) {
+        st_cbc = zuc_aes_cbc_set_state(aes[0], block);
+        if (st_cbc == ZUC_OK) {
+            st_cbc = zuc_aes_cbc_encrypt(aes[made_aes - 1], block,
+                                         sizeof block, block);
+        }
+    }
+
+    for (i = 0; i < n; i++) {
+        zuc_aes_free(aes[i]);
+        zuc_hmac_free(hmac[i]);
+    }
+    free(aes);
+    free(hmac);
+
+    res = PROTECT(Rf_allocVector(VECSXP, 6));
+    nms = PROTECT(Rf_allocVector(STRSXP, 6));
+    SET_VECTOR_ELT(res, 0, Rf_ScalarInteger(made_aes));
+    SET_VECTOR_ELT(res, 1, Rf_ScalarInteger(made_hmac));
+    SET_VECTOR_ELT(res, 2, Rf_mkString(zuc_status_name(st_aes)));
+    SET_VECTOR_ELT(res, 3, Rf_mkString(zuc_status_name(st_hmac)));
+    SET_VECTOR_ELT(res, 4, Rf_mkString(zuc_status_name(st_mac)));
+    SET_VECTOR_ELT(res, 5, Rf_mkString(zuc_status_name(st_cbc)));
+    for (i = 0; i < 6; i++) {
+        SET_STRING_ELT(nms, i, Rf_mkChar(names[i]));
+    }
+    Rf_setAttrib(res, R_NamesSymbol, nms);
+    UNPROTECT(2);
+    return res;
+}
+
+/* ------------------------------------------------------------------ *
  * Registration
  * ------------------------------------------------------------------ */
 
@@ -493,5 +624,7 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_status",         (DL_FUNC) &zucrypt_test_status,         1},
     {"zucrypt_test_info_size",      (DL_FUNC) &zucrypt_test_info_size,      1},
     {"zucrypt_test_required_sizes", (DL_FUNC) &zucrypt_test_required_sizes, 0},
+    {"zucrypt_test_not_ready",      (DL_FUNC) &zucrypt_test_not_ready,      0},
+    {"zucrypt_test_live_handles",   (DL_FUNC) &zucrypt_test_live_handles,   1},
     {NULL, NULL, 0}
 };

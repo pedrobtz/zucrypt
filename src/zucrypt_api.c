@@ -1,7 +1,7 @@
 /* zucrypt: the registered function table.
  *
  * R-facing -- it needs R_RegisterCCallable -- so it lives beside the other
- * zucrypt_*.c files and is not in inst/lib/libzucrypt.a. The table itself
+ * zucrypt_*.c files and is not in libzucrypt.a. The table itself
  * holds pointers to the adapter, which is in the archive; this file adds no
  * behaviour of its own, on purpose. Anything it computed would be behaviour
  * the archive consumer cannot reach, and the two shapes have to be the same
@@ -62,8 +62,6 @@ static void fill_api(void)
     api.aes_cbc_get_state = zuc_aes_cbc_get_state;
     api.aes_cbc_encrypt   = zuc_aes_cbc_encrypt;
     api.aes_cbc_decrypt   = zuc_aes_cbc_decrypt;
-    api.aes_ecb_encrypt   = zuc_aes_ecb_encrypt;
-    api.aes_ecb_decrypt   = zuc_aes_ecb_decrypt;
 
     api.equal       = zuc_equal;
     api.secure_zero = zuc_secure_zero;
@@ -78,7 +76,7 @@ const zucrypt_api_v1 *zucrypt_get_api(uint32_t requested)
      * so, which is the entire point: the alternative is a call through a
      * pointer whose meaning has changed.
      *
-     * Still an equality test now that the ABI is frozen at 1, because there
+     * An equality test while there is one version, because there
      * is exactly one version to serve. It grows a range check when there is
      * a second one and not before: a range check with one version in it is
      * untested code that looks like it has been thought about. */

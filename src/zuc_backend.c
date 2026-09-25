@@ -2,9 +2,11 @@
  *
  * The reference count lives here rather than in the R layer because the
  * archive consumer has no R layer: it links libzucrypt.a into its own shared
- * object and calls zuc_init() itself. Both consumers therefore go through the
- * same counter, and neither can tear the backend down while the other holds a
- * context.
+ * object and calls zuc_init() itself. That consumer's copy of the archive is
+ * a separate backend with its own counter and its own key store; what is
+ * shared is the counter within one copy -- in zucrypt.so, the R functions
+ * and every table consumer -- so none of those can tear the backend down
+ * while another holds a context.
  */
 
 #include <stddef.h>
@@ -61,6 +63,20 @@ zuc_status zuc_shutdown(void)
     return ZUC_OK;
 }
 
+/* Read from the configuration the backend was compiled with, after its
+ * adjust headers have run, rather than asserted in R: src/zuc_crypto_config.h
+ * sets none of these, so every platform runs the same C. A future
+ * configuration that enabled one would be reported here, not missed. */
+static int zuc_int_hardware_acceleration(void)
+{
+#if defined(MBEDTLS_AESNI_C) || defined(MBEDTLS_AESCE_C) || \
+    defined(MBEDTLS_HAVE_ASM)
+    return 1;
+#else
+    return 0;
+#endif
+}
+
 zuc_status zuc_get_info(zuc_info *info)
 {
     if (info == NULL) {
@@ -78,5 +94,12 @@ zuc_status zuc_get_info(zuc_info *info)
     info->backend_name    = "TF-PSA-Crypto";
     info->backend_version = TF_PSA_CRYPTO_VERSION_STRING;
     info->random_backend  = zuc_int_random_backend();
+
+    /* Appended after the required prefix, so written only when the caller's
+     * struct is long enough to have it. */
+    if (info->struct_size >= offsetof(zuc_info, hardware_acceleration) +
+                             sizeof info->hardware_acceleration) {
+        info->hardware_acceleration = zuc_int_hardware_acceleration();
+    }
     return ZUC_OK;
 }

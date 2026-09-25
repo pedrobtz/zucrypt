@@ -48,7 +48,10 @@ zuc_status_class <- c(
   ZUC_ERR_MEMORY           = "zucrypt_memory_error",
   ZUC_ERR_BACKEND          = "zucrypt_backend_error",
   ZUC_ERR_ABI              = "zucrypt_abi_mismatch",
-  ZUC_ERR_INTERNAL         = "zucrypt_internal_error"
+  ZUC_ERR_INTERNAL         = "zucrypt_internal_error",
+  # R_init_zucrypt initialises the backend and never releases it, so from R
+  # this can only be a bug -- hence internal, not a class of its own.
+  ZUC_ERR_NOT_READY        = "zucrypt_internal_error"
 )
 
 # Raise the condition a native status maps to. Called only with a failing
