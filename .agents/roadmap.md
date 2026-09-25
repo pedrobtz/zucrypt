@@ -1,13 +1,380 @@
-# zucrypt: roadmap to v0.1.0
+# zucrypt: roadmap
 
-Status: executed 2026-09-20. Stages 0–4 are done; Stage 5 closed with gates that had not yet
-run (its second deviation, #31); Stage 6 is prepared and untagged (#27). The review at the end
-of this file records what the evidence changed.
-Date: 2026-09-20; reviewed 2026-09-22.
-Implements: [design.md](design.md) sections 3–8, 11, 12, and steps 1–2 of section 13.
-Revised 2026-09-20 to match the design's review against the sibling packages: both consumer
-shapes (table and static archive), `zuc_`/`crypt_` naming, family condition classes and the
-`tools/vendor/` layout.
+Status: proposed 2026-09-25. This plan implements [design.md](design.md) revision 3.
+- Stages 0–4 are done.
+- Stage 5 is reopened until its weekly gates run real tests (#26); Stage 8 closes it.
+- Stage 6 was prepared and never tagged. Its remaining items are now Stages 7–9, and the
+  v0.1.0 tag is the last item of Stage 9.
+- Stages 10–12 lead to v0.2.0, the first CRAN release.
+
+Date: 2026-09-20; reviewed 2026-09-22 (#37); re-planned 2026-09-25.
+
+The file has two parts:
+- **Part A** is the plan from here.
+- **Part B** is the v0.1.0 roadmap as it was written and executed, with its 2026-09-22 review.
+  It is kept because its stage sections are the exit criteria that issues #26 and #27 link to,
+  and because the review's lessons are why Part A is shaped the way it is.
+
+# Part A — Plan from 2026-09-25
+
+## Where things stand
+
+The code on `main` is sound, and the R surface is not in question. What the review found is a
+plan that ran ahead of its evidence:
+- an ABI frozen with no consumer;
+- a primitive (ECB) with no consumer;
+- a 16-handle key-store limit reported as out of memory;
+- two gates that had not run. One of them has since run and failed: see #31, 2026-09-25.
+
+Nothing is tagged and nothing links the archive, so every one of these is still free to fix.
+That stops being true the day a consumer links `libzucrypt.a`, which is why the order below puts
+every surface change first.
+
+## Releases
+
+| Release | Where | What it promises | Gated by |
+| --- | --- | --- | --- |
+| **v0.1.0** | GitHub tag | The six R functions are stable. The archive ABI is *provisional*. The table is *experimental* (design §8.6) | Stages 7–9 |
+| **v0.2.0** | CRAN | The archive is frozen as ABI 1. The table is still experimental | Stages 10–12, and `zuxlsx`'s agile C path ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) |
+| later | — | Deferred primitives and conveniences, each on its entry criterion (design §6) | A named consumer |
+
+**The family order fixes v0.2.0's deadline:**
+1. zucrypt reaches CRAN before `zuxlsx` 0.2.0, since `zuxlsx` cannot pass CRAN's checks with a
+   `LinkingTo:` on a package that is not there.
+2. zucrypt reaches CRAN after `zuxlsx`'s C path has shown that the archive suits it, since
+   freezing first is the mistake this plan corrects.
+
+zucrypt 0.2.0 and `zuxlsx` 0.2.0 are therefore one sequence: C path merged, then zucrypt frozen
+and submitted, then `zuxlsx` submitted.
+
+## Stage map
+
+| Stage | Release | Issues | Needs |
+| --- | --- | --- | --- |
+| 7 — Settle the surface before anything links it | v0.1.0 | #29, #30, #28, #33 (layout and licence), #19 (decision), #36 (header and resolver text) | — |
+| 8 — Evidence that has run | v0.1.0 | #31, #34, #35; closes #26 | Stage 7. A fix in `r-actions` for the allocation interposer |
+| 9 — Documentation that matches the code, and the tag | v0.1.0 | #36 (the rest), #27 | Stage 8 |
+| 10 — The archive proved the way a consumer uses it | v0.2.0 | #32, #33 (fixture location) | Stage 9 |
+| 11 — The first consumer, and the freeze | v0.2.0 | #28 (the freeze itself) | Stage 10. `zuxlsx`'s agile C path merged |
+| 12 — v0.2.0 and CRAN | v0.2.0 | #17, #13, #15 | Stage 11 |
+| after | 0.3+ | #9, #10, #11, #12, #16 | A named consumer each |
+
+Issue #14 is closed as *not planned* when this plan merges (design revision 3, item 9).
+
+The working rhythm is unchanged (CLAUDE.md):
+- one pull request per stage;
+- a local `document()`, `test()` and `check()` at 0/0/0 before pushing;
+- every CI leg green before merging.
+
+This plan adds one rule, taken from the review: **a stage that adds or changes a scheduled job
+closes only after that job's first real run**, dispatched by hand. "Real" means the log shows
+the job exercised what it is named for (design §12).
+
+## Stage 7 — Settle the surface before anything links it
+
+Goal: make every change to the archive's surface now, while it costs nothing, so that
+`zuxlsx`'s C path is written once against the surface that will be frozen.
+
+Work items:
+
+- **Remove AES-ECB** (#29).
+  - Delete `zuc_aes_ecb_encrypt()`/`zuc_aes_ecb_decrypt()` from `zucrypt.h`, `src/zuc_aes.c`
+    and `src/zucrypt_api.c`.
+  - Delete both table fields from `zucrypt_api_v1`, and the ECB checks from the consumer fixture's
+    `probe.c`.
+  - Remove `PSA_WANT_ALG_ECB_NO_PADDING` from `src/zuc_crypto_config.h` and from the manifest's
+    `defines`.
+  - Re-derive the trim (stage-1-spike §3), then run `tools/vendor/fetch`, `record` and `verify`.
+  - Update DESCRIPTION's `Description` field.
+  - Remove the three ECB rows from `kat.tsv` and `MANIFEST.tsv`, and ECB from
+    `tools/make-kat.R`, `test-kat.R`, `test-adapter.R` and `test-linking.R`. The last of these
+    checks that the archive defines every entry point, so it has to lose the two ECB names.
+- **Make the key store dynamic** (#30).
+  - Define `MBEDTLS_PSA_KEY_STORE_DYNAMIC`, and add it to the manifest's `defines`.
+  - Re-derive the trim again, in the same commit as the ECB removal, so it is derived once.
+  - `zuc_aes_new()` now imports one key.
+  - Document in `zucrypt.h` that the number of live handles is bounded by memory.
+  - Test: 64 live `zuc_aes` and 64 live `zuc_hmac` handles through the harness, a one-shot HMAC
+    and CBC call with all of them live, and then all freed.
+- **Append `ZUC_ERR_NOT_READY = 9`** (#28).
+  - Return it from every `zuc_int_ready()` check that returns `ZUC_ERR_INVALID_ARGUMENT` today.
+  - Add it to `zuc_status_string()`, and to the R status map as `zucrypt_internal_error`.
+  - A harness test calls a function between shutdown and init.
+- **Add `ZUCRYPT_API_HAS(api, field)`** to `zucrypt-r.h`, modelled on `zuxml.h`'s macro, and
+  use it once in the fixture.
+- **Correct the resolver's contract** in `zucrypt-r.h` and `?zucrypt_c_api` (#28, #36): a
+  missing `zucrypt` is an R error from `R_GetCCallable()`, and `NULL` means only a version
+  mismatch.
+- **Install as `zukomp` does** (#33, first half).
+  - `src/install.libs.R` installs the archive to `lib${R_ARCH}/` and checks every copy.
+  - It installs `licenses/tf-psa-crypto-LICENSE` from `src/vendor/tf-psa-crypto/LICENSE`.
+  - `inst/COPYRIGHTS` points at the installed path.
+  - `test-linking.R` and `tools/check-linking.sh` resolve `lib/<arch>` first, then `lib/`.
+- **Report hardware acceleration from C** (#36). It becomes a `zuc_info` field or a
+  `zucrypt_backend_info` entry, whichever does not change `zuc_info`'s required size.
+- **State the tiers** (design §8.6) in `?zucrypt_c_api`: the archive provisional, the table
+  experimental. The README and NEWS follow in Stage 9.
+- **Record the upstream decision** (#19): stay on 1.1 LTS (design §4).
+  - Close #19 with that reason.
+  - Open an issue in `pedrobtz/r-actions` asking `vendor-upstream` for a tag pattern, so the
+    watcher follows `tf-psa-crypto-1.1.*`.
+- Keep `ZUCRYPT_ABI_VERSION` at 1 (design revision 3, item 1), and say why in NEWS.
+
+Exit:
+
+- `abi.yaml` is green. The header still compiles standalone as C99 and C++ with ECB gone and the
+  new status and macro present.
+- The consumer fixture calls every remaining table entry, and none that was removed.
+- `tools/vendor/verify` is clean, and the manifest's `defines` match the configuration header.
+- The handle-count test passes under ASan and valgrind.
+- `test-abi.R` still shows only `R_init_zucrypt` exported.
+- The installed package has `lib${R_ARCH}/libzucrypt.a` and `licenses/tf-psa-crypto-LICENSE`,
+  and `test-linking.R` asserts both.
+
+## Stage 8 — Evidence that has run
+
+Goal: every gate Stage 5 claimed is shown, by its own log, to exercise what it is named for.
+The published vectors reach past one compression block. The longjmp paths the design legislates
+about are executed at least once.
+
+Work items:
+
+- **`arch.yaml`** (#31).
+  - Install testthat in the legs.
+  - Find and fix the `checking R files for syntax errors ... WARNING` on i386 and aarch64.
+  - Fail on WARNING.
+  - Assert that each leg ran a nonzero number of tests.
+  - Dispatch it by hand, and record the counts in the PR.
+- **`alloc-failure.yaml`** (#31).
+  - Report to `pedrobtz/r-actions` that its interposer aborts every run: `free()` is not
+    interposed for arena pointers, so glibc aborts with `free(): invalid pointer`. Bump the pin
+    once r-actions has released the fix.
+  - Move the sweep window onto the adapter. Measure the startup floor *after*
+    `library(zucrypt)` and `crypt_info()`, by making the baseline command do both. If the r-actions
+    inputs do not allow that, raise `CAP` to cover the ~4,700-allocation workload.
+  - Match `expect-pattern` on text that is actually printed (`ZUC_ERR_MEMORY`), or print
+    `class(e)` in `tools/alloc-exercise.R`.
+  - Confirm from the log that failures land inside `zuc_*_new()`.
+- **Independent vectors** (#34).
+  - Add to `kat.tsv`, each with provenance in `MANIFEST.tsv` and recomputed by
+    `tools/make-kat.R --check`:
+    - RFC 4231 cases 6 and 7;
+    - FIPS 180-2 SHA-256 B.2 and SHA-512 C.2;
+    - "one million a" for every digest.
+  - Compare inputs of 1,000 B, 64 KiB + 1 and 4 MiB with `openssl`, under
+    `skip_if_not_installed("openssl")`.
+  - Add the derivation known-answer vector: the spin-loop output for `zuxlsx`'s committed agile
+    fixture parameters, computed by msoffcrypto-tool and stored as input and output bytes, with
+    its generation recorded. It is test data only (design §12).
+- **The longjmp paths** (#35).
+  - Add a test-only live-context counter in the adapter.
+  - Add a harness entry point that raises an R error after N chunks, and a `setTimeLimit()` test
+    that interrupts `crypt_hash()` on a 64 MiB input.
+  - Assert the counter is 0 after `gc()`.
+  - Break the finalizer once, locally, to show the test fails, and record that in the PR.
+  - Add a lint in `tools/check-layering.sh` that rejects a `return` of an allocating call right
+    after `UNPROTECT()` in `src/zucrypt_*.c`, with a canary that proves it fires.
+- **Correct the claims.** Remove from `NEWS.md` and `cran-comments.md` every statement that a
+  check is performed, unless this stage has shown it run.
+
+Exit:
+
+- The i386, musl and aarch64 legs each report a nonzero test count and no WARNING.
+- `alloc-failure.yaml` is green, and its log shows failures injected inside the adapter's
+  allocation window.
+- All new vectors pass, and `make-kat.R --check` recomputes them.
+- The interrupt test passes, and was shown to fail with the finalizer broken.
+- The lint's canary fires.
+- #26 closes, and Stage 5 with it.
+
+## Stage 9 — Documentation that matches the code, and the tag
+
+Goal: nothing a user or consumer reads contradicts the code, and v0.1.0 is tagged at a commit
+where that is true.
+
+Work items (#36, the parts Stage 7 did not take):
+
+- **Render the README from `README.Rmd`**, so that its example output is computed and cannot
+  drift. Today the printed digest is not SHA-256 of its input.
+  - The lifecycle badge becomes "experimental" (design §8.6).
+  - The "Consuming it from C" and "Status" paragraphs state the tiers.
+  - The archive path becomes `lib${R_ARCH}/`.
+- **Fix the stale roxygen and comments:**
+  - `R/info.R` (the `abi_version` text);
+  - `R/aes.R` (`?zucrypt` → `?zucrypt_c_api`);
+  - `R/c-api.R` (the `NULL` promise);
+  - `src/zuc_backend.c:5-6`;
+  - `src/zucrypt_r.c:3,8`;
+  - `src/Makevars:85`;
+  - the Suggests comment in `R-CMD-check.yaml`.
+- **Make AES conditions carry `algorithm`** (design §11).
+- **Rewrite `NEWS.md`'s 0.1.0 entry.** It gives the API, the pinned backend release, the three
+  tiers, what changed since #8 (ECB removed, dynamic key store, `ZUC_ERR_NOT_READY`,
+  `ZUCRYPT_API_HAS`, install layout, licence), and the explicit non-goals.
+- **Mark `cran-comments.md` as a draft for v0.2.0**, or delete it until Stage 12.
+- **Update CLAUDE.md's Current state.**
+- **Tag.** This is for the maintainer, because a tag and a release are public and hard to walk
+  back. Tag `v0.1.0` on the merge commit of this stage. Publish the GitHub release with notes that
+  point at the pkgdown site. Then move `main` to `0.1.0.9000`.
+
+Exit:
+
+- `devtools::check()` is 0/0/0.
+- The README's rendered output matches a fresh `knitr` run in CI.
+- The tag exists at a commit where every CI leg, including this stage's weekly dispatches, is
+  green.
+- #27 closes.
+
+## Stage 10 — The archive proved the way a consumer uses it
+
+Goal: the archive's claims are tested by a package that consumes it exactly as `zuxlsx` will:
+position-independent code, hidden symbols, two backend copies in one process, Windows paths, and
+running without `zucrypt` installed. Until this stage, a plain `main()` has been standing in for
+that consumer.
+
+Work items (#32, and the second half of #33):
+
+- **Add `tools/zucryptlink`**, a `LinkingTo`-only package. Its `configure`, `configure.win` and
+  `src/Makevars.in` are copied from `zuxlsx`'s.
+  - It resolves `system.file("lib", .Platform$r_arch, ...)`, then `lib/`, into a single-quoted
+    `PKG_LIBS`.
+  - It runs the derivation rehearsal and the known-answer vector from Stage 8 through the archive.
+- **Assert what the archive promises:**
+  - `nm -D` (and `dumpbin /exports` on Windows) on the fixture's shared object shows no `psa_`,
+    `mbedtls_` or `zuc_` export;
+  - the fixture and `zucrypt.so`, loaded in both orders, each compute correct results;
+  - with `R_LIBS_USER='-'` and `zucrypt` removed from the library path, the fixture still works
+    (`zukomp`'s `check-linking.sh` step).
+- **Run it from `consumer.yaml`** on Linux, macOS and Windows, failing when zero tests are
+  discovered.
+- **Move the table fixture** from `tests/consumer/zucrypttest` to `tools/zucrypttest`, and update
+  `.Rbuildignore` and `consumer.yaml`.
+- **Retire `tools/check-linking.sh`**, or reduce it to a smoke test called by the fixture's CI
+  step.
+- **Update the family table's `zucrypt` cells** (licence installed, `lib${R_ARCH}`, fixture
+  packages) in all five repositories together, as that section requires.
+
+Exit:
+
+- `consumer.yaml` is green on three operating systems with both fixtures, and neither discovers
+  zero tests.
+- The Windows leg links through a library path that contains a space.
+- The export check fails on a deliberately unhidden build. Record it in the PR.
+
+## Stage 11 — The first consumer, and the freeze
+
+Goal: freeze ABI 1 because a real consumer has shown the archive suits it, not because a stage
+number came up.
+
+Entry: `zuxlsx`'s agile decryption C path
+([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) is merged in that repository,
+linking `libzucrypt.a` from this repository's `main`.
+
+Work items:
+
+- **Answer the consumer.** Anything `zuxlsx` finds missing or awkward is fixed here before the
+  freeze, and recorded in NEWS. A change that is not an addition is allowed only in this window.
+- **Add a reverse-dependency job.** It builds `zuxlsx` at its `main` against this checkout, and
+  runs its decryption tests on three operating systems. This is the family convergence target that
+  [zukomp#35](https://github.com/pedrobtz/zukomp/issues/35) tracks for `zukomp`. Write it so that
+  `zukomp` and `zuxml` can adopt it unchanged, or propose it to `r-actions` as a reusable
+  workflow.
+- **Declare the freeze.**
+  - `?zucrypt_c_api`, the README and NEWS say the archive is ABI 1 and frozen.
+  - The lifecycle badge becomes "stable" for the archive.
+  - The table's tier is restated as experimental.
+- **Decide the table's future** (design §14), if a non-fixture consumer has appeared by now.
+  Otherwise it stays experimental.
+
+Exit:
+
+- The reverse-dependency job is green on three operating systems.
+- The freeze is stated in every place design §8.6 lists.
+- #28 closes.
+
+## Stage 12 — v0.2.0 and CRAN
+
+Goal: zucrypt on CRAN, before `zuxlsx` 0.2.0 is submitted.
+
+Work items:
+
+- **Write the vendored-backend vignette** (#17), the document a CRAN reviewer or a security
+  reviewer will read. It covers:
+  - the trim;
+  - the eleven defines, and what is not enabled;
+  - hardware acceleration off everywhere;
+  - provenance and reproduction;
+  - the patch;
+  - how a security fix reaches an archive consumer, which is only when that consumer is
+    reinstalled;
+  - what the testing does and does not establish.
+- **Write the C-API vignette** (#13), now that the promise is settled. It quotes both fixture
+  packages rather than inventing examples.
+- **Write the getting-started article** (#15).
+- **Run the CRAN preparation:**
+  - the `cran-extrachecks` and `review-cran-submission` passes;
+  - `R CMD check --as-cran` on win-builder and macbuilder;
+  - `urlchecker`;
+  - the spelling check.
+- **Rewrite `cran-comments.md`** as a first submission. It lists only checks that have run, and
+  explains the vendored backend and the installed static archive in one paragraph each.
+- Set the version to 0.2.0.
+- **Submission** is for the maintainer: tag `v0.2.0` and submit.
+
+Exit: accepted on CRAN, `main` at `0.2.0.9000`, and `zuxlsx` notified that it can submit.
+
+## After v0.2.0
+
+None of these is scheduled. Each enters on the criterion design §6 records, and each follows
+the stage rhythm when it does.
+
+- **#9 `crypt_random()`**: when a named consumer needs IVs or nonces, or together with #10.
+- **#10 AES-GCM**: when a named consumer needs authenticated encryption, and the nonce policy is
+  decided. It depends on #9.
+- **#12 PBKDF2 and HKDF**: when a named consumer needs them. Decide the password-format question
+  first, together with #9 and #10.
+- **#11 File hashing**: a convenience with no consumer rule. It can be taken any time after
+  v0.2.0.
+- **#16 The comparison article**: documentation. It can be taken any time.
+- **A shared backend with `zuhttp`** (design §10): only after `zuhttp`'s Mbed TLS spike has
+  measured it.
+
+## CI from Stage 7
+
+Pins stay commits, with the tag in a trailing comment, and a bump is its own reviewed commit.
+
+| Workflow | Changes in | Why |
+| --- | --- | --- |
+| `alloc-failure.yaml` | Stage 8 | Interposer fix (r-actions), a window over the adapter, and a printed pattern |
+| `arch.yaml` | Stage 8 | testthat installed, WARNING fails, test count asserted |
+| `native-checks.yaml` (layering) | Stage 8 | The `UNPROTECT`/`return` lint and its canary |
+| `vendor-upstream.yaml` | Stage 7, if r-actions supports it | Follow the 1.1 LTS tags only |
+| `consumer.yaml` | Stage 10 | Two fixture packages under `tools/`, three operating systems |
+| reverse dependency (new, bespoke or r-actions) | Stage 11 | Build `zuxlsx@main` against this checkout |
+
+## Risks
+
+- **An r-actions release is on the critical path.** Stage 8 cannot close until the interposer is
+  fixed upstream. CLAUDE.md forbids hand-rolled jobs, so the mitigation is to file the fix early,
+  in Stage 7, not to work around it.
+- **v0.2.0 waits on another repository by design.** If `zuxlsx#22` stalls, so do the freeze and
+  CRAN. That is the correct outcome: a CRAN release of zucrypt before its only consumer has no
+  user, and freezing without that consumer is the mistake being corrected. Do not trade this away
+  for a date.
+- **Re-deriving the trim twice.** ECB's removal and the dynamic store both change the define set.
+  Do them in one commit, so the trim is derived and reviewed once.
+- **The dynamic key store allocates.** Its slices are heap memory, so it adds allocation sites in
+  vendored code. That is one more reason Stage 8's sweep must reach the adapter rather than stop
+  in R's startup.
+- **An upstream security release mid-plan.** Take it at once, as its own pull request, by the
+  procedure in stage-1-spike §11. No stage waits for it and it waits for no stage.
+
+# Part B — The v0.1.0 roadmap as executed (2026-09-20)
+
+Everything below is the plan as written on 2026-09-20 and amended by the 2026-09-22 review. Its
+stage sections stay because the stage issues link to their anchors, and because they are the
+exit criteria that were claimed. Two status notes are added: Stage 5 is reopened, and Stage 6
+is superseded by Part A.
 
 ## Scope of v0.1.0
 
@@ -382,6 +749,9 @@ Exit:
 
 ## Stage 5 — Hardening and release gates
 
+**Reopened 2026-09-22 (#26); closes with Part A's Stage 8**, which makes its two weekly gates
+execute against their targets. The record below is unchanged.
+
 **Closed, with two documented deviations** — the second found after closing, below. The first:
 `extra-ubsan-checks` is not passed, and the argument
 for it below still stands — it just cannot be applied only to our code. Two instrumented runs
@@ -520,6 +890,9 @@ procedure is documented ([stage-1-spike.md](stage-1-spike.md) §11 — a TSV man
 carry it).
 
 ## Stage 6 — v0.1.0 release
+
+**Superseded 2026-09-25 by Part A.** Its remaining items were split into Stages 7–9, and the
+`v0.1.0` tag is Stage 9's last item. The record below is unchanged.
 
 **Prepared.** One item was a no-op and is recorded as one: every r-actions pin was already at
 `v1.9.0`, the current release, at the exact commit `1878271`, so "bump every pin in one commit"
