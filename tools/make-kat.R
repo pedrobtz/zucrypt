@@ -26,6 +26,17 @@ FIXTURES <- file.path("tests", "testthat", "fixtures")
 ## FIPS 180-2 / RFC 3174 / RFC 6234 sample messages.
 MSG_ABC <- "abc"
 MSG_448 <- "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+MSG_896 <- paste0("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmn",
+                  "hijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu")
+
+## "One million repetitions of 'a'", FIPS 180-2 A.3 / B.3 / C.3 (and the
+## SHA-384 value from the same test in RFC 6234). Written in the fixture's
+## repeat notation -- a byte, then how many times -- because two megabytes of
+## hex is not a reviewable fixture. unhex() below and in helper-kat.R expand
+## it. These are the only published vectors here that are longer than one
+## compression block, so without them every multi-block result was checked
+## only against this package itself (#34).
+MILLION_A <- "61*1000000"
 
 hash_vectors <- function() {
   rbind(
@@ -76,7 +87,39 @@ hash_vectors <- function() {
                output = paste0("ddaf35a193617abacc417349ae20413112e6fa4e89a97ea2",
                                "0a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd",
                                "454d4423643ce80e2a9ac94fa54ca49f"),
-               source = "FIPS 180-2 C.1")
+               source = "FIPS 180-2 C.1"),
+
+    ## Appended, not interleaved, so that the ids above keep their numbers.
+    data.frame(family = "hash", algorithm = "sha1", key = "", iv = "",
+               input = MILLION_A,
+               output = "34aa973cd4c4daa4f61eeb2bdbad27316534016f",
+               source = "FIPS 180-2 A.3 (one million 'a')"),
+    data.frame(family = "hash", algorithm = "sha256", key = "", iv = "",
+               input = MILLION_A,
+               output = "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0",
+               source = "FIPS 180-2 B.3 (one million 'a')"),
+    data.frame(family = "hash", algorithm = "sha384", key = "", iv = "",
+               input = hex(MSG_896),
+               output = paste0("09330c33f71147e83d192fc782cd1b4753111b173b3b05d2",
+                               "2fa08086e3b0f712fcc7c71a557e2db966c3e9fa91746039"),
+               source = "FIPS 180-2 D.2"),
+    data.frame(family = "hash", algorithm = "sha384", key = "", iv = "",
+               input = MILLION_A,
+               output = paste0("9d0e1809716474cb086e834e310a4a1ced149e9c00f24852",
+                               "7972cec5704c2a5b07b8b3dc38ecc4ebae97ddd87f3d8985"),
+               source = "RFC 6234 SHA-384 test 3 (one million 'a')"),
+    data.frame(family = "hash", algorithm = "sha512", key = "", iv = "",
+               input = hex(MSG_896),
+               output = paste0("8e959b75dae313da8cf4f72814fc143f8f7779c6eb9f7fa1",
+                               "7299aeadb6889018501d289e4900f7e4331b99dec4b5433a",
+                               "c7d329eeb6dd26545e96e55b874be909"),
+               source = "FIPS 180-2 C.2"),
+    data.frame(family = "hash", algorithm = "sha512", key = "", iv = "",
+               input = MILLION_A,
+               output = paste0("e718483d0ce769644e2e42c7bc15b4638e1f98b13b204428",
+                               "5632a803afa973ebde0ff244877ea60a4cb0432ce577c31b",
+                               "eb009c5c2c49aa2e4eadb217ad8cc09b"),
+               source = "FIPS 180-2 C.3 (one million 'a')")
   )
 }
 
@@ -120,9 +163,58 @@ hmac_vectors <- function() {
                output = paste0("164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd6",
                                "10270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fd",
                                "caeab1a34d4a6b4b636e070a38bce737"),
-               source = "RFC 4231 test case 2")
+               source = "RFC 4231 test case 2"),
+
+    ## Keys longer than the hash block, which HMAC must hash before use.
+    ## Until these, that path had no independent check at all (#34).
+    ## RFC 2202 cases 6 and 7 (80-byte key, SHA-1's block is 64).
+    data.frame(family = "hmac", algorithm = "sha1", key = "aa*80", iv = "",
+               input = hex("Test Using Larger Than Block-Size Key - Hash Key First"),
+               output = "aa4ae5e15272d00e95705637ce8a3b55ed402112",
+               source = "RFC 2202 test case 6"),
+    data.frame(family = "hmac", algorithm = "sha1", key = "aa*80", iv = "",
+               input = hex(paste0("Test Using Larger Than Block-Size Key and ",
+                                  "Larger Than One Block-Size Data")),
+               output = "e8e99d0f45237d786d6bbaa7965c7808bbff1a91",
+               source = "RFC 2202 test case 7"),
+    ## RFC 4231 cases 6 and 7 (131-byte key, longer than every block here).
+    data.frame(family = "hmac", algorithm = "sha256", key = "aa*131", iv = "",
+               input = hex(RFC4231_6),
+               output = "60e431591ee0b67f0d8a26aacbf5b77f8e0bc6213728c5140546040f0ee37f54",
+               source = "RFC 4231 test case 6"),
+    data.frame(family = "hmac", algorithm = "sha384", key = "aa*131", iv = "",
+               input = hex(RFC4231_6),
+               output = paste0("4ece084485813e9088d2c63a041bc5b44f9ef1012a2b588f",
+                               "3cd11f05033ac4c60c2ef6ab4030fe8296248df163f44952"),
+               source = "RFC 4231 test case 6"),
+    data.frame(family = "hmac", algorithm = "sha512", key = "aa*131", iv = "",
+               input = hex(RFC4231_6),
+               output = paste0("80b24263c7c1a3ebb71493c1dd7be8b49b46d1f41b4aeec1",
+                               "121b013783f8f3526b56d037e05f2598bd0fd2215d6a1e52",
+                               "95e64f73f63f0aec8b915a985d786598"),
+               source = "RFC 4231 test case 6"),
+    data.frame(family = "hmac", algorithm = "sha256", key = "aa*131", iv = "",
+               input = hex(RFC4231_7),
+               output = "9b09ffa71b942fcb27635fbcd5b0e944bfdc63644f0713938a7f51535c3a35e2",
+               source = "RFC 4231 test case 7"),
+    data.frame(family = "hmac", algorithm = "sha384", key = "aa*131", iv = "",
+               input = hex(RFC4231_7),
+               output = paste0("6617178e941f020d351e2f254e8fd32c602420feb0b8fb9a",
+                               "dccebb82461e99c5a678cc31e799176d3860e6110c46523e"),
+               source = "RFC 4231 test case 7"),
+    data.frame(family = "hmac", algorithm = "sha512", key = "aa*131", iv = "",
+               input = hex(RFC4231_7),
+               output = paste0("e37b6a775dc87dbaa4dfa9f96e5e3ffddebd71f8867289865df5",
+                               "a32d20cdc944b6022cac3c4982b10d5eeb55c3e4de15134676fb",
+                               "6de0446065c97440fa8c6a58"),
+               source = "RFC 4231 test case 7")
   )
 }
+
+RFC4231_6 <- "Test Using Larger Than Block-Size Key - Hash Key First"
+RFC4231_7 <- paste0("This is a test using a larger than block-size key and a ",
+                    "larger than block-size data. The key needs to be hashed ",
+                    "before being used by the HMAC algorithm.")
 
 ## NIST SP 800-38A appendix F. The same four plaintext blocks throughout.
 ## Only the CBC vectors: ECB left in design revision 3 (#29), and its three
@@ -166,8 +258,14 @@ aes_vectors <- function() {
 
 hex <- function(x) paste(format(as.raw(utf8ToInt(x)), width = 2), collapse = "")
 
+## Hex, or the repeat notation "HH*N": byte HH, N times. Kept identical to
+## unhex() in tests/testthat/helper-kat.R.
 unhex <- function(x) {
   if (!nzchar(x)) return(raw(0))
+  if (grepl("^[0-9a-f]{2}\\*[0-9]+$", x)) {
+    parts <- strsplit(x, "*", fixed = TRUE)[[1L]]
+    return(rep(as.raw(strtoi(parts[1L], 16L)), as.integer(parts[2L])))
+  }
   as.raw(strtoi(substring(x, seq(1, nchar(x), 2), seq(2, nchar(x), 2)), 16L))
 }
 
