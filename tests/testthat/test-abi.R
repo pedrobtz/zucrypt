@@ -20,6 +20,13 @@ test_that("the shared object exports nothing but R_init_zucrypt", {
 
   syms <- exported_symbols()
   names <- sub("^.*[[:space:]]", "", syms)
+  # The ELF _init/_fini stubs come from the toolchain's crti.o, not from any
+  # source here, and musl's linker exports them where glibc's does not: on
+  # Alpine `nm -D --defined-only` shows exactly R_init_zucrypt, _init and
+  # _fini (checked 2026-09-26, the first time the musl leg ran the suite).
+  # Dropped by exact name, before the Mach-O underscore is stripped, so no
+  # symbol of ours can hide behind them.
+  names <- setdiff(names, c("_init", "_fini"))
   names <- sub("^_", "", names)          # Mach-O's leading underscore
   expect_identical(sort(names), "R_init_zucrypt")
 })
