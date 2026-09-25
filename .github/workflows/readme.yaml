@@ -1,0 +1,47 @@
+# README.md is rendered from README.Rmd, and this checks it still is.
+#
+# Bespoke because r-actions has no README workflow. It exists because the
+# hand-written README once printed a digest that was not SHA-256 of its
+# input (#36): example output typed by a person drifts, output computed by
+# the package cannot. Re-render, then fail on any difference.
+#
+# README.Rmd renders with pandoc's --wrap=preserve, so the source's line
+# breaks survive and a different pandoc version on the runner does not
+# re-flow every paragraph into a false difference.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+name: readme.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  readme:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rmarkdown, any::knitr, local::.
+          dependencies: '"hard"'
+
+      - name: README.md is what README.Rmd renders to
+        run: |
+          Rscript -e 'rmarkdown::render("README.Rmd", quiet = TRUE)'
+          if ! git diff --exit-code README.md; then
+            echo "::error::README.md differs from a fresh render of README.Rmd. Edit README.Rmd and run devtools::build_readme()."
+            exit 1
+          fi
+          echo "ok  README.md matches a fresh render"

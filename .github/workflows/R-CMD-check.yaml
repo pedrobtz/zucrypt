@@ -54,11 +54,11 @@ jobs:
          {"os": "ubuntu-latest", "r": "oldrel-1"},
          {"os": "ubuntu-latest", "r": "4.1"}]
 
-      # CRAN's NOSUGGESTS flavor. This package's only Suggests is testthat,
-      # which is exactly the dependency most easily used unguarded: a helper
-      # calling library(testthat) at top level, or -- once the C API lands --
-      # an example that builds the consumer fixture without checking that its
-      # toolchain is there. Those error here and nowhere else.
+      # CRAN's NOSUGGESTS flavor. This package's Suggests are testthat and
+      # openssl, which are exactly the dependencies most easily used
+      # unguarded: a helper calling library(testthat) at top level, or a test
+      # reaching for openssl:: without skip_if_not_installed(). Those error
+      # here and nowhere else.
       nosuggests: true
 
       # `nold` is deliberately off. It is R built --disable-long-double, and

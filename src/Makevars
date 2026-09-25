@@ -82,7 +82,7 @@ ADAPTER_OBJECTS = \
   zuc_random.o \
   $(VENDOR_OBJECTS)
 
-# The two files that do include R headers. zucrypt_test.c is compiled into
+# The four files that do include R headers. zucrypt_test.c is compiled into
 # every build, never only into a debug one: a harness that exists only where
 # nobody runs it tests nothing.
 OBJECTS = \

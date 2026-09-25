@@ -90,7 +90,18 @@ abort_native <- function(status, algorithm = NA_character_,
 # rule that is visible in R's own documentation and testable without the
 # harness.
 
-check_raw <- function(x, arg, call = sys.call(-1L)) {
+# The `algorithm` an AES condition reports (design.md section 11: every
+# condition carries the field, so a handler can branch on it). Named from the
+# key when the key is a valid length -- "aes-256-cbc" -- and plain "aes-cbc"
+# when the key is what is wrong. Never derived from anything secret: the key's
+# length is not.
+aes_algorithm <- function(key) {
+  bits <- if (is.raw(key)) 8L * length(key) else NA_integer_
+  if (bits %in% c(128L, 192L, 256L)) sprintf("aes-%d-cbc", bits) else "aes-cbc"
+}
+
+check_raw <- function(x, arg, algorithm = NA_character_,
+                      call = sys.call(-1L)) {
   if (!is.raw(x)) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
@@ -99,6 +110,7 @@ check_raw <- function(x, arg, call = sys.call(-1L)) {
                      "this package never guesses an encoding, and never ",
                      "treats a string as a file name."),
               arg, class(x)[1]),
+      algorithm = algorithm,
       call = call
     )
   }
@@ -132,7 +144,7 @@ check_algorithm <- function(algorithm, call = sys.call(-1L)) {
 }
 
 check_aes_key <- function(key, call = sys.call(-1L)) {
-  check_raw(key, "key", call = call)
+  check_raw(key, "key", algorithm = "aes-cbc", call = call)
   if (!length(key) %in% c(16L, 24L, 32L)) {
     zucrypt_abort(
       "zucrypt_bad_length",
@@ -140,26 +152,29 @@ check_aes_key <- function(key, call = sys.call(-1L)) {
                      "AES-256), not %d. This function takes a key, never a ",
                      "password: deriving one is the caller's responsibility."),
               length(key)),
+      algorithm = "aes-cbc",
       call = call
     )
   }
   invisible(key)
 }
 
-check_aes_iv <- function(iv, call = sys.call(-1L)) {
-  check_raw(iv, "iv", call = call)
+check_aes_iv <- function(iv, algorithm = "aes-cbc", call = sys.call(-1L)) {
+  check_raw(iv, "iv", algorithm = algorithm, call = call)
   if (length(iv) != 16L) {
     zucrypt_abort(
       "zucrypt_bad_length",
       sprintf("`iv` must be exactly 16 bytes, not %d.", length(iv)),
+      algorithm = algorithm,
       call = call
     )
   }
   invisible(iv)
 }
 
-check_block_multiple <- function(data, call = sys.call(-1L)) {
-  check_raw(data, "data", call = call)
+check_block_multiple <- function(data, algorithm = "aes-cbc",
+                                 call = sys.call(-1L)) {
+  check_raw(data, "data", algorithm = algorithm, call = call)
   if (length(data) %% 16L != 0L) {
     zucrypt_abort(
       "zucrypt_bad_length",
@@ -167,6 +182,7 @@ check_block_multiple <- function(data, call = sys.call(-1L)) {
                      "No padding is added or removed; if your format uses ",
                      "PKCS#7, apply it yourself."),
               length(data)),
+      algorithm = algorithm,
       call = call
     )
   }

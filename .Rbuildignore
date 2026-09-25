@@ -11,3 +11,4 @@
 ^src/libzucrypt\.a$
 ^tests/consumer$
 ^cran-comments\.md$
+^README\.Rmd$
