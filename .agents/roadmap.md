@@ -1,7 +1,9 @@
 # zucrypt: roadmap to v0.1.0
 
-Status: proposed plan.
-Date: 2026-09-20.
+Status: executed 2026-09-20. Stages 0–4 are done; Stage 5 closed with gates that had not yet
+run (its second deviation, #31); Stage 6 is prepared and untagged (#27). The review at the end
+of this file records what the evidence changed.
+Date: 2026-09-20; reviewed 2026-09-22.
 Implements: [design.md](design.md) sections 3–8, 11, 12, and steps 1–2 of section 13.
 Revised 2026-09-20 to match the design's review against the sibling packages: both consumer
 shapes (table and static archive), `zuc_`/`crypt_` naming, family condition classes and the
@@ -9,9 +11,11 @@ shapes (table and static archive), `zuc_`/`crypt_` naming, family condition clas
 
 ## Scope of v0.1.0
 
-v0.1.0 is the **core package**: a vendored Mbed TLS / TF-PSA-Crypto backend, the six-function R
+v0.1.0 is the **core package**: a vendored TF-PSA-Crypto backend (no Mbed TLS file is vendored;
+[stage-1-spike.md](stage-1-spike.md) §1), the six-function R
 interface, and the C API in both shapes the family uses — the registered function table
-(`zucrypt-r.h`, for `zuhttp`-style consumers) and the static archive (`inst/lib/libzucrypt.a`,
+(`zucrypt-r.h`, for consumers that can carry an `Imports:` — `zuhttp` was the hoped-for one
+and is not, #14) and the static archive (`libzucrypt.a`, installed to `lib/`;
 for `zuxlsx`, which has no `Imports:` by design). It ships when a consumer of each shape can run
 the Office-style key derivation loop against it, on all CI platforms, from a source install with
 no network access and no Python/Perl.
@@ -24,6 +28,10 @@ Out of scope for v0.1.0 (owned by later versions or other packages):
 - Worker-thread use of the C API — design §8.
 - A shared compiled backend with `zuhttp` — design §10.
 - CRAN submission. v0.1.0 is a GitHub tag; CRAN is a separate decision after the ABI has a consumer.
+  The family order makes the deadline concrete: zucrypt must reach CRAN before zuxlsx 0.2.0
+  (agile decryption, [zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)), not before
+  zuxlsx 0.1.0, which does not link it. `cran-comments.md` (drafted in #18) reads "This is a first
+  submission" and cites weekly checks that had not run (#31); it is a draft, not a decision.
 
 Stages are sequential. Each stage ends with its exit criteria met and CI green; no stage starts
 work belonging to a later one.
@@ -168,7 +176,7 @@ Exit:
 ## Stage 2 — Private native adapter
 
 Goal: one **R-free** C layer (`src/zuc_*.c`, `src/zuc_internal.h`) that wraps PSA and is the
-only code that includes upstream headers. It is what goes into `inst/lib/libzucrypt.a`, so it
+only code that includes upstream headers. It is what goes into `libzucrypt.a`, so it
 must never include `R.h` — `zuxlsx` links the archive into its own shared object, where R glue
 would be a duplicate symbol. The R wrappers (Stage 3) and the public table (Stage 4) call this
 layer; neither touches PSA directly. Its exported functions are the `zuc_*` declarations of
@@ -197,7 +205,7 @@ Work items:
   macro giving the prefix the core dereferences — never the full current `sizeof`.
 - The archive: `src/Makevars` builds `libzucrypt.a` from the adapter and vendored objects with
   `$(ALL_CFLAGS)` (position-independent), `all: $(SHLIB) libzucrypt.a` as the first target;
-  `src/install.libs.R` installs the shared object *and* the archive to `inst/lib/` (defining that
+  `src/install.libs.R` installs the shared object *and* the archive, the latter to the installed package's `lib/` — there is no `inst/lib/` (defining that
   file stops R installing the `.so` by itself). No upstream header is installed — design §8.3.
 - Length and arithmetic checks before every allocation; partial contexts destroyed on any
   failed init; key material wiped on free.
@@ -213,7 +221,7 @@ plus `test-linking.R` against the installed package:
 - Reset behaviour: a reset context matches a fresh one.
 - CBC chaining: two half-length calls with retained state equal one full call; reset restores
   the original IV.
-- `test-linking.R` (skips under `load_all()`): `inst/lib/libzucrypt.a` and `zucrypt.h` exist after
+- `test-linking.R` (skips under `load_all()`): the installed `lib/libzucrypt.a` and `zucrypt.h` exist after
   the install-step merge; the archive defines every `zuc_*` entry point and no `R_init_`,
   `zucrypt_` or R symbol.
 - KAT fixtures committed with a `MANIFEST.tsv` recording their source (NIST CAVP / RFC), and a
@@ -274,7 +282,8 @@ Work items:
 
 Tests (per design §12 "R interface" row):
 
-- Every validation rule has a test asserting the class and `code` of the condition.
+- Every validation rule has a test asserting the class and `native_status` of the condition
+  (conditions carry `algorithm` and `native_status`; there is no `code` field).
 - Empty inputs: hash/HMAC of `raw(0)`; CBC of `raw(0)` returns `raw(0)` only after key/IV
   validation succeeds.
 - Immutability: inputs are byte-identical after each call.
@@ -332,10 +341,10 @@ Work items:
   `.Rbuildignore`d; built only by `consumer.yaml` (`R CMD INSTALL .`, then the fixture, then
   `testthat::test_local()`, failing if zero tests ran).
 - Consumer fixture, shape two: `tools/check-linking.sh` compiles a C program against
-  `zucrypt.h` and links `inst/lib/libzucrypt.a` from the installed package, calls `zuc_init()`,
+  `zucrypt.h` and links `lib/libzucrypt.a` from the installed package, calls `zuc_init()`,
   hashes a KAT, and exits non-zero on mismatch — `zukomp`'s pattern for its ZIP reader.
 - Office derivation rehearsal (the ABI validation gate): inside the consumer fixture, implement
-  the generic iterative loop `H_n = hash(int32le(n) || H_{n-1})` for a configurable spin count
+  the generic iterative loop `H_n = hash(int32le(n-1) || H_{n-1})` for a configurable spin count
   using one reused incremental hash context, plus one CBC segment decryption with a reset between
   segments. This is not Office support; it is proof that the incremental and chaining APIs suit
   the real consumer before the ABI is frozen. Compare its output with an independent R
@@ -364,15 +373,17 @@ were written for this exact shape:
 Exit:
 
 - Consumer fixture passes on all CI platforms.
-- ABI rejection test: requesting an unsupported major version returns `NULL` and the status
-  code; the fixture handles it without crashing.
+- ABI rejection test: requesting an unsupported major version returns `NULL`; the fixture
+  handles it without crashing. (`zucrypt_get_api()` returns only a pointer, so there is no
+  status code to assert.)
 - Loading order tests from Stage 1 extended to load the consumer, `openssl`, and `zucrypt` in
   all orders.
 - `tools/check-linking.sh` passes on Linux and macOS in `consumer.yaml`.
 
 ## Stage 5 — Hardening and release gates
 
-**Done, with one documented deviation.** `extra-ubsan-checks` is not passed, and the argument
+**Closed, with two documented deviations** — the second found after closing, below. The first:
+`extra-ubsan-checks` is not passed, and the argument
 for it below still stands — it just cannot be applied only to our code. Two instrumented runs
 found two deliberate cases in the vendored tree: `aes.c`'s GF(2^8) doubling truncating to
 `uint8_t`, and `sha256.c`'s compression function adding modulo 2^32, which is the one this
@@ -381,9 +392,22 @@ unavailable: passing `ubsan-suppressions` breaks the `asan` job, which runs insi
 where the checkout is mounted at `/__w/...` while the path is built from `github.workspace`,
 the host path. So the choice is ASan or the extra integer checks, and ASan wins — it finds
 use-after-free and double-free on exactly the cleanup paths §11 legislates about, while the
-length arithmetic is simple, validated in R before any native call, and separately exercised by
-`arch.yml`'s 32-bit leg. Both suppression entries are written down and ready; restoring is two
-lines once r-actions resolves that path. The fix belongs in `r-actions`, not here.
+length arithmetic is simple, validated in R before any native call, and was meant to be
+exercised by `arch.yml`'s 32-bit leg — which, as configured, runs no tests (see the second
+deviation below), so that half of the argument does not hold until #31 closes. Both suppression
+entries are written down and ready; restoring is two lines once r-actions resolves that path.
+The fix belongs in `r-actions`, not here.
+
+**Second deviation, found 2026-09-22.** The exit criterion "every job green" was not met when
+this stage closed, because two of its jobs had not run. `alloc-failure.yaml` first ran on
+2026-09-23 (run 35850281104) and failed, for two independent reasons: r-actions' interposer
+does not interpose `free`, so every injected run aborts on `free(): invalid pointer`; and the
+300-allocation sweep window starts at the startup floor, inside R's namespace loading, so no
+`zuc_*_new()` call is ever failed. `arch.yaml` first ran two days later (run 35716615253), with `install-dependencies: ""`:
+no `Suggests` were installed, `tests/testthat.R`'s `requireNamespace()` guard skipped the suite,
+and the i386, musl and aarch64 legs finished the test step in 0.2 s. The i386 and aarch64 legs were
+green with a WARNING. A job that has not run is not green, and one that runs no tests is the vacuous tick
+this roadmap's CI rule exists to prevent. #31 tracks making both real.
 
 Two further notes. `rchk` and `analyzers` land informational, as planned, and are gated the
 moment they read zero rather than in the same commit — a gate turned on before it has ever
@@ -491,8 +515,9 @@ Remaining work items, which are not workflow adoption:
   needs, and set `Depends: R (>= x.y)` accordingly.
 
 Exit: every job green, including the sanitizer and container legs; `rchk` and
-`analyzers` both gating rather than informational; no open findings; the manifest
-documents the upstream-update procedure.
+`analyzers` both gating rather than informational; no open findings; the upstream-update
+procedure is documented ([stage-1-spike.md](stage-1-spike.md) §11 — a TSV manifest cannot
+carry it).
 
 ## Stage 6 — v0.1.0 release
 
@@ -504,12 +529,29 @@ decision, and confirming they are current is that decision.
 Tagging and the GitHub release are deliberately not done by the same hand that wrote the code
 without asking: they are public and hard to walk back.
 
+**What remains, as of 2026-09-22** (tracked in #27). Code changed after "Prepared": #18 fixed an
+unprotected result vector in `src/zucrypt_crypt.c` that rchk, gctorture and the sanitizers had
+all passed, so the tag belongs on `954284e` or later, not on #8's merge.
+
+- Tag `v0.1.0` and publish the GitHub release.
+- Decide whether ABI 1 is frozen now or when the first consumer's C path merges (#28), and
+  whether AES-ECB leaves the ABI first (#29). Both are free to change today and not after a
+  consumer links them.
+- Record whether the pin stays on the TF-PSA-Crypto 1.1 LTS line or moves to 1.2.0 (#19); the
+  tag names the release it ships.
+- Fix or document the 16-handle limit of the static PSA key store (#30).
+- Make the two Stage 5 gates real: `arch.yaml` running the suite, `alloc-failure.yaml`
+  green with failures actually injected into the adapter (#31).
+- Correct the README example, whose printed digest is not SHA-256 of its input (#36).
+- CRAN timing is not settled by this stage: see "Scope of v0.1.0" above, which conflicts with
+  `cran-comments.md` as drafted.
+
 - Documentation pass: pkgdown reference grouped as "Hashing", "Ciphers (advanced)",
   "Comparison and information", "C API"; README example filled with a hash and an HMAC only
   (no cipher example in the README, to avoid presenting CBC as a general-purpose tool).
 - `NEWS.md` entry for 0.1.0 listing the API, the pinned backend release, supported platforms and
   the explicit non-goals.
-- Freeze the C ABI: bump `ZUCRYPT_API_VERSION` to 1 and state the compatibility promise
+- Freeze the C ABI: bump `ZUCRYPT_ABI_VERSION` to 1 and state the compatibility promise
   (additions allowed within major version; nothing removed or reordered).
 - `DESCRIPTION` version 0.1.0; tag `v0.1.0`; GitHub release notes point at the pkgdown site.
 - Badges in `README.md`: the R-CMD-check badge already points at
@@ -521,6 +563,8 @@ without asking: they are public and hard to walk back.
   and let a full CI run finish before tagging. Pins are commits precisely so
   this is a decision rather than something that happened between two runs.
 - Open the `zuxlsx` Agile integration as the next tracked piece of work, in that repository.
+  Done: [zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22), agile only — Standard (ECB)
+  encryption is out of scope there (design-zuxlsx §21c), which leaves ECB here without a consumer.
 
 ## Stage map against the design's open decisions (§14)
 
@@ -552,3 +596,75 @@ without asking: they are public and hard to walk back.
   after the job silently stops testing anything. The r-actions jobs that verify
   their own instrumentation (`nm` on the sanitizer builds, the
   `LLVMFuzzerTestOneInput` check) exist because that failure mode is real.
+
+## Review 2026-09-22
+
+A critical read of the stages against the code, the CI history and the sibling repositories,
+two days after Stage 6 was prepared. The stage sections above are kept as the plan they were;
+what follows is what the evidence says about them.
+
+### What should have gone differently
+
+- **The pace defeated the sequencing rule.** The skeleton landed at 07:11 on 2026-09-20 and
+  #8 merged at 12:58 the same day. Stage 5 took 64 minutes, and the ABI was frozen 16 minutes
+  after it merged. Stages are sequential "so that a later one never inherits an unproven
+  earlier one", but Stage 5 added weekly jobs whose first run could only come after Stage 6. A
+  stage that adds a scheduled job should close only after that job's first run, dispatched by
+  hand if need be.
+- **The ABI was frozen before any consumer existed.** "ABI frozen too early" is listed under
+  the risks, and the Stage 4 rehearsal was its only mitigation. No consumer of either shape
+  exists: `zuhttp` has no `Imports:` and never mentions this package (#14), and
+  [zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) has not started its C path. Found
+  since: a 16-handle limit in the key store (#30), an ECB surface with no consumer (#29), and
+  `R_GetCCallable()` raising an R error where the header promises `NULL` (#36). The first two
+  are free to change while nothing is tagged or linked, and need a new major ABI after a
+  freeze (#28); the third is a documentation fix either way.
+- **The rehearsal shares a backend with what it checks.** Its "independent" R loop calls
+  `crypt_hash()`, so it proves that reset equals a fresh context and that the segment reset
+  works — not that any primitive is right. "No constants, no salts" also ruled out the one
+  strong check on offer: a known-answer vector taken from zuxlsx's committed agile fixture,
+  with msoffcrypto-tool as the independent oracle. The rehearsal never uses per-segment IVs or
+  an HMAC over the whole stream, which are the calls the real consumer makes.
+- **Gates were declared green before they ran.** `alloc-failure.yaml` ran for the first
+  time after the freeze and failed without ever reaching the adapter, and `arch.yaml` runs no
+  tests (#31). #18's unprotected vector was found by reading the code after
+  the freeze; rchk had analysed 496 functions and passed, and nothing now guards the pattern
+  (#35). The published vectors are all shorter than one compression block, so every multi-block
+  result is checked only against zucrypt itself (#34).
+- **The archive proof is the one zukomp retired.** `tools/check-linking.sh` links a plain
+  `main()`. zukomp replaced exactly that with a `LinkingTo`-only fixture package, because a
+  plain `main()` never exercises `configure`, `system.file()`, path quoting or linking into a
+  package shared object. Here it also never checks hidden visibility inside a consumer, never
+  runs beside `zucrypt.so`, and skips Windows (#32).
+
+### Recommended v0.1.0 scope
+
+- **The six R functions stay as they are.** Their contract — raw only, exact names, classed
+  conditions — is consistent with the family and has not been contradicted by anything found.
+- **The archive shape is the one with a consumer.** Freeze `zucrypt.h` and `libzucrypt.a`
+  when zuxlsx#22's C path merges and its archive fixture (#32) is green, not before.
+- **The registered table ships marked experimental**, outside the freeze, until something
+  consumes it (#14, #28).
+- **ECB leaves the ABI** (#29). If it stays, its key should be imported lazily so it stops
+  halving the handle limit (#30).
+- **Tag after #28–#31, #19 and #36.** CRAN comes before zuxlsx 0.2.0, not before zuxlsx 0.1.0,
+  and after #33's licence half, #34 and #35.
+
+### Open issues against the tag
+
+| Issue | Gates v0.1.0? | Why |
+|---|---|---|
+| #28 ABI freeze decision | Yes | Freezing is what the tag announces; with no consumer it is still free to change |
+| #29 Remove AES-ECB | Yes | No consumer since zuxlsx §21c, and it doubles the key slots each AES handle takes |
+| #30 16 live AES handles | Yes | A hard limit under a promised ABI, reported as an allocation failure |
+| #31 Stage 5 gates never executed | Yes | Stage 5's own exit criterion; `arch` is also the stated reason for dropping `-fsanitize=integer` |
+| #32 Archive fixture package | Before the archive freezes | The archive's claims (PIC, hidden symbols, two backend copies) are untested until then |
+| #33 Family conventions | No; the licence half before CRAN | `lib${R_ARCH}` and the fixture location are convergence; installing upstream's licence is an obligation once binaries ship |
+| #34 Multi-block and long-key vectors | No; before CRAN | Design §12 requires independent checks and today they stop at one block. Cheap to add, since `openssl` is already in `Suggests` |
+| #35 longjmp paths | No; before CRAN | Hardening of paths that currently have zero executions |
+| #36 Stale docs and comments | Yes | The README prints a digest that is not SHA-256 of its input |
+| #19 Upstream 1.2.0 | Yes, as a decision | The tag names the pinned release; staying on the 1.1 LTS line needs its reason recorded |
+| #14 zuhttp SPKI pinning | No | A zuhttp decision; its answer feeds #28 |
+| #9 `crypt_random()`, #10 AES-GCM, #11 file hashing, #12 PBKDF2/HKDF | No | Each waits on a concrete consumer (design §6, §7) |
+| #13 C-API vignette | No | Worth writing once #28 settles what is promised |
+| #15 getting-started, #16 choosing, #17 vendored backend | No | Documentation; #17 is the one a CRAN reviewer would read |

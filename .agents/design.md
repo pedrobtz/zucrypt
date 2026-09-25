@@ -1,6 +1,8 @@
 # zucrypt: design
 
-Status: proposed design, not an implemented API.
+Status: implemented in v0.1.0 for §3–§8 and §11–§12. §9 and §13 steps 3–6 remain plans, owned
+by `zuxlsx` and `zuhttp`. Reviewed 2026-09-22; the review at the end of [roadmap.md](roadmap.md)
+records what the evidence changed.
 Date: 2026-09-19. Revised 2026-09-20 after review against the `zu*` packages as shipped.
 Initial application: cryptographic support for password-encrypted Excel input.
 Related packages: `zuxlsx`, `zukomp`, `zuxml`, and `zuhttp`.
@@ -13,12 +15,14 @@ and `zuhttp` — and the changes are all in one direction: making `zucrypt` cons
 packages exactly the way they already consume each other. The material differences:
 
 1. **Two consumer shapes, not one.** `zuxlsx` links its siblings as static archives
-   (`inst/lib/lib<pkg>.a`, resolved by `configure`, `LinkingTo` only, no `Imports:`). The draft
+   (`lib<pkg>.a` under the installed package's `lib/` or `lib${R_ARCH}/`, resolved by `configure`, `LinkingTo` only, no `Imports:`). The draft
    supported only the registered function table. Both are now required; see §8.
 2. **A C-symbol prefix, chosen for non-collision.** `zu_` is `zukomp`'s public ABI namespace
    (`zu_status`, `zu_buffer`, `ZU_OK`, `ZU_ERR_MEMORY`…) and `zuhttp`'s internal one. A
-   `zucrypt.h` that declared `zu_status` could not be included beside `zukomp.h`, which `zuxlsx`
-   does. The C ABI is `zuc_`/`ZUC_`; see §3.
+   `zucrypt.h` that declared `zu_status` could not be included beside `zukomp.h`. (This note
+   first said `zuxlsx` includes both. It does not: it includes `miniz.h`, from zukomp's archive,
+   not `zukomp.h`. The rule stands on the two namespaces, not on any one consumer.) The C ABI is
+   `zuc_`/`ZUC_`; see §3.
 3. **What goes in the archive.** `zukomp` and `zuxml` ship raw upstream in their archives and
    install upstream headers. `zucrypt`'s archive ships the adapter, and no upstream header is
    installed. This is the one deliberate departure from precedent, and §8 says why.
@@ -43,9 +47,9 @@ The package's value is straightforward installation, controlled algorithm suppor
 | Build only the crypto components in `zucrypt` | Excel cryptography does not need TLS or certificate processing |
 | Keep Office parsing and decryption orchestration in `zuxlsx` initially | Avoid making HTTP or other crypto consumers depend on Office, XML or ZIP code |
 | Expose a small wrapper API, not upstream types | Isolate consumers from upstream configuration and ABI changes |
-| **Ship both consumer shapes: a registered function table and a static archive** | `zuxlsx` consumes siblings by archive with no runtime dependency; `zuhttp` is modelled on the table. Supporting one would force the other consumer to change its own design |
+| **Ship both consumer shapes: a registered function table and a static archive** | `zuxlsx` consumes siblings by archive with no runtime dependency; `zuhttp` was expected to consume the table. Supporting one would force the other consumer to change its own design. *Review 2026-09-22: no table consumer exists or is planned — `zuhttp` has no `Imports:` and uses backend-native digests (#14); whether the table is frozen with the archive is #28* |
 | **The archive contains the adapter, never raw upstream** | Unlike `miniz.h`/`expat.h`, PSA headers are configuration-dependent and expose key identifiers; a consumer that saw them would have to replicate the build configuration. With only `zucrypt.h` visible there is no define to match |
-| **C ABI prefix `zuc_`/`ZUC_`, never `zu_`** | `zu_` belongs to `zukomp`'s public header, which the same consumer includes |
+| **C ABI prefix `zuc_`/`ZUC_`, never `zu_`** | `zu_` is `zukomp`'s public namespace and `zuhttp`'s internal one; a `zucrypt.h` using it could not be included beside `zukomp.h` |
 | Support raw bytes explicitly | Avoid implicit text encoding, serialization or path interpretation |
 | Treat cipher operations as low-level interfaces | They do not by themselves define a secure encrypted-file format |
 | Share upstream provenance with `zuhttp` first | A single shared compiled backend is a separate, deferred engineering decision |
@@ -91,9 +95,9 @@ In the 4.x architecture, TF-PSA-Crypto supplies cryptography, while Mbed TLS sup
 
 Vendoring requirements:
 
-- Two manifest rows, `tf-psa-crypto` and (if any file of it is needed) `mbedtls`, each with release, source URL, checksum, licence, define set and patch list, in the §3 layout. `zuhttp`'s eventual TLS spike should pin the *same* rows so the two packages track one upstream release and one patch set.
+- One manifest row, `tf-psa-crypto`, with release, source URL, checksum, licence, define set and patch list, in the §3 layout. The draft allowed a second `mbedtls` row "if any file of it is needed"; none is ([stage-1-spike.md](stage-1-spike.md) §1). `zuhttp`'s eventual TLS spike should pin the *same* rows so the two packages track one upstream release and one patch set.
 - Use official source archives containing generated files. Installation must not download dependencies or generate sources using Python or Perl.
-- `tools/vendor/fetch` re-derives the tree from the archive: keep only the files the trim needs (`keep_files()` in the script is the list), drop examples, build systems and test suites so the tarball stays small and the surface reviewable.
+- `tools/vendor/fetch` re-derives the tree from the archive: keep only the files the trim needs (`tools/vendor/keep/tf-psa-crypto.txt` is the list, a two-column keep list rather than the family's `keep_files()` case arm), drop examples, build systems and test suites so the tarball stays small and the surface reviewable.
 - Use upstream configuration to disable features; avoid rewriting cryptographic internals. The define set is recorded in the manifest and in `src/Makevars`, and `verify` fails if they disagree.
 - Preserve upstream license and notice files. Select the Apache-2.0 option where offered and document the licenses of all included files in `inst/COPYRIGHTS`.
 - Hide upstream symbols. The archive objects and the shared object are compiled with hidden visibility so `mbedtls_*` and `psa_*` never appear in a dynamic symbol table; R loads packages `RTLD_LOCAL` by default and Windows DLLs have per-module namespaces, so two independently vendored copies (`zucrypt` inside `zuxlsx.so`, a TLS build inside `zuhttp.so`) cannot bind to one another. `test-abi.R` asserts it on the shared object; `test-linking.R` asserts the archive defines `zuc_*` and nothing from R.
@@ -109,10 +113,10 @@ Vendoring requirements:
 | Package | Owns | Does not acquire through `zucrypt` | How it consumes `zucrypt` |
 | --- | --- | --- | --- |
 | `zucrypt` | Crypto primitives, state and native API | XML, ZIP, Office, sockets, TLS or trust stores | — |
-| `zuxlsx` | Workbook interpretation; initially the Office encryption adapter and CFB reader | TLS | `LinkingTo` + `configure` + `inst/lib/libzucrypt.a`; no `Imports:` (its design §3) |
+| `zuxlsx` | Workbook interpretation; initially the Office encryption adapter and CFB reader | TLS | `LinkingTo` + `configure` + the installed `lib/libzucrypt.a`; no `Imports:` (its design §3) |
 | `zuxml` | XML parsing, reused for Agile encryption metadata | Cryptographic policy | does not |
 | `zukomp` | ZIP entry access and decompression after decryption | Office password handling | does not |
-| `zuhttp` | HTTP, sockets, TLS backend selection and certificate trust | Office processing | not at all today; a future engine would vendor its own build, aligned on the same manifest rows (§10); a digest for SPKI pinning could come through the table |
+| `zuhttp` | HTTP, sockets, TLS backend selection and certificate trust | Office processing | not at all today; a future engine would vendor its own build, aligned on the same manifest rows (§10); a digest for SPKI pinning could come through the table — *but `zuhttp` hashes with each backend's native SHA-256 and has recorded no use for it (#14, 2026-09-22)* |
 
 The Office adapter may use `zuxml` and `zucrypt`; it must not create a reverse dependency from either package to `zuxlsx`.
 
@@ -126,7 +130,7 @@ The following is the required capability profile to validate against the pinned 
 | SHA-256, SHA-384, SHA-512 | Hashing, HMAC and Office derivation | R and C |
 | HMAC with the supported hashes | Integrity checks and package integrations | R and C |
 | AES-128/192/256-CBC without padding | Common Office Agile profiles | Advanced R interface and C |
-| AES-128/192/256-ECB without padding | Office Standard AES support | C compatibility interface initially |
+| AES-128/192/256-ECB without padding | Office Standard AES support — no consumer since zuxlsx §21c put Standard encryption out of scope (2026-09-20); removal proposed in #29 | C compatibility interface initially |
 | Constant-time comparison for equal-length byte strings | Verifiers and authentication tags | R and C |
 | Secure cleanup of native buffers | Keys and intermediate state | Internal |
 
@@ -191,11 +195,13 @@ Resolution is lazy, on first use. `Imports: zucrypt` does not load the namespace
 
 `zucrypt_get_api(requested)` returns `NULL` for an unsupported major version, so a mismatch is a clean error at the call site rather than a call through a garbage pointer. Two discriminators, as in `zuxml.h`: `struct_size` versions the *table*, and fields are only ever appended; the registered callable *name* versions every other type in the header, because `struct_size` cannot see a layout change in an options struct and R does not rebuild `LinkingTo` dependents on upgrade. Any such change renames the callable so an old consumer fails loudly at `R_GetCCallable()` instead of smashing its stack.
 
+"Fails loudly" is literal: `R_GetCCallable()` does not return `NULL` for a callable that is not registered, it raises an R error, which longjmps out of the consumer's C code. So `zucrypt_api()` returns `NULL` only for a version mismatch; a missing or too-old `zucrypt` never reaches the `NULL` check. A consumer should therefore resolve the table before it acquires anything a longjmp would strand. `zucrypt-r.h` and `?zucrypt_c_api` currently say otherwise (#36).
+
 The consumer's `DESCRIPTION` needs `Imports: zucrypt` and `LinkingTo: zucrypt`; `LinkingTo` alone supplies headers and links nothing. The accessor is registered from `R_init_zucrypt` with `R_RegisterCCallable("zucrypt", "zucrypt_get_api", …)` after the backend is initialised, so a consumer that reaches the table can rely on it.
 
 ### 8.3 Shape two: the static archive (`zuxlsx`-style)
 
-`src/Makevars` builds `libzucrypt.a` beside the shared object — the `all: $(SHLIB) libzucrypt.a` pattern, with `all` as the first target — and `src/install.libs.R` installs it to `inst/lib/`, exactly as `zukomp` and `zuxml` do. `install.libs.R` also has to install the shared object itself: defining that file stops R doing it. The archive installs to a single arch-neutral path, which every current platform needs; it would have to move under `R_ARCH` before a multi-arch installation could be supported.
+`src/Makevars` builds `libzucrypt.a` beside the shared object — the `all: $(SHLIB) libzucrypt.a` pattern, with `all` as the first target — and `src/install.libs.R` installs it to the installed package's `lib/` (there is no `inst/lib/` in the sources). `zuxml` does the same; `zukomp` installs under `lib${R_ARCH}/`, the family's convergence target (#33). `install.libs.R` also has to install the shared object itself: defining that file stops R doing it. The archive installs to a single arch-neutral path, which every current platform needs; it would have to move under `R_ARCH` before a multi-arch installation could be supported.
 
 The archive holds the R-free core: the adapter objects and the vendored crypto objects, compiled with `$(ALL_CFLAGS)` so they are position-independent. **No R glue is in it** — `test-linking.R` greps the archive for `R_init_`, `zucrypt_` and any R symbol and expects none — and no upstream header is installed. That is the departure from `zukomp`/`zuxml`, whose archives are raw miniz and Expat with `miniz.h`/`expat.h` installed beside them. It is deliberate: a consumer of those must reproduce the provider's define set (`XML_STATIC`, `MINIZ_NO_ZLIB_COMPATIBLE_NAMES`) or its declarations describe a different library. PSA headers are worse — sizes and key-identifier types are generated from the configuration — so a consumer of `libzucrypt.a` sees `zucrypt.h` only and there is no define to match.
 
@@ -213,7 +219,7 @@ API resolution and backend initialisation happen on the R main thread. In 0.1 al
 
 ### 8.5 Enforced by tests
 
-`test-abi.R` (against the shared object): no `mbedtls_`/`psa_`/OpenSSL-ABI name exported; the installed header leaks no upstream or R vocabulary, carries its guard and C++ wrapper; the backend is compiled in at the pinned version. `test-linking.R` (against the installed package; skipped under `load_all()`): `inst/lib/libzucrypt.a` and both headers exist after the install-step merge; the archive defines every `zuc_*` entry point a consumer needs and no R symbol. `tests/consumer/zucrypttest` is a package consuming shape one, `.Rbuildignore`d and built only by `consumer.yaml`; a C program linking the archive covers shape two (`tools/check-linking.sh`). [Writing R Extensions: native routines in other packages](https://cran.r-project.org/doc/manuals/r-release/R-exts.html#Linking-to-native-routines-in-other-packages).
+`test-abi.R` (against the shared object): no `mbedtls_`/`psa_`/OpenSSL-ABI name exported; the installed header leaks no upstream or R vocabulary, carries its guard and C++ wrapper; the backend is compiled in at the pinned version. `test-linking.R` (against the installed package; skipped under `load_all()`): `lib/libzucrypt.a` and both headers exist in the installed package after the install-step merge; the archive defines every `zuc_*` entry point a consumer needs and no R symbol. `tests/consumer/zucrypttest` is a package consuming shape one, `.Rbuildignore`d and built only by `consumer.yaml`; a C program linking the archive covers shape two (`tools/check-linking.sh`). [Writing R Extensions: native routines in other packages](https://cran.r-project.org/doc/manuals/r-release/R-exts.html#Linking-to-native-routines-in-other-packages).
 
 ## 9. Excel integration contract
 
@@ -240,7 +246,7 @@ For supported encrypted OOXML, the Office adapter performs this sequence:
 
 The crypto package provides the primitives; the Office adapter owns iteration counts, salts, block-key constants, key expansion, password verifiers, segment IV derivation and payload-length rules. Keep the iterative derivation loop in native code, using one reusable incremental hash context to avoid an R call or allocation for every iteration — which is why §8.1 has `reset` on every context.
 
-Common Agile AES-CBC profiles are the first target. Standard AES support follows and uses ECB with the scheme's SHA-1 derivation. Standard password verification must not be described as full payload authentication. The detailed algorithms are illustrated by the independent [Agile implementation](https://msoffcrypto-tool.readthedocs.io/en/latest/_modules/msoffcrypto/method/ecma376_agile.html) and [Standard implementation](https://msoffcrypto-tool.readthedocs.io/en/latest/_modules/msoffcrypto/method/ecma376_standard.html); Microsoft's MS-OFFCRYPTO specification remains the implementation authority.
+Common Agile AES-CBC profiles are the first target. Standard AES support was planned to follow, using ECB with the scheme's SHA-1 derivation; it has no consumer since zuxlsx §21c (2026-09-20) made agile the only scope, and ECB's removal is proposed in #29. Standard password verification must not be described as full payload authentication. The detailed algorithms are illustrated by the independent [Agile implementation](https://msoffcrypto-tool.readthedocs.io/en/latest/_modules/msoffcrypto/method/ecma376_agile.html) and [Standard implementation](https://msoffcrypto-tool.readthedocs.io/en/latest/_modules/msoffcrypto/method/ecma376_standard.html); Microsoft's MS-OFFCRYPTO specification remains the implementation authority.
 
 Start with a bounded in-memory decrypted package and an explicit maximum output size. Larger-file support can use a seekable backing store, but any plaintext temporary file must be an explicit policy choice with restrictive permissions and cleanup on failure. Decryption does not automatically provide a streaming ZIP reader.
 
@@ -307,11 +313,71 @@ An encrypt/decrypt round trip alone is insufficient: the same implementation can
 1. **Backend spike:** pin the release pair, validate the required algorithm profile, settle the `Makevars` object list and configuration header, decide the entropy/initialisation policy (§4), build on target platforms, measure source/binary size and establish symbol isolation.
 2. **Core package:** implement the R-free adapter and the archive, the R functions, the versioned table, status mapping and lifecycle management; pass primitive, layout and consumer tests for both shapes.
 3. **Agile Excel integration:** implement the bounded CFB/Office adapter in `zuxlsx` against the archive, including password and integrity checks; feed decrypted bytes into xlsxio through `xlsxioread_open_memory()`.
-4. **Standard Excel integration:** add the AES-ECB compatibility path and document its integrity limitations.
+4. **Standard Excel integration:** add the AES-ECB compatibility path and document its integrity limitations. *No consumer since zuxlsx §21c (2026-09-20), which scoped decryption to agile only; removal of ECB is proposed in #29.*
 5. **HTTP evaluation:** prototype the Mbed TLS backend in `zuhttp` on the shared manifest rows, including trust integration, while retaining native OS TLS.
 6. **Measured expansion:** decide whether authenticated encryption, KDF utilities, larger-file handling or a shared compiled backend justify additional API surface.
 
 `roadmap.md` breaks steps 1–2 into stages with exit criteria. The core can be released independently, but the package family's first end-to-end success criterion is reading a supported password-encrypted Excel workbook without Java, Python or a system OpenSSL dependency.
+
+## Position in the `zu*` family (reviewed 2026-09-22)
+
+This table is identical in all five repositories' design documents. Change it in all five
+together, or not at all.
+
+| | zukomp | zuxml | zucrypt | zuxlsx | zuhttp |
+|---|---|---|---|---|---|
+| Role | provider | provider | provider | consumer | standalone |
+| R prefix | `komp_` | `xml_` | `crypt_` | `read_xlsx()`, `xlsx_` | `zu_` |
+| Info function | `komp_info()` | `zuxml_info()` | `crypt_info()` | `zuxlsx_native()` ([zuxlsx#46](https://github.com/pedrobtz/zuxlsx/issues/46)) | `zu_info()` |
+| Root condition class | `zukomp_error` | `zuxml_error` | `zucrypt_error` | `zuxlsx_error` | `zu_error` ([zuhttp#19](https://github.com/pedrobtz/zuhttp/issues/19)) |
+| Public C prefix | `zu_` / `ZU_` | `zux_` / `ZUX_` | `zuc_` / `ZUC_` | none | none — but the internal C code uses `zu_` and collides with `zukomp.h` ([zuhttp#15](https://github.com/pedrobtz/zuhttp/issues/15)) |
+| Registered table | `zukomp_get_api(version)` via `zukomp-r.h` | `zuxml_api_v2` via `ZUXML_DEFINE_API_GET` in `zuxml.h` ([zuxml#36](https://github.com/pedrobtz/zuxml/issues/36)) | `zucrypt_get_api(version)` via `zucrypt-r.h` | — | — |
+| Table consumers today | none (fixture `tools/zukomptest`) | none (no fixture) | none (fixture `tests/consumer/zucrypttest`) | — | — |
+| Static archive | `lib${R_ARCH}/libzukomp.a` + `miniz.h` | `lib/libzuxml.a` + `expat.h`, `expat_external.h` | `lib/libzucrypt.a` + `zucrypt.h` | — | — |
+| Archive consumers today | zuxlsx (miniz ZIP reader only); fixture `tools/zukomplink` | zuxlsx (xlsxio); fixture `tools/zuxmltest` | none; zuxlsx 0.2.0 agile decryption ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)); no fixture package ([zucrypt#32](https://github.com/pedrobtz/zucrypt/issues/32)) | — | — |
+| Upstream licence installed | `licenses/miniz-LICENSE` | no ([zuxml#42](https://github.com/pedrobtz/zuxml/issues/42)) | no ([zucrypt#33](https://github.com/pedrobtz/zucrypt/issues/33)) | Expat's and miniz's in `inst/licenses/`; xlsxio's not ([zuxlsx#62](https://github.com/pedrobtz/zuxlsx/issues/62)) | no: vendored picohttpparser and uriparser ([zuhttp#52](https://github.com/pedrobtz/zuhttp/issues/52)); zlib and TLS are system libraries |
+| Symbols hidden (`$(C_VISIBILITY)`) | no ([zukomp#34](https://github.com/pedrobtz/zukomp/issues/34)) | no ([zuxml#39](https://github.com/pedrobtz/zuxml/issues/39)) | yes, audited | no | no ([zuhttp#15](https://github.com/pedrobtz/zuhttp/issues/15)) |
+| r-actions pin | commit, v1.7.0 | mostly floating `@v1` ([zuxml#39](https://github.com/pedrobtz/zuxml/issues/39)) | commit, v1.9.0 | not used ([zuxlsx#44](https://github.com/pedrobtz/zuxlsx/issues/44)) | coverage only, `@v1` ([zuhttp#18](https://github.com/pedrobtz/zuhttp/issues/18)) |
+| `Depends: R` | 4.0 | 4.1 | 4.1 | 4.1 | 3.5 |
+
+**Relationships, as decided rather than as hoped:**
+
+- **zuhttp consumes no sibling in 0.x.** Compression is system zlib (zuhttp D-7, accepted
+  2026-09-07). Pin digests come from the TLS backend: OpenSSL computes them today, and
+  macOS and Windows refuse pins until SubjectPublicKeyInfo extraction lands
+  ([zuhttp#4](https://github.com/pedrobtz/zuhttp/issues/4), [zuhttp#12](https://github.com/pedrobtz/zuhttp/issues/12)). zuxml could at most
+  be a `Suggests:` for a future `zu_resp_xml()`. So zukomp's criterion 11 is deferred beyond 0.1.0
+  ([zukomp#32](https://github.com/pedrobtz/zukomp/issues/32)), and zucrypt's hope of a
+  table-mode consumer in zuhttp ([zucrypt#14](https://github.com/pedrobtz/zucrypt/issues/14))
+  has no taker today.
+- **zuxlsx is the only real consumer in the family**, and it consumes archives only: zuxml's
+  Expat and zukomp's miniz ZIP reader now, and zucrypt's primitives for agile decryption in
+  0.2.0. None of zukomp's codec registry, stream driver or `max_output`/`max_ratio` limits
+  reaches zuxlsx. Standard (ECB) encryption is out of scope there, so zucrypt's ECB has no
+  consumer ([zucrypt#29](https://github.com/pedrobtz/zucrypt/issues/29)).
+- **No sibling uses any registered table.** All three tables are proven only by fixtures (or,
+  for zuxml, not at all). That is an argument for keeping each table small and marked as the
+  part most likely to change before a first consumer exists.
+- **An archive fix reaches a consumer only when the consumer is rebuilt.** A security bump
+  in Expat, miniz or TF-PSA-Crypto therefore means re-releasing zuxlsx too
+  ([zuxlsx#15](https://github.com/pedrobtz/zuxlsx/issues/15)).
+
+**Convergence targets** (each tracked where the change has to happen):
+
+- Archives install under `lib${R_ARCH}`, with the upstream licence under `licenses/` and every
+  `file.copy()` checked, as zukomp does ([zuxml#42](https://github.com/pedrobtz/zuxml/issues/42),
+  [zucrypt#33](https://github.com/pedrobtz/zucrypt/issues/33)).
+- Table resolvers follow `zukomp-r.h`: a pure-C99 `<pkg>.h` with an R-only `<pkg>-r.h`, a
+  union cast of `DL_FUNC`, lazy resolution, and NULL on a version mismatch.
+- Only `R_init_<pkg>` is exported from each shared object.
+- Each consumer shape has one fixture package under `tools/` that runs on all three OSes.
+  A plain `main()` does not count ([zucrypt#32](https://github.com/pedrobtz/zucrypt/issues/32)).
+- Providers that zuxlsx tracks at `@main` build zuxlsx in CI
+  ([zukomp#35](https://github.com/pedrobtz/zukomp/issues/35), [zuxml#39](https://github.com/pedrobtz/zuxml/issues/39)).
+- `main` carries a `.9000` development version between releases, so a consumer can test a
+  version instead of probing for files.
+- **CRAN order:** zuxml and zukomp first, then zuxlsx 0.1.0. zucrypt must reach CRAN before
+  zuxlsx 0.2.0 (decryption). zuhttp is independent.
 
 ## 14. Decisions left for implementation
 
