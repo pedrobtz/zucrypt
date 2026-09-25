@@ -26,21 +26,36 @@ permissions: read-all
 
 jobs:
   arch:
-    uses: pedrobtz/r-actions/.github/workflows/arch.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
+    uses: pedrobtz/r-actions/.github/workflows/arch.yml@68c22c173f9ddbb7e51284fe230053174e941afc # v1.15.0
     with:
+      # The Debian legs install testthat from Debian's own binary rather than
+      # building it, and generate en_US.UTF-8: R CMD check sets that locale,
+      # and an image that cannot honour it turns every check into a WARNING
+      # -- which is what the first run of this job showed on i386 and aarch64
+      # (#31), green, because nothing failed on a WARNING yet.
       targets: >-
         [{"name": "i386", "platform": "linux/386",
           "image": "i386/debian:bookworm",
-          "setup": "apt-get update && apt-get install -y --no-install-recommends r-base-dev"},
+          "setup": "apt-get update && apt-get install -y --no-install-recommends r-base-dev r-cran-testthat locales && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen && locale-gen"},
          {"name": "musl", "platform": "linux/amd64",
           "image": "alpine:3.21",
           "setup": "apk add --no-cache R R-dev R-doc build-base"},
          {"name": "aarch64", "platform": "linux/arm64",
           "image": "arm64v8/debian:bookworm",
-          "setup": "apt-get update && apt-get install -y --no-install-recommends r-base-dev"}]
+          "setup": "apt-get update && apt-get install -y --no-install-recommends r-base-dev r-cran-testthat locales && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen && locale-gen"}]
 
-      # zucrypt's only hard dependency is utils, which is base priority, and
-      # its Suggests are not needed for a check that skips them. Empty is the
-      # case this runs fastest in, and it is the case a vendored-C package
-      # with no Imports is normally in.
-      install-dependencies: ""
+      # testthat, and nothing else. With no Suggests installed,
+      # tests/testthat.R's requireNamespace() guard skips the whole suite and
+      # R CMD check reports that as a pass: the first run of this job
+      # executed zero tests on all three legs (#31). Debian ships testthat as
+      # a binary (see setup); Alpine has none, so it is built from source
+      # here. openssl stays out: its tests skip_if_not_installed(), and
+      # building libssl bindings in every container would test OpenSSL's
+      # portability, not this package's.
+      install-dependencies: >-
+        Rscript -e 'if (!requireNamespace("testthat", quietly = TRUE)) install.packages("testthat", repos = "https://cloud.r-project.org")'
+
+      # Red on a WARNING, and red unless some expectation actually passed.
+      # Both are the two ways this job was green while proving nothing.
+      error-on: warning
+      require-tests: true

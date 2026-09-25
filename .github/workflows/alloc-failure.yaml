@@ -20,16 +20,33 @@ permissions: read-all
 
 jobs:
   alloc-failure:
-    uses: pedrobtz/r-actions/.github/workflows/alloc-failure.yml@8ac2b8acfe429b866511fb49cf495ce8c2cf7b5a # v1.13.0
+    uses: pedrobtz/r-actions/.github/workflows/alloc-failure.yml@68c22c173f9ddbb7e51284fe230053174e941afc # v1.15.0
     with:
-      run: Rscript tools/alloc-exercise.R
+      # R_ENABLE_JIT=0, and the same script's prefix as the baseline: see the
+      # header of tools/alloc-exercise.R. Together they put the sweep's
+      # window on the crypt_* calls rather than on R's startup, its
+      # byte-code compiler and utils::packageVersion() -- which is where the
+      # first run's 300 positions all landed, failing nothing of ours (#31).
+      run: R_ENABLE_JIT=0 Rscript tools/alloc-exercise.R
+      baseline-run: R_ENABLE_JIT=0 Rscript tools/alloc-exercise.R --baseline
+
+      # The whole window. It was 192 allocations when measured on 2026-09-25
+      # (rocker/r-ver, R 4.6.1); the cap is headroom, not a sample.
+      max-allocations: 2000
 
       # What makes this "behaved" rather than "did not crash". Surviving a
       # failed allocation while returning a truncated digest would pass a
       # crash test and be worse than crashing -- the caller would have a
-      # wrong answer and no indication of it.
-      #
-      # zucrypt_memory_error is the condition class R/conditions.R maps
-      # ZUC_ERR_MEMORY to; "cannot allocate" is R's own message for the
-      # failures that happen above the native layer, in allocVector.
-      expect-pattern: "zucrypt_memory_error|cannot allocate"
+      # wrong answer and no indication of it. ZUC_ERR_MEMORY is how the
+      # adapter's own failures are printed (R/conditions.R: "reported
+      # ZUC_ERR_MEMORY"); the other two are R's, for the vectors it allocates
+      # around each call. The class name, zucrypt_memory_error, is never
+      # printed, which is why the first version of this pattern could not
+      # have matched anything.
+      expect-pattern: "ZUC_ERR_MEMORY|cannot allocate|memory exhausted"
+
+      # And proof the sweep reached the adapter at all: 77 of the 192
+      # injected failures did, on 2026-09-25. Twenty is a floor well under
+      # that, so a sweep that silently stopped reaching zucrypt goes red.
+      target-pattern: "ZUC_ERR_MEMORY"
+      min-target-hits: 20
