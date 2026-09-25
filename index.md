@@ -42,10 +42,12 @@ library(zucrypt)
 
 digest <- crypt_hash(charToRaw("the quick brown fox"))
 digest
-#>  [1] 05 c6 e0 8f 1d 9f 4f ... 
+#>  [1] 9e cb 36 56 13 41 d1 8e b6 54 84 e8 33 ef ea 61 ed c7 4b 84 cf 5e 6a e1 b8
+#> [26] 1c 63 53 3e 25 fc 8f
 
 # Hex is an explicit conversion at the call site, not a default.
 paste(format(digest), collapse = "")
+#> [1] "9ecb36561341d18eb65484e833efea61edc74b84cf5e6ae1b81c63533e25fc8f"
 
 # A keyed digest, and the right way to check one.
 key <- as.raw(rep(0x0b, 32))
@@ -62,9 +64,18 @@ differing byte, so how long it takes measures how much of the expected
 value an attacker has guessed.
 
 [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md)
-reports what the installed build actually contains — the algorithms, the
-vendored backend version and the C ABI — read from the compiled library
-rather than from anything written down in R.
+reports what the installed build actually contains, read from the
+compiled library rather than from anything written down in R:
+
+``` r
+
+info <- crypt_info()
+info$algorithms
+#> [1] "sha1"   "sha256" "sha384" "sha512"
+info$vendored
+#>          source version
+#> 1 TF-PSA-Crypto   1.1.1
+```
 
 The AES-CBC functions exist too, and are deliberately not shown here:
 they add no padding and no authentication, and presenting them beside a
@@ -76,19 +87,29 @@ before using them.
 ## Consuming it from C
 
 Other packages can use these primitives without going through R, in
-either of the two ways the `zu*` family links siblings: a registered
-function table for a package that can carry an `Imports:`, or the static
-archive `libzucrypt.a` for one that cannot. The archive is provisional
-until its first consumer links it, and the table is experimental; see
-[`?zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md).
+either of the two ways the `zu*` family links siblings:
+
+- **The static archive** `libzucrypt.a`, for a package that cannot carry
+  an `Imports:`. It is installed to `lib/` plus the R sub-architecture
+  (`lib/x64/` on Windows), beside the licence of the backend compiled
+  into it. This is the primary shape. It is *provisional* until its
+  first consumer — `zuxlsx`’s decryption of password-protected workbooks
+  — has linked it, and is frozen as ABI 1 in 0.2.0.
+- **A registered function table**, for a package that can carry an
+  `Imports:`. *Experimental* until a package other than a test fixture
+  uses it.
+
+See
+[`?zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
+for both, and for what is and is not promised.
 
 ## Status
 
-Version 0.1.0, in development. The six R functions are stable; the C
-interface is provisional (the archive) or experimental (the table) until
-a consumer has linked it. The design is in `.agents/design.md`;
-`.agents/roadmap.md` records how it was built and what was deliberately
-left out.
+Version 0.1.0. The six R functions are stable; the C interface is
+provisional (the archive) or experimental (the table), as above. Every
+change to either is recorded in `NEWS.md`. The design is in
+`.agents/design.md`, and `.agents/roadmap.md` records how it was built,
+what was deliberately left out, and what comes next.
 
 ## Installation
 

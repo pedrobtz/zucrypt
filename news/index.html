@@ -34,7 +34,7 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="zucrypt-010">zucrypt 0.1.0<a class="anchor" aria-label="anchor" href="#zucrypt-010"></a></h2>
-<p>First release. A narrow set of cryptographic primitives over raw vectors, backed by a vendored, pinned crypto library, published to R and to C.</p>
+<p>First release, as a GitHub tag. A narrow set of cryptographic primitives over raw vectors, backed by a vendored, pinned crypto library, published to R and to C. The six R functions are stable. The C interface is not yet: the static archive is provisional until its first consumer has linked it, and the registered table is experimental (see “C interface” below). CRAN is planned for 0.2.0, after that freeze.</p>
 <div class="section level3">
 <h3 id="r-interface-0-1-0">R interface<a class="anchor" aria-label="anchor" href="#r-interface-0-1-0"></a></h3>
 <p>Six functions, and deliberately no more:</p>
@@ -46,7 +46,7 @@
 <code><a href="../reference/crypt_aes_cbc.html">crypt_aes_cbc_encrypt()</a></code> and <code><a href="../reference/crypt_aes_cbc.html">crypt_aes_cbc_decrypt()</a></code> — AES-128/192/256 in CBC mode, with no padding and <strong>no authentication</strong>. Interoperability tools for formats that specify unauthenticated CBC, not a way to encrypt something of your own.</li>
 <li>
 <code><a href="../reference/crypt_info.html">crypt_info()</a></code> — what this build contains, read from the compiled library.</li>
-</ul><p>Failures are R conditions classed <code>c(&lt;specific&gt;, "zucrypt_error", "error", "condition")</code>, mapped from the C status by enumerator name rather than by number. No message ever contains a key, an IV or plaintext.</p>
+</ul><p>Failures are R conditions classed <code>c(&lt;specific&gt;, "zucrypt_error", "error", "condition")</code>, mapped from the C status by enumerator name rather than by number. Every condition carries <code>algorithm</code> and <code>native_status</code> fields; for AES, <code>algorithm</code> names the cipher (<code>"aes-256-cbc"</code>), or <code>"aes-cbc"</code> when the key is what is wrong. No message ever contains a key, an IV or plaintext.</p>
 </div>
 <div class="section level3">
 <h3 id="c-interface-0-1-0">C interface<a class="anchor" aria-label="anchor" href="#c-interface-0-1-0"></a></h3>

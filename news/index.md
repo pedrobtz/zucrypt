@@ -2,9 +2,12 @@
 
 ## zucrypt 0.1.0
 
-First release. A narrow set of cryptographic primitives over raw
-vectors, backed by a vendored, pinned crypto library, published to R and
-to C.
+First release, as a GitHub tag. A narrow set of cryptographic primitives
+over raw vectors, backed by a vendored, pinned crypto library, published
+to R and to C. The six R functions are stable. The C interface is not
+yet: the static archive is provisional until its first consumer has
+linked it, and the registered table is experimental (see “C interface”
+below). CRAN is planned for 0.2.0, after that freeze.
 
 ### R interface
 
@@ -31,8 +34,10 @@ Six functions, and deliberately no more:
 
 Failures are R conditions classed
 `c(<specific>, "zucrypt_error", "error", "condition")`, mapped from the
-C status by enumerator name rather than by number. No message ever
-contains a key, an IV or plaintext.
+C status by enumerator name rather than by number. Every condition
+carries `algorithm` and `native_status` fields; for AES, `algorithm`
+names the cipher (`"aes-256-cbc"`), or `"aes-cbc"` when the key is what
+is wrong. No message ever contains a key, an IV or plaintext.
 
 ### C interface
 

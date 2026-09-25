@@ -56,7 +56,7 @@ which is what the Office Agile profiles do – is expressed as one call
 per segment, each with that segment's own IV. The C interface exposes
 the running chaining state directly for consumers that need finer
 control; see
-[`?zucrypt`](https://pedrobtz.github.io/zucrypt/reference/zucrypt-package.md).
+[zucrypt_c_api](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md).
 
 ## Examples
 
