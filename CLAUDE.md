@@ -5,18 +5,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Current state
 
 The plan of record is [design.md](.agents/design.md) revision 3 and Part A of
-[roadmap.md](.agents/roadmap.md) (Stages 7–12), adopted 2026-09-25. **Stage 7 — settle the
-surface before anything links it — is the current stage.** Stages 0–4 are complete. Stage 5 is
-reopened ([#26](https://github.com/pedrobtz/zucrypt/issues/26)) and closes with Stage 8. Stage 6
-was prepared and never tagged; its remaining items are Stages 7–9, and nothing is tagged yet
-([#27](https://github.com/pedrobtz/zucrypt/issues/27)).
+[roadmap.md](.agents/roadmap.md) (Stages 7–12), adopted 2026-09-25. Stages 0–4 and 7 are complete. **Stage 8 — evidence that
+has run — is the current stage** ([#40](https://github.com/pedrobtz/zucrypt/issues/40)). Stage 5
+is reopened ([#26](https://github.com/pedrobtz/zucrypt/issues/26)) and closes with Stage 8.
+Stage 6 was prepared and never tagged; its remaining items are Stages 7–9, and nothing is
+tagged yet ([#27](https://github.com/pedrobtz/zucrypt/issues/27)).
 
 The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the
 six `crypt_*` functions of design §7, and publishes both consumer shapes: the registered function
 table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the static archive (`libzucrypt.a`,
-which `src/install.libs.R` installs to the package's `lib/`; there is no `inst/lib/` in the
-sources). Until Stage 7 lands, the code still carries what revision 3 removes or changes: AES-ECB
-(#29), the static 32-slot key store (#30), and the `lib/` install path (#33).
+which `src/install.libs.R` installs to the package's `lib${R_ARCH}/`, beside
+`licenses/tf-psa-crypto-LICENSE`; there is no `inst/lib/` in the sources). Stage 7 removed
+AES-ECB (#29), made the PSA key store dynamic (#30), appended `ZUC_ERR_NOT_READY` and
+`ZUCRYPT_API_HAS`, and moved the install layout to zukomp's (#33).
 
 **Stability comes in tiers (design §8.6).** The six R functions are stable. The archive
 (`zucrypt.h`, `libzucrypt.a`, `ZUCRYPT_ABI_VERSION 1`) is *provisional* until `zuxlsx`'s agile C
@@ -206,15 +207,14 @@ to each other, and `tests/testthat/test-abi.R` asserts that the shared object ex
 - Algorithm names are exact scalars — no partial matching, no fallback.
 - AES wrappers add/strip **no padding and no authentication**; keys must be 16/24/32 bytes, IVs
   exactly 16, data a multiple of 16. Authentication is the caller's responsibility.
-- SHA-1 exists for Office compatibility and is never a default for new formats. AES-ECB is
+- SHA-1 exists for Office compatibility and is never a default for new formats. AES-ECB was
   removed in Stage 7 (#29): its only use was Office Standard encryption, which `zuxlsx` put out
   of scope (design-zuxlsx §21c). A primitive enters only with a named consumer (design §6).
-- The PSA key store is static: `src/zuc_crypto_config.h` does not define
-  `MBEDTLS_PSA_KEY_STORE_DYNAMIC`, so upstream's 32-slot default applies. Each `zuc_aes` takes
-  two slots (a CBC key and an ECB key) and each `zuc_hmac` one, so at most 16 AES handles can be
-  live per backend copy — shared, in `zucrypt.so`, by the R functions and every table consumer.
-  Exhaustion is reported as `ZUC_ERR_MEMORY`, not as a limit (#30). Stage 7 defines
-  `MBEDTLS_PSA_KEY_STORE_DYNAMIC`, after which live handles are bounded only by memory.
+- The PSA key store is dynamic (`MBEDTLS_PSA_KEY_STORE_DYNAMIC`, Stage 7, #30): each `zuc_aes`
+  and `zuc_hmac` holds one volatile key, and live handles are bounded only by memory. The
+  static 32-slot store it replaced failed at the 17th live AES handle and reported it as
+  `ZUC_ERR_MEMORY`. Tearing the backend down (`zuc_shutdown()` to zero) destroys every key, so
+  a test that does it must run with nothing else live.
 - No `encrypt_file(password = )`, no PBKDF2/HKDF/AEAD/RNG in the initial scope — each needs a
   concrete consumer first.
 - Any future randomness uses platform entropy or a seeded backend RNG, **never R's RNG**.
