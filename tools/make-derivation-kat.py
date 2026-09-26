@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the derivation known-answer vector for the consumer fixture.
+"""Generate the derivation known-answer vector for both consumer fixtures.
 
     python3 tools/make-derivation-kat.py ZUXLSX_CHECKOUT            write
     python3 tools/make-derivation-kat.py ZUXLSX_CHECKOUT --check    compare
@@ -8,7 +8,8 @@ Maintainer tooling, never run by a test. Needs msoffcrypto-tool 6.0.0, the
 version zuxlsx's fixture was made with (pip install msoffcrypto-tool==6.0.0),
 and a checkout of pedrobtz/zuxlsx for its committed fixture.
 
-What it produces, and what it does not. tests/consumer/zucrypttest rehearses
+What it produces, and what it does not. tools/zucrypttest (the table) and
+tools/zucryptlink (the archive) rehearse
 the generic iterated hash that Office agile encryption uses --
 H_0 = hash(seed), H_n = hash(int32le(n-1) || H_{n-1}) -- through one reused
 incremental context. Until Stage 8 its only comparison was an R loop over
@@ -36,7 +37,8 @@ from xml.dom import minidom
 
 FIXTURE = "tests/testthat/fixtures/ole2/two-sheets-encrypted.xlsx"
 PASSWORD = "zuxlsx"  # zuxlsx's tests/testthat/fixtures/ole2/README.md
-OUT = "tests/consumer/zucrypttest/tests/testthat/fixtures"
+OUTS = ("tools/zucrypttest/tests/testthat/fixtures",
+        "tools/zucryptlink/tests/testthat/fixtures")
 
 
 def password_key_encryptor(path):
@@ -85,20 +87,25 @@ def main(argv):
         f"{FIXTURE} (password '{PASSWORD}')\ttools/make-derivation-kat.py\n"
     )
 
+    # Both consumer fixtures carry the vector, one through the registered
+    # table and one through the static archive, so both shapes are checked
+    # against the same oracle. Written from here into both, never copied by
+    # hand, so the two cannot drift.
     files = {"derivation.tsv": kat, "MANIFEST.tsv": manifest}
     if check:
-        bad = [f for f, text in files.items()
-               if not os.path.exists(os.path.join(OUT, f))
-               or open(os.path.join(OUT, f)).read() != text]
+        bad = [os.path.join(out, f) for out in OUTS for f, text in files.items()
+               if not os.path.exists(os.path.join(out, f))
+               or open(os.path.join(out, f)).read() != text]
         if bad:
             sys.exit(f"differs from the generator: {', '.join(bad)}")
-        print("derivation fixture matches the generator.")
+        print("derivation fixtures match the generator.")
         return
-    os.makedirs(OUT, exist_ok=True)
-    for f, text in files.items():
-        with open(os.path.join(OUT, f), "w") as fh:
-            fh.write(text)
-    print(f"wrote {OUT}/derivation.tsv ({alg}, spinCount {spin}) and MANIFEST.tsv")
+    for out in OUTS:
+        os.makedirs(out, exist_ok=True)
+        for f, text in files.items():
+            with open(os.path.join(out, f), "w") as fh:
+                fh.write(text)
+        print(f"wrote {out}/derivation.tsv ({alg}, spinCount {spin}) and MANIFEST.tsv")
 
 
 if __name__ == "__main__":

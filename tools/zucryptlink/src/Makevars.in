@@ -1,0 +1,23 @@
+# Generated into src/Makevars by ./configure (and src/Makevars.win by
+# ./configure.win). Do not edit the generated file: it is .gitignore'd and
+# rewritten on every install.
+#
+# The include path for <zucrypt.h> is NOT set here. R adds <pkg>/include for
+# every LinkingTo package to CLINK_CPPFLAGS, so "LinkingTo: zucrypt" in
+# DESCRIPTION is what puts the header on the path. And no define is needed to
+# match zucrypt's build: zucrypt.h names no backend type, which is the reason
+# no upstream header is installed (zucrypt design.md section 8.3).
+#
+# $(C_VISIBILITY): this package's own functions stay out of its dynamic
+# symbol table except R_init_zucryptlink, as a careful consumer would build.
+# The archive's objects were compiled hidden by zucrypt already; whether they
+# stay out of this shared object's exports is what tools/check-linking.sh
+# audits.
+PKG_CFLAGS = $(C_VISIBILITY)
+
+# Single-quoted: the path comes from system.file(), so it sits under the R
+# library, and a library path containing a space -- the norm on Windows,
+# where the user library lives under the profile directory -- would otherwise
+# reach the linker as two nonexistent arguments. tools/check-linking.sh
+# installs into a library whose path contains a space to hold this.
+PKG_LIBS = '@ZUCRYPT_LIB@/libzucrypt.a'

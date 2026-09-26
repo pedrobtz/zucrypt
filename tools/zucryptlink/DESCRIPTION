@@ -1,0 +1,21 @@
+Package: zucryptlink
+Title: Static-Archive Consumer Fixture for zucrypt
+Version: 0.0.0.9000
+Authors@R: 
+    person("Pedro", "Baltazar", , "pedrobtz@gmail.com", role = c("aut", "cre"))
+Description: Not for release. Consumes zucrypt exactly as zuxlsx will,
+    through LinkingTo alone: zucrypt.h comes off the LinkingTo include path
+    and the installed libzucrypt.a is linked statically by ./configure, so
+    there is no Imports entry and no run-time dependency on zucrypt. It
+    exists so that a broken archive, a missing header, a configure that
+    cannot find either, or a backend symbol leaking out of a consumer's
+    shared object is discovered here rather than in zuxlsx. Its sibling
+    tools/zucrypttest covers the other consumption mode, the registered
+    function table.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LinkingTo: 
+    zucrypt
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
