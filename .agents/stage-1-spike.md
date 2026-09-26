@@ -49,7 +49,11 @@ configuration mechanism, and no upstream file is edited in place. When this
 section was written `tools/patches/` was empty; later in the same stage
 (515df48) it gained `0001-avoid-zero-size-pubkey-array.patch`, which removes a
 zero-size array upstream declares when no public-key algorithm is enabled — a
-GNU extension that `-Wpedantic` reports.
+GNU extension that `-Wpedantic` reports. On 2026-09-26 it gained
+`0002-drop-diagnostic-pragmas.patch`, which removes upstream's
+`-Wredundant-decls` and `-Wvla` pragmas so that R CMD check no longer notes
+them; neither warning is on under `-Wall -Wextra -pedantic`, and 0 warnings
+were measured without them on clang 17 and GCC 14, C99 to C23.
 
 The probe asserted the negative side too: `PSA_ALG_MD5` and `PSA_ALG_SHA_224`
 both return `PSA_ERROR_NOT_SUPPORTED` rather than working by accident.
