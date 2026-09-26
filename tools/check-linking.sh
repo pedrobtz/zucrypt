@@ -110,14 +110,21 @@ RUN
 R_LIBS="$LIB" Rscript "$WORK/run-tests.R"
 
 echo "==> 6. the archive and zucrypt.so report the same backend"
-rscript -e '
-  a <- zucryptlink::linked_backend()
-  s <- zucrypt::crypt_info()
-  if (!identical(a$version, s$vendored$version) || !identical(a$abi_version, s$abi_version)) {
-    stop("archive reports ", a$version, " / ABI ", a$abi_version,
-         "; zucrypt.so reports ", s$vendored$version, " / ABI ", s$abi_version)
-  }
-  cat("    both report", a$name, a$version, "and ABI", a$abi_version, "\n")'
+# A script file, not a multi-line `Rscript -e`: Rscript on Windows mangles a
+# newline inside a command-line argument, and the first version of this step
+# died there with a segfault before running any R -- a finding about argument
+# quoting, not about zucrypt. Every multi-line step below is a file for the
+# same reason.
+cat > "$WORK/versions.R" <<'VERSIONS'
+a <- zucryptlink::linked_backend()
+s <- zucrypt::crypt_info()
+if (!identical(a$version, s$vendored$version) || !identical(a$abi_version, s$abi_version)) {
+  stop("archive reports ", a$version, " / ABI ", a$abi_version,
+       "; zucrypt.so reports ", s$vendored$version, " / ABI ", s$abi_version)
+}
+cat("    both report", a$name, a$version, "and ABI", a$abi_version, "\n")
+VERSIONS
+rscript "$WORK/versions.R"
 
 echo "==> 7. zucrypt.so and the archive coexist, loaded in either order"
 cat > "$WORK/coexist.R" <<'COEXIST'
