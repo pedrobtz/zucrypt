@@ -84,6 +84,11 @@ See
 [`?crypt_aes_cbc`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
 before using them.
 
+[Getting
+started](https://pedrobtz.github.io/zucrypt/articles/zucrypt.html) walks
+through every function, including what using AES-CBC correctly takes and
+what each error means.
+
 ## Consuming it from C
 
 Other packages can use these primitives without going through R, in
