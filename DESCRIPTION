@@ -34,6 +34,9 @@ SystemRequirements: A C99 compiler. No system cryptographic library is
     used, no CMake, Python or Perl is required, and nothing is downloaded or
     generated during installation: the backend is built from vendored
     sources, with an explicit object list in portable make.
+Config/Needs/website: 
+    knitr,
+    rmarkdown
 Config/testthat/edition: 3
 Config/testthat/parallel: true
 Encoding: UTF-8

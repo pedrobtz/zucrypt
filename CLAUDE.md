@@ -15,6 +15,12 @@ it waits on [zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)'s C path.
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
 it in CI and fails on any difference, so never edit `README.md` by hand.
 
+Long-form documentation is pkgdown-only, in `vignettes/articles/` (zukomp's layout), which
+`.Rbuildignore` keeps out of the CRAN tarball; `Config/Needs/website` names knitr and rmarkdown
+for it. `vignettes/articles/zucrypt.Rmd` is the site's "Get started" page and walks through all
+six functions. Its examples are executed when the site builds, so they must stay runnable with
+no `Suggests` beyond the website needs — mention openssl or sodium in prose, never in a chunk.
+
 The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the
 six `crypt_*` functions of design §7, and publishes both consumer shapes: the registered function
 table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the static archive (`libzucrypt.a`,

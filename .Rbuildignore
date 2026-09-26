@@ -18,3 +18,4 @@
 ^\.check-linking$
 ^cran-comments\.md$
 ^README\.Rmd$
+^vignettes/articles$
