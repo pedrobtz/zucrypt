@@ -61,6 +61,17 @@ Both shapes the `zu*` family consumes siblings by, at
 and `<stdint.h>`, and names no backend type: a consumer never has to
 reproduce this package’s build configuration.
 
+Both shapes are exercised on Linux, macOS and Windows by consumer
+fixture packages, as a real consumer would use them: - the table through
+an `Imports:` + `LinkingTo:` package that calls every entry; - the
+archive through a `LinkingTo`-only package whose `configure` resolves
+`libzucrypt.a`.
+
+The archive fixture’s checks cover: - linking through a library path
+that contains a space; - exporting no backend symbol from its own shared
+object; - running beside `zucrypt` in the same R session, in either load
+order; - running with `zucrypt` not installed at all.
+
 Settled before any consumer linked the ABI (design revision 3):
 
 - AES-ECB is not provided. Its one use was Office Standard encryption,
