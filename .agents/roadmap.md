@@ -341,7 +341,10 @@ Work items:
   - what the testing does and does not establish.
 - **Write the C-API vignette** (#13), now that the promise is settled. It quotes both fixture
   packages rather than inventing examples.
-- **Write the getting-started article** (#15).
+- **Write the getting-started article** (#15). *Done early, 2026-09-26:
+  `vignettes/articles/zucrypt.Rmd`, pkgdown's "Get started" page, excluded from the
+  tarball by `.Rbuildignore`. It covers all six functions, including an encrypt-then-MAC
+  example that argues for not building your own.*
 - **Run the CRAN preparation:**
   - the `cran-extrachecks` and `review-cran-submission` passes;
   - `R CMD check --as-cran` on win-builder and macbuilder;
