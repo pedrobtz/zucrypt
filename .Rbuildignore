@@ -9,6 +9,12 @@
 # src/*.o and src/*.so, but not a static archive, so a local check otherwise
 # ships one and reports it as a WARNING.
 ^src/libzucrypt\.a$
-^tests/consumer$
+# The two consumer fixture packages and what drives them: built only by
+# consumer.yaml, never part of zucrypt's own tarball (zukomp's layout).
+^tools/zucrypttest$
+^tools/zucryptlink$
+^tools/check-linking\.sh$
+^tools/make-derivation-kat\.py$
+^\.check-linking$
 ^cran-comments\.md$
 ^README\.Rmd$

@@ -1,13 +1,16 @@
 # zucrypt: roadmap
 
-Status: proposed 2026-09-25. This plan implements [design.md](design.md) revision 3.
+Status: adopted 2026-09-25 (#38). This plan implements [design.md](design.md) revision 3.
 - Stages 0–4 are done.
-- Stage 5 is reopened until its weekly gates run real tests (#26); Stage 8 closes it.
-- Stage 6 was prepared and never tagged. Its remaining items are now Stages 7–9, and the
+- Stage 5 was reopened (#26) and closed with Stage 8, once its weekly gates ran real tests.
+- Stage 6 was prepared and never tagged. Its remaining items became Stages 7–9, and the
   v0.1.0 tag is the last item of Stage 9.
-- Stages 10–12 lead to v0.2.0, the first CRAN release.
+- **Stages 7–10 are done** (#45, #46, #47, #49), with #48 clearing the last check NOTE. The
+  v0.1.0 tag waits on the maintainer (#27).
+- **Stage 11 is next.** It waits on zuxlsx's agile C path, and Stage 12 follows it to v0.2.0,
+  the first CRAN release.
 
-Date: 2026-09-20; reviewed 2026-09-22 (#37); re-planned 2026-09-25.
+Date: 2026-09-20; reviewed 2026-09-22 (#37); re-planned 2026-09-25; updated 2026-09-26.
 
 The file has two parts:
 - **Part A** is the plan from here.
@@ -49,15 +52,15 @@ and submitted, then `zuxlsx` submitted.
 
 ## Stage map
 
-| Stage | Release | Issues | Needs |
-| --- | --- | --- | --- |
-| 7 — Settle the surface before anything links it | v0.1.0 | #29, #30, #28, #33 (layout and licence), #19 (decision), #36 (header and resolver text) | — |
-| 8 — Evidence that has run | v0.1.0 | #31, #34, #35; closes #26 | Stage 7. A fix in `r-actions` for the allocation interposer |
-| 9 — Documentation that matches the code, and the tag | v0.1.0 | #36 (the rest), #27 | Stage 8 |
-| 10 — The archive proved the way a consumer uses it | v0.2.0 | #32, #33 (fixture location) | Stage 9 |
-| 11 — The first consumer, and the freeze | v0.2.0 | #28 (the freeze itself) | Stage 10. `zuxlsx`'s agile C path merged |
-| 12 — v0.2.0 and CRAN | v0.2.0 | #17, #13, #15 | Stage 11 |
-| after | 0.3+ | #9, #10, #11, #12, #16 | A named consumer each |
+| Stage | Release | Issues | Needs | Status |
+| --- | --- | --- | --- | --- |
+| 7 — Settle the surface before anything links it | v0.1.0 | #29, #30, #28, #33 (layout and licence), #19 (decision), #36 (header and resolver text) | — | **done**, #45 |
+| 8 — Evidence that has run | v0.1.0 | #31, #34, #35; closes #26 | Stage 7. A fix in `r-actions` for the allocation interposer | **done**, #46 (r-actions v1.12.2–v1.15.0) |
+| 9 — Documentation that matches the code, and the tag | v0.1.0 | #36 (the rest), #27 | Stage 8 | **done**, #47 and #48; the tag waits on the maintainer (#27) |
+| 10 — The archive proved the way a consumer uses it | v0.2.0 | #32, #33 (fixture location) | Stage 9 | **done**, #49 |
+| 11 — The first consumer, and the freeze | v0.2.0 | #28 (the freeze itself) | Stage 10. `zuxlsx`'s agile C path merged | next; waiting on zuxlsx#22 |
+| 12 — v0.2.0 and CRAN | v0.2.0 | #17, #13, #15 | Stage 11 | |
+| after | 0.3+ | #9, #10, #11, #12, #16 | A named consumer each | |
 
 Issue #14 is closed as *not planned* when this plan merges (design revision 3, item 9).
 
@@ -71,6 +74,10 @@ closes only after that job's first real run**, dispatched by hand. "Real" means 
 the job exercised what it is named for (design §12).
 
 ## Stage 7 — Settle the surface before anything links it
+
+**Done in #45 (2026-09-26).** Re-deriving the trim under the new configuration reproduced the
+same 18 objects and 108-file closure, so the vendored tree did not change; only the manifest's
+`defines` moved. `tag-pattern` for the watcher landed upstream as r-actions v1.13.0.
 
 Goal: make every change to the archive's surface now, while it costs nothing, so that
 `zuxlsx`'s C path is written once against the surface that will be frozen.
@@ -133,6 +140,16 @@ Exit:
 
 ## Stage 8 — Evidence that has run
 
+**Done in #46 (2026-09-26); closed #26 and with it Stage 5.**
+- It needed three r-actions releases: the interposer's `free()` (v1.12.2), arch's
+  `error-on`/`require-tests` (v1.14.0), and alloc-failure's `target-pattern` (v1.15.0).
+- Measured:
+  - arch ran 754, 751 and 754 passing expectations on i386, musl and aarch64, where it had run 0;
+  - alloc-failure injected 258 failures, none crashed, and 77 reached the adapter.
+- Two findings the gates turned up on their first real runs: the musl leg needed `libuv-dev` and
+  `linux-headers` to build testthat, and musl's linker exports the toolchain's `_init`/`_fini`,
+  which `test-abi.R` now allows by exact name.
+
 Goal: every gate Stage 5 claimed is shown, by its own log, to exercise what it is named for.
 The published vectors reach past one compression block. The longjmp paths the design legislates
 about are executed at least once.
@@ -189,6 +206,10 @@ Exit:
 
 ## Stage 9 — Documentation that matches the code, and the tag
 
+**Done in #47 (2026-09-26), except the tag, which is the maintainer's (#27).** #48 then removed
+the last `R CMD check` NOTE with a second vendored patch,
+`0002-drop-diagnostic-pragmas.patch`, so every leg reports `Status: OK`.
+
 Goal: nothing a user or consumer reads contradicts the code, and v0.1.0 is tagged at a commit
 where that is true.
 
@@ -226,6 +247,16 @@ Exit:
 - #27 closes.
 
 ## Stage 10 — The archive proved the way a consumer uses it
+
+**Done in #49 (2026-09-26).**
+- `tools/zucryptlink` and `tools/zucrypttest` build on all three operating systems.
+- `tools/check-linking.sh` checks eight things: the install layout, no run-time dependency, the
+  link through a path containing a space, the symbol audit, the tests, matching backend
+  versions, coexistence in both load orders, and running with zucrypt uninstalled.
+- Building zucrypt without hidden visibility makes the audit fail on the leaked `mbedtls_*`
+  symbols, as it should.
+- The family table's `zucrypt` cells are now stale. They wait for the next five-repository
+  change, and a zucrypt-only note under the table says so, as zuhttp's does.
 
 Goal: the archive's claims are tested by a package that consumes it exactly as `zuxlsx` will:
 position-independent code, hidden symbols, two backend copies in one process, Windows paths, and

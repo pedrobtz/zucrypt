@@ -6,3 +6,6 @@ src/*.so
 src/*.dll
 src/vendor/**/*.o
 src/*.a
+.check-linking/
+tools/zucryptlink/src/Makevars
+tools/zucryptlink/src/Makevars.win

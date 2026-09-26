@@ -1,10 +1,12 @@
 # zucrypt: design
 
-Status: revision 3, proposed 2026-09-25. §3–§8 and §11–§12 describe the package on `main`
-*as amended by the decisions below*, which are not yet implemented; [roadmap.md](roadmap.md)
-Stages 7–12 implement them. §9, and §13 steps 3–5, are plans owned by `zuxlsx` and `zuhttp`.
+Status: revision 3, adopted 2026-09-25 (#38). §3–§8 and §11–§12 describe the package on `main`.
+[roadmap.md](roadmap.md) Stages 7–10 have implemented revision 3's decisions, all except the
+two tied to the first consumer: the ABI 1 freeze (§8.6, Stage 11) and CRAN (Stage 12). §9,
+and §13 steps 3–5, are plans owned by `zuxlsx` and `zuhttp`.
 Date: 2026-09-19. Revised 2026-09-20 against the `zu*` packages as shipped; reviewed
-2026-09-22 against the implementation (#37); revision 3 on 2026-09-25.
+2026-09-22 against the implementation (#37); revision 3 on 2026-09-25; implementation
+status updated 2026-09-26.
 Initial application: cryptographic support for password-encrypted Excel input.
 Related packages: `zuxlsx`, `zukomp`, `zuxml`, and `zuhttp`.
 
@@ -828,6 +830,14 @@ together, or not at all.
 | Symbols hidden (`$(C_VISIBILITY)`) | no ([zukomp#34](https://github.com/pedrobtz/zukomp/issues/34)) | no ([zuxml#39](https://github.com/pedrobtz/zuxml/issues/39)) | yes, audited | no | no ([zuhttp#15](https://github.com/pedrobtz/zuhttp/issues/15)) |
 | r-actions pin | commit, v1.7.0 | mostly floating `@v1` ([zuxml#39](https://github.com/pedrobtz/zuxml/issues/39)) | commit, v1.9.0 | not used ([zuxlsx#44](https://github.com/pedrobtz/zuxlsx/issues/44)) | coverage only, `@v1` ([zuhttp#18](https://github.com/pedrobtz/zuhttp/issues/18)) |
 | `Depends: R` | 4.0 | 4.1 | 4.1 | 4.1 | 3.5 |
+
+*zucrypt-only note, 2026-09-26: four of the table's `zucrypt` cells are stale since Stages 7 and
+10 (#45, #49). The table is left as it stands in the other four repositories, per the rule
+above, until the next five-repository change. The corrected cells:*
+- *Table consumers today: the fixture is `tools/zucrypttest`.*
+- *Static archive: `lib${R_ARCH}/libzucrypt.a` + `zucrypt.h`.*
+- *Archive consumers today: the fixture is `tools/zucryptlink`, which closed zucrypt#32.*
+- *Upstream licence installed: `licenses/tf-psa-crypto-LICENSE`, which closed zucrypt#33.*
 
 **Relationships, as decided rather than as hoped:**
 

@@ -5,12 +5,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Current state
 
 The plan of record is [design.md](.agents/design.md) revision 3 and Part A of
-[roadmap.md](.agents/roadmap.md) (Stages 7–12), adopted 2026-09-25. Stages 0–5 and 7–9 are complete (Stage 5 closed with
-Stage 8, once its weekly gates ran real tests; Stage 6 was superseded by Stages 7–9). **The one
-item left for v0.1.0 is the tag itself**, which is the maintainer's
-([#27](https://github.com/pedrobtz/zucrypt/issues/27)): tag `v0.1.0` on `main`, publish the
-release, then move `DESCRIPTION` to `0.1.0.9000`. After that, **Stage 10 — the archive proved
-the way a consumer uses it — is next** ([#42](https://github.com/pedrobtz/zucrypt/issues/42)).
+[roadmap.md](.agents/roadmap.md) (Stages 7–12), adopted 2026-09-25. Stages 0–5 and 7–10 are complete (Stage 5 closed with
+Stage 8, once its weekly gates ran real tests; Stage 6 was superseded by Stages 7–9). **The
+v0.1.0 tag is still the maintainer's** ([#27](https://github.com/pedrobtz/zucrypt/issues/27)):
+tag it, publish the release, then move `DESCRIPTION` to `0.1.0.9000`. **Stage 11 — the first
+consumer and the freeze — is next** ([#43](https://github.com/pedrobtz/zucrypt/issues/43)), and
+it waits on [zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)'s C path.
 
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
 it in CI and fails on any difference, so never edit `README.md` by hand.
@@ -29,15 +29,19 @@ path ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) has merged agai
 frozen in v0.2.0 (Stage 11). The table is *experimental*: no package uses it (#14). Until the
 freeze, an archive change is allowed but must be recorded in `NEWS.md`.
 
-Both shapes have a consumer proof, and neither is reachable from `R CMD check`.
-`tests/consumer/zucrypttest` is a real package with `Imports:` + `LinkingTo:` + a real
-`importFrom()`, built only by `consumer.yaml`; it calls every table entry, because a pointer
-that was never assigned is indistinguishable from a working one until something calls it.
-`tools/check-linking.sh` compiles a plain C program against the archive with no R involved,
-which proves less than it looks: it never links into a package shared object, never runs
-beside `zucrypt.so`, and does not run on Windows (#32).
-Stage 10 replaces that script with a `LinkingTo`-only fixture package, `tools/zucryptlink`. The
-Agile integration that the freeze waits for lives in `zuxlsx`
+Both shapes have a consumer fixture package under `tools/`, zukomp's layout, and neither is
+reachable from `R CMD check`; `consumer.yaml` builds both on Linux, macOS and Windows.
+`tools/zucrypttest` is the table consumer: `Imports:` + `LinkingTo:` + a real `importFrom()`,
+calling every table entry, because a pointer that was never assigned is indistinguishable from
+a working one until something calls it. `tools/zucryptlink` is the archive consumer:
+`LinkingTo` only, `configure`/`configure.win` resolving `lib/<arch>` then `lib/` into a
+single-quoted `PKG_LIBS`, exactly as zuxlsx does. `tools/check-linking.sh` drives it: installs
+into a library path containing a space, audits that the backend is linked in and that no
+`zuc_`/`psa_`/`mbedtls_` symbol is exported from the consumer, checks both copies report the
+same backend, runs it beside `zucrypt.so` in both load orders, and runs it with zucrypt removed
+from the library path. Both fixtures carry the msoffcrypto derivation vector, written by
+`tools/make-derivation-kat.py`.
+The Agile integration that the freeze waits for lives in `zuxlsx`
 ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)).
 
 **The ABI promise, from the Stage 11 freeze.** Within major version 1, functions and table fields may be

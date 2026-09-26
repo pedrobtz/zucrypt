@@ -1,0 +1,41 @@
+#!/bin/sh
+# Windows counterpart of ./configure: resolves the static archive that
+# LinkingTo cannot point at. Kept identical but for the output file name.
+#
+# LinkingTo gets the *header* onto the include path by itself: zucrypt.h,
+# which R's install step copies from zucrypt's inst/include/. There is no
+# equivalent for a library, and the alternatives are worse: $(shell ...) in
+# Makevars would force SystemRequirements: GNU make, and an Imports: entry
+# would add a run-time dependency that the archive shape exists to avoid.
+#
+# This mirrors zuxlsx/configure on purpose: it is the wiring under test, so it
+# has to be the same wiring. zukomp's tools/zukomplink/configure is the same
+# shape for its archive.
+set -eu
+
+: "${R_HOME:?configure must be run by R CMD INSTALL, which sets R_HOME}"
+RSCRIPT="${R_HOME}/bin/Rscript"
+
+# Where zucrypt installed its static archive: lib${R_ARCH}, so lib/x64 on
+# Windows and plain lib elsewhere. Asking for the arch-specific path first and
+# falling back to the plain one is correct for either convention, which is what
+# a consumer resolving several siblings' archives has to cope with. r_arch
+# carries no leading slash where R_ARCH does, hence system.file()'s arguments.
+lib_dir() {
+  "${RSCRIPT}" --vanilla -e "arch <- .Platform\$r_arch; d <- if (nzchar(arch)) system.file('lib', arch, package = '$1') else ''; if (!nzchar(d)) d <- system.file('lib', package = '$1'); cat(d)"
+}
+
+ZUCRYPT_LIB=$(lib_dir zucrypt)
+
+if [ -z "${ZUCRYPT_LIB}" ] || [ ! -f "${ZUCRYPT_LIB}/libzucrypt.a" ]; then
+  echo "configure: zucrypt's libzucrypt.a was not found." >&2
+  echo "" >&2
+  echo "  zucryptlink links it statically. Install or reinstall zucrypt with:" >&2
+  echo "" >&2
+  echo "    pak::pak(\"pedrobtz/zucrypt\")" >&2
+  exit 1
+fi
+
+sed -e "s|@ZUCRYPT_LIB@|${ZUCRYPT_LIB}|g" src/Makevars.in > src/Makevars.win
+
+echo "configure: linking ${ZUCRYPT_LIB}/libzucrypt.a"
