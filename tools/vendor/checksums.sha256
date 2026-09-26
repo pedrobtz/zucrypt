@@ -66,11 +66,11 @@ e9d11d3c5daa95e5c746e542eaf6b927b5a2815e54492c2e545f64e9d98b0bde  src/vendor/tf-
 77a61ccd7dbfbe145bd2efcbe5cb2290f5d18fff7e25d88df256c45a218a771a  src/vendor/tf-psa-crypto/lib/cipher_wrap.c
 72c57917e22fcd90b4bc8fc56aa28da557d95422d021a9f8bd9512cd97de44c8  src/vendor/tf-psa-crypto/lib/cipher_wrap.h
 e8ff5457ea27b409944dfcda77f44503d1ce9ad0498807429d40317498a93936  src/vendor/tf-psa-crypto/lib/constant_time.c
-67f5d45c4cc20c23613675df84397237e956e1b4b3548ca1ce6d3209fbd32ad7  src/vendor/tf-psa-crypto/lib/constant_time_impl.h
+9e6ec2ae3f738f3be768c2c82e976f6edda7e5db2cc845529daff3033127d9c9  src/vendor/tf-psa-crypto/lib/constant_time_impl.h
 896eebdaeacb943d7e39621693afa72bb8c78f4a0ae92401e6171c404904b549  src/vendor/tf-psa-crypto/lib/constant_time_internal.h
 eb0c9aad47478c87ba35a1a2931e0670c30dd997af011247de2b3bb0464715c6  src/vendor/tf-psa-crypto/lib/ctr.h
 9622b0ca9a68e1c9b900bf928346a327e0977bd497505da7e9db395beebb8588  src/vendor/tf-psa-crypto/lib/pk_wrap.h
-8b2abd057d159e2d924cc30d824baeb74411460f1d2a5b1b6256bb0c54bc7330  src/vendor/tf-psa-crypto/lib/platform_util.c
+ac3d5906821b012790864cf6d782e0cb929635f5cb278f4bbe1b0519dd8aabcb  src/vendor/tf-psa-crypto/lib/platform_util.c
 ee01d38758699a45ba12518e875c7d88062e31afd1ed31ddae718e9e9de60f20  src/vendor/tf-psa-crypto/lib/psa_crypto.c
 aee6ae35991ca09236965dc66af441c3001998bff5c226cebda27a2a2945e901  src/vendor/tf-psa-crypto/lib/psa_crypto_aead.h
 ae6d9b57a0661f857feab9a6471e01a44afa67503fb8a6a97469ce235fb63714  src/vendor/tf-psa-crypto/lib/psa_crypto_cipher.c

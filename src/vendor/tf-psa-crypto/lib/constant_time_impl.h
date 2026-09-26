@@ -27,10 +27,10 @@
  * Disable -Wredundant-decls so that gcc does not warn about this. This is re-enabled
  * at the bottom of this file.
  */
-#if defined(MBEDTLS_COMPILER_IS_GCC) && (__GNUC__ > 4)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wredundant-decls"
-#endif
+/* zucrypt: the push/ignore of -Wredundant-decls that stood here, and the
+ * pop at the bottom, are removed by tools/patches/tf-psa-crypto/0002
+ * (R CMD check notes any diagnostic pragma). -Wredundant-decls is in
+ * neither -Wall, -Wextra nor -pedantic, so nothing warns without them. */
 
 /* armcc5 --gnu defines __GNUC__ but doesn't support GNU's extended asm */
 #if defined(MBEDTLS_HAVE_ASM) && defined(__GNUC__) && (!defined(__ARMCC_VERSION) || \
@@ -505,10 +505,5 @@ static inline mbedtls_ct_condition_t mbedtls_ct_bool_not(mbedtls_ct_condition_t 
 {
     return (mbedtls_ct_condition_t) (~x);
 }
-
-#if defined(MBEDTLS_COMPILER_IS_GCC) && (__GNUC__ > 4)
-/* Restore warnings for -Wredundant-decls on gcc */
-    #pragma GCC diagnostic pop
-#endif
 
 #endif /* TF_PSA_CRYPTO_CONSTANT_TIME_IMPL_H */

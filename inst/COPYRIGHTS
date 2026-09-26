@@ -53,7 +53,7 @@ applied by tools/vendor/fetch; no upstream file is edited in place. Each patch
 is listed in the manifest's `patches` column and named here, and
 tools/vendor/verify fails if those three records disagree.
 
-One patch is applied:
+Two patches are applied:
 
     tools/patches/tf-psa-crypto/0001-avoid-zero-size-pubkey-array.patch
 
@@ -64,3 +64,12 @@ One patch is applied:
         significant warning. The patch starts the length at 1 instead of 0.
         It changes nothing in a configuration that enables a public-key
         algorithm. The patch file carries the full rationale.
+
+    tools/patches/tf-psa-crypto/0002-drop-diagnostic-pragmas.patch
+
+        lib/constant_time_impl.h and lib/platform_util.c suppress
+        -Wredundant-decls and -Wvla with `#pragma GCC/clang diagnostic`,
+        which R CMD check reports. Neither warning is enabled by -Wall,
+        -Wextra or -pedantic, so the patch removes the pragmas and nothing
+        else; the constant-time code and the zeroisation barrier are
+        unchanged. The patch file carries the measurements.

@@ -101,19 +101,11 @@ void mbedtls_platform_zeroize(void *buf, size_t len)
         /* For clang and recent gcc, pretend that we have some assembly that reads the
          * zero'd memory as an additional protection against being optimised away. */
 #if defined(__clang__) || (__GNUC__ >= 10)
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wvla"
-#elif defined(MBEDTLS_COMPILER_IS_GCC)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wvla"
-#endif
+        /* zucrypt: upstream wraps this line in pragmas silencing -Wvla,
+         * removed by tools/patches/tf-psa-crypto/0002 (R CMD check notes any
+         * diagnostic pragma). -Wvla is in neither -Wall, -Wextra nor
+         * -pedantic under C99 and later, so nothing warns without them. */
         asm volatile ("" : : "m" (*(char (*)[len]) buf) :);
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#elif defined(MBEDTLS_COMPILER_IS_GCC)
-#pragma GCC diagnostic pop
-#endif
 #endif
 #endif
     }

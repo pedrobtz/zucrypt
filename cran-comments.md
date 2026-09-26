@@ -18,26 +18,13 @@
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
+0 errors | 0 warnings | 0 notes
 
-The note is:
-
-```
-checking pragmas in C/C++ headers and code ... NOTE
-  Files which contain pragma(s) suppressing diagnostics:
-    'src/vendor/tf-psa-crypto/lib/constant_time_impl.h'
-    'src/vendor/tf-psa-crypto/lib/platform_util.c'
-```
-
-Both files are third-party, from the vendored TF-PSA-Crypto sources, and the
-suppressions are upstream's. They are narrow: `-Wvla`, `-Wredundant-decls`,
-and MSVC's C4146 for unary minus on an unsigned type. The last of those is
-the point of a constant-time implementation rather than an oversight.
-
-Removing them would mean carrying a local patch against upstream indefinitely
-for diagnostics this package does not emit. The vendoring tooling supports
-patches and one is applied for a genuine defect (see below), so this was a
-deliberate decision rather than an omission.
+Upstream's diagnostic-suppressing pragmas in two vendored files
+(`-Wredundant-decls`, `-Wvla`) are removed by a local patch,
+`tools/patches/tf-psa-crypto/0002-drop-diagnostic-pragmas.patch`: neither
+warning is enabled by `-Wall`, `-Wextra` or `-pedantic`, so nothing warns
+without them. See below.
 
 ## Bundled third-party code
 
@@ -54,11 +41,15 @@ option of its dual Apache-2.0 OR GPL-2.0-or-later licence.
   in continuous integration.
 * 109 of the archive's files are included — the dependency closure of the 18
   sources that carry a symbol under this package's configuration.
-* One local patch is applied, `0001-avoid-zero-size-pubkey-array.patch`. It
-  removes a zero-size array that upstream declares when no public-key
-  algorithm is enabled; zero-size arrays are a GNU extension rather than ISO
-  C, and GCC with `-Wpedantic` reports it as a significant warning. No
-  upstream file is edited in place.
+* Two local patches are applied, and no upstream file is edited in place:
+  * `0001-avoid-zero-size-pubkey-array.patch` removes a zero-size array that
+    upstream declares when no public-key algorithm is enabled; zero-size
+    arrays are a GNU extension rather than ISO C, and GCC with `-Wpedantic`
+    reports it as a significant warning.
+  * `0002-drop-diagnostic-pragmas.patch` removes upstream's
+    `#pragma GCC/clang diagnostic` suppressions of `-Wredundant-decls` and
+    `-Wvla`, which R CMD check notes. Neither warning is enabled by CRAN's
+    flags; the code between the pragmas is unchanged.
 
 Installation requires only a C99 compiler. Nothing is downloaded and no
 sources are generated during installation: the release archive ships the

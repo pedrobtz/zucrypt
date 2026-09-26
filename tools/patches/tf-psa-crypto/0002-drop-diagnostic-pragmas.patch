@@ -1,0 +1,86 @@
+Drop the diagnostic-suppressing pragmas that R CMD check notes
+
+R CMD check reports every file containing `#pragma GCC|clang diagnostic
+ignored` ("Files which contain pragma(s) suppressing diagnostics"), and a
+CRAN reviewer may ask for them to go. Two upstream files carry them:
+
+  lib/constant_time_impl.h  push/ignore/pop of -Wredundant-decls around the
+                            whole header, whose static inline functions are
+                            deliberately declared in constant_time_internal.h
+                            and defined here.
+  lib/platform_util.c       push/ignore/pop of -Wvla around the compiler
+                            barrier after mbedtls_platform_zeroize(), whose
+                            asm operand casts to a variable-length array type.
+
+Neither warning is in -Wall, -Wextra or -pedantic under C99 or later, which
+is what CRAN compiles with, so neither fires without the pragmas. Measured
+before this patch was written: all 18 vendored sources compile with 0
+warnings under -std=gnu99, gnu17 and gnu23 (gnu2x for GCC) with
+-Wall -Wextra -pedantic, on Apple clang 17 and GCC 14; and
+tools:::.check_pragmas() finds 2 files before the patch and 0 after.
+
+Only the preprocessor blocks that exist to hold the pragmas are removed. The
+zeroisation barrier and every constant-time function are unchanged, and the
+MSVC `#pragma warning` lines in constant_time_impl.h stay: they are not
+compiled by any R toolchain and R CMD check does not match them.
+
+Local, not upstream: upstream builds with -Wredundant-decls and -Wvla on and
+needs these. Re-check this patch applies on every release bump; it is two
+deletion-only hunks plus a comment each.
+
+--- a/lib/constant_time_impl.h
++++ b/lib/constant_time_impl.h
+@@ -27,10 +27,10 @@
+  * Disable -Wredundant-decls so that gcc does not warn about this. This is re-enabled
+  * at the bottom of this file.
+  */
+-#if defined(MBEDTLS_COMPILER_IS_GCC) && (__GNUC__ > 4)
+-    #pragma GCC diagnostic push
+-    #pragma GCC diagnostic ignored "-Wredundant-decls"
+-#endif
++/* zucrypt: the push/ignore of -Wredundant-decls that stood here, and the
++ * pop at the bottom, are removed by tools/patches/tf-psa-crypto/0002
++ * (R CMD check notes any diagnostic pragma). -Wredundant-decls is in
++ * neither -Wall, -Wextra nor -pedantic, so nothing warns without them. */
+ 
+ /* armcc5 --gnu defines __GNUC__ but doesn't support GNU's extended asm */
+ #if defined(MBEDTLS_HAVE_ASM) && defined(__GNUC__) && (!defined(__ARMCC_VERSION) || \
+@@ -505,10 +505,5 @@
+ {
+     return (mbedtls_ct_condition_t) (~x);
+ }
+-
+-#if defined(MBEDTLS_COMPILER_IS_GCC) && (__GNUC__ > 4)
+-/* Restore warnings for -Wredundant-decls on gcc */
+-    #pragma GCC diagnostic pop
+-#endif
+ 
+ #endif /* TF_PSA_CRYPTO_CONSTANT_TIME_IMPL_H */
+--- a/lib/platform_util.c
++++ b/lib/platform_util.c
+@@ -101,21 +101,13 @@
+         /* For clang and recent gcc, pretend that we have some assembly that reads the
+          * zero'd memory as an additional protection against being optimised away. */
+ #if defined(__clang__) || (__GNUC__ >= 10)
+-#if defined(__clang__)
+-#pragma clang diagnostic push
+-#pragma clang diagnostic ignored "-Wvla"
+-#elif defined(MBEDTLS_COMPILER_IS_GCC)
+-#pragma GCC diagnostic push
+-#pragma GCC diagnostic ignored "-Wvla"
+-#endif
++        /* zucrypt: upstream wraps this line in pragmas silencing -Wvla,
++         * removed by tools/patches/tf-psa-crypto/0002 (R CMD check notes any
++         * diagnostic pragma). -Wvla is in neither -Wall, -Wextra nor
++         * -pedantic under C99 and later, so nothing warns without them. */
+         asm volatile ("" : : "m" (*(char (*)[len]) buf) :);
+-#if defined(__clang__)
+-#pragma clang diagnostic pop
+-#elif defined(MBEDTLS_COMPILER_IS_GCC)
+-#pragma GCC diagnostic pop
+ #endif
+ #endif
+-#endif
+     }
+ }
+ #endif /* MBEDTLS_PLATFORM_ZEROIZE_ALT */
