@@ -7,11 +7,19 @@
 #
 # The list is not hand-written. It is the dependency closure of the sources
 # that carry a symbol under src/zuc_crypto_config.h: compile all 77 upstream
-# sources under that configuration, keep the 18 whose object defines anything
-# (the rest are guarded down to empty translation units), and take every
-# header those 18 actually include, with `cc -MM`. See
+# sources under that configuration, keep the ones whose object defines
+# anything (the rest are guarded down to empty translation units), and take
+# every header those actually include, with `cc -MM`. See
 # .agents/stage-1-spike.md for the method and how to redo it after a release
 # bump.
+#
+# One exception, and it is the only file added by hand: lib/aesce.c. It is
+# the Arm Cryptography Extension path (MBEDTLS_AESCE_C, #51), which compiles
+# to an empty object on x86 -- where the derivation runs -- and to the
+# hardware AES path on ARMv8. Deriving on one architecture would drop it, so
+# it is kept for both. Its only local headers, aesce.h and
+# tf_psa_crypto_common.h, are in the x86 closure already: aes.c includes
+# aesce.h unconditionally. That makes 19 derived sources plus aesce.c.
 #
 # The layout is flattened to two directories rather than mirroring upstream's
 # six, and that is not tidiness. R CMD check rejects a tarball path over 100
@@ -85,6 +93,10 @@ inc/tf-psa-crypto/private/crypto_adjust_config_key_pair_types.h  include/tf-psa-
 inc/tf-psa-crypto/private/crypto_adjust_config_support.h         include/tf-psa-crypto/private/crypto_adjust_config_support.h
 inc/tf-psa-crypto/private/crypto_adjust_config_synonyms.h        include/tf-psa-crypto/private/crypto_adjust_config_synonyms.h
 lib/aes.c                                                        drivers/builtin/src/aes.c
+lib/aesce.c                                                      drivers/builtin/src/aesce.c
+lib/aesce.h                                                      drivers/builtin/src/aesce.h
+lib/aesni.c                                                      drivers/builtin/src/aesni.c
+lib/aesni.h                                                      drivers/builtin/src/aesni.h
 lib/alignment.h                                                  core/alignment.h
 lib/check_crypto_config.h                                        core/check_crypto_config.h
 lib/cipher.c                                                     drivers/builtin/src/cipher.c

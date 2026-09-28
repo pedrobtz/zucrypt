@@ -43,9 +43,12 @@ available_algorithms <- local({
 #'       is exactly the set `crypt_hash()` and `crypt_hmac()` accept.}
 #'     \item{`vendored`}{a data frame with one row per vendored source, giving
 #'       its `source` name and the `version` the compiled library reports.}
-#'     \item{`build_flags`}{a named list of compile-time choices worth being
-#'       able to see from R: the operating-system random source that was
-#'       selected, and whether hardware acceleration is compiled in.}
+#'     \item{`build_flags`}{a named list: `random_backend`, the
+#'       operating-system random source compiled in; `aes_implementation`,
+#'       which AES this machine runs -- `"aesni"` or `"aesce"` on a CPU with
+#'       AES instructions, `"software"` otherwise, decided at run time; and
+#'       `hardware_acceleration`, `TRUE` when that is a hardware path. See
+#'       the "Side channels" section of [crypt_aes_cbc] for why it matters.}
 #'   }
 #'
 #' @examples
@@ -69,10 +72,11 @@ crypt_info <- function() {
     ),
     build_flags = list(
       random_backend = backend[["random_backend"]],
-      # Read from the compiled library, like everything else here. It is
-      # FALSE in every current build: src/zuc_crypto_config.h enables none
-      # of upstream's assembly or AES instructions, so every platform runs
-      # the same C and produces the same bytes (.agents/stage-1-spike.md).
+      # Decided at run time, on this machine: "aesni" or "aesce" where the
+      # CPU has AES instructions, "software" where it does not -- the path
+      # the backend's own security policy says leaks through cache timing
+      # (see ?crypt_aes_cbc and #51).
+      aes_implementation = backend[["aes_implementation"]],
       hardware_acceleration = backend[["hardware_acceleration"]]
     )
   )

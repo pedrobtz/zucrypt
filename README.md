@@ -17,7 +17,7 @@ zucrypt is a narrow native cryptographic foundation for the `zu*` package
 family: message digests, HMAC, unauthenticated AES-CBC, constant-time
 comparison and secure erasure, over raw vectors. The backend is a vendored,
 pinned subset of [TF-PSA-Crypto](https://github.com/Mbed-TLS/TF-PSA-Crypto),
-the Mbed TLS project’s cryptography library — 109 files of it, configured down
+the Mbed TLS project’s cryptography library — 113 files of it, configured down
 to the algorithms above and nothing else. Installing the package needs a C99
 compiler and nothing else: no system cryptographic library, no Java, no
 Python, and no network access during installation.

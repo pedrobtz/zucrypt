@@ -1,0 +1,88 @@
+# Both AES implementations, on the machines that select them.
+#
+# AES runs on AES-NI or the Arm Cryptography Extension where the CPU has
+# them, chosen at run time, and on a table-based software fallback where it
+# does not (src/zuc_crypto_config.h, #51). Every other workflow runs on CPUs
+# with AES instructions, so each checks whichever hardware path its runner
+# has -- and none of them would ever run the fallback. This job pins both:
+#
+#   - on each OS, the hardware path the runner's CPU must select, asserted
+#     through ZUCRYPT_EXPECT_AES (test-interface.R), and the whole suite --
+#     every published vector -- run on it;
+#   - on Linux, a build with ZUC_AES_SOFTWARE_ONLY (through
+#     ZUCRYPT_TEST_CPPFLAGS in src/Makevars), asserting "software" and
+#     running the suite on the fallback.
+#
+# The i386 and aarch64 legs of arch.yaml cover the other two ways the
+# hardware path is compiled: AES-NI through intrinsics on 32-bit x86, and
+# AESCE on Linux arm64.
+#
+# Bespoke because r-actions has no job that installs with a define or checks
+# a runtime property of the build.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+name: aes-paths.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  aes:
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.expect }} (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest,  expect: aesni,    cppflags: ""}
+          - {os: windows-latest, expect: aesni,    cppflags: ""}
+          - {os: macos-latest,   expect: aesce,    cppflags: ""}
+          - {os: ubuntu-latest,  expect: software, cppflags: "-DZUC_AES_SOFTWARE_ONLY"}
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      ZUCRYPT_EXPECT_AES: ${{ matrix.expect }}
+      ZUCRYPT_TEST_CPPFLAGS: ${{ matrix.cppflags }}
+      NOT_CRAN: "true"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::testthat, any::openssl
+          needs: check
+
+      - name: Install zucrypt (ZUCRYPT_TEST_CPPFLAGS='${{ matrix.cppflags }}')
+        run: R CMD INSTALL --preclean .
+
+      - name: The runner selects the expected AES
+        shell: Rscript {0}
+        run: |
+          flags <- zucrypt::crypt_info()$build_flags
+          str(flags)
+          if (!identical(flags$aes_implementation, Sys.getenv("ZUCRYPT_EXPECT_AES"))) {
+            stop("expected ", Sys.getenv("ZUCRYPT_EXPECT_AES"), ", got ", flags$aes_implementation)
+          }
+
+      # The whole suite, on that implementation: every published vector, the
+      # OpenSSL comparisons up to 4 MiB, the split-point sweeps and the live-
+      # handle tests all run through the AES this runner selected.
+      - name: Run the test suite against the installed package
+        shell: Rscript {0}
+        run: |
+          res <- as.data.frame(testthat::test_local(".", load_package = "installed",
+                                                    reporter = "summary",
+                                                    stop_on_failure = FALSE))
+          cat(sprintf("%d expectations passed\n", sum(res$passed)))
+          if (sum(res$passed) == 0L) stop("no tests ran")
+          if (sum(res$failed) > 0L || any(res$error)) stop("tests failed")

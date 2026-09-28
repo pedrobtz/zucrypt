@@ -19,7 +19,15 @@ PKG_CPPFLAGS = -I. \
   -I../inst/include \
   -I$(VENDOR)/inc \
   -I$(VENDOR)/lib \
-  -DTF_PSA_CRYPTO_CONFIG_FILE='"zuc_crypto_config.h"'
+  -DTF_PSA_CRYPTO_CONFIG_FILE='"zuc_crypto_config.h"' \
+  $(ZUCRYPT_TEST_CPPFLAGS)
+
+# ZUCRYPT_TEST_CPPFLAGS is empty in every real build: make reads it from the
+# environment, and nothing sets it. aes-paths.yaml sets it to
+# -DZUC_AES_SOFTWARE_ONLY to build and test the software AES fallback, which
+# no machine with AES instructions would otherwise run (zuc_crypto_config.h).
+# An environment variable rather than a make conditional, because a portable
+# Makevars has none.
 
 # $(C_VISIBILITY) is R's own substitution for -fvisibility=hidden, empty on a
 # compiler that has no such flag. It is what keeps mbedtls_* and psa_* out of
@@ -49,6 +57,8 @@ VENDOR_OBJECTS = \
   $(VENDOR)/lib/psa_crypto_slot_management.o \
   $(VENDOR)/lib/psa_util.o \
   $(VENDOR)/lib/aes.o \
+  $(VENDOR)/lib/aesni.o \
+  $(VENDOR)/lib/aesce.o \
   $(VENDOR)/lib/cipher.o \
   $(VENDOR)/lib/cipher_wrap.o \
   $(VENDOR)/lib/psa_crypto_cipher.o \

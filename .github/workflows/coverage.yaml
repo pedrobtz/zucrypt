@@ -57,7 +57,7 @@ jobs:
       native: true
 
       # native-exclude stays empty on purpose, even though src/vendor/ is
-      # 18 objects of someone else's code. How much of the vendored crypto the
+      # 20 objects of someone else's code. How much of the vendored crypto the
       # tests actually reach is the question worth asking, and a low figure
       # there may be entirely correct -- src/zuc_crypto_config.h builds a
       # configured subset, and a subset still carries paths this package never

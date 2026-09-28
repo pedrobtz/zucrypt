@@ -9,9 +9,20 @@
  * while another holds a context.
  */
 
+/* mbedtls_aes_get_implementation() is one of upstream's private
+ * identifiers, declared only under this macro -- the way upstream's own
+ * sources see it. It is the one way to ask which AES implementation runs
+ * (#51). This is the adapter, pinned to one release and verified by
+ * tools/vendor/verify, so reaching one private declaration here is a
+ * contained dependency: a release bump that renamed it would fail to
+ * compile, not misbehave. Set before any backend header. */
+#define MBEDTLS_DECLARE_PRIVATE_IDENTIFIERS
+
 #include <stddef.h>
+#include <string.h>
 
 #include <psa/crypto.h>
+#include <mbedtls/private/aes.h>
 
 #include "zuc_internal.h"
 
@@ -76,18 +87,26 @@ zuc_status zuc_shutdown(void)
     return ZUC_OK;
 }
 
-/* Read from the configuration the backend was compiled with, after its
- * adjust headers have run, rather than asserted in R: src/zuc_crypto_config.h
- * sets none of these, so every platform runs the same C. A future
- * configuration that enabled one would be reported here, not missed. */
-static int zuc_int_hardware_acceleration(void)
+/* Which AES implementation this machine actually runs, asked of the backend
+ * at run time: AES-NI and the Arm Cryptography Extension are compiled in
+ * (src/zuc_crypto_config.h) and used only where the CPU has them, with the
+ * table-based software path otherwise. The software path is the one
+ * upstream's SECURITY.md warns leaks key material through cache timing, so
+ * which one is in use is worth being able to see (#51). */
+static const char *zuc_int_aes_implementation(void)
 {
-#if defined(MBEDTLS_AESNI_C) || defined(MBEDTLS_AESCE_C) || \
-    defined(MBEDTLS_HAVE_ASM)
-    return 1;
-#else
-    return 0;
-#endif
+    switch (mbedtls_aes_get_implementation()) {
+    case MBEDTLS_AES_IMP_AESNI_ASM:
+    case MBEDTLS_AES_IMP_AESNI_INTRINSICS:
+        return "aesni";
+    case MBEDTLS_AES_IMP_AESCE:
+        return "aesce";
+    case MBEDTLS_AES_IMP_SOFTWARE:
+        return "software";
+    case MBEDTLS_AES_IMP_UNKNOWN:
+        break;
+    }
+    return "unknown";
 }
 
 zuc_status zuc_get_info(zuc_info *info)
@@ -112,7 +131,13 @@ zuc_status zuc_get_info(zuc_info *info)
      * struct is long enough to have it. */
     if (info->struct_size >= offsetof(zuc_info, hardware_acceleration) +
                              sizeof info->hardware_acceleration) {
-        info->hardware_acceleration = zuc_int_hardware_acceleration();
+        const char *imp = zuc_int_aes_implementation();
+        info->hardware_acceleration =
+            strcmp(imp, "aesni") == 0 || strcmp(imp, "aesce") == 0;
+    }
+    if (info->struct_size >= offsetof(zuc_info, aes_implementation) +
+                             sizeof info->aes_implementation) {
+        info->aes_implementation = zuc_int_aes_implementation();
     }
     return ZUC_OK;
 }

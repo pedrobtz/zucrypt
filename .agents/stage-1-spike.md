@@ -71,7 +71,8 @@ The method, which is also how to redo it after a release bump:
 2. Keep those whose object defines anything (`nm -g`, count the `[TDBSR]`
    lines). 18 do.
 3. Take the header closure of those 18 with `cc -MM`. 108 files.
-4. Add upstream's `LICENSE`. 109 files, 2.6 MB.
+4. Add upstream's `LICENSE`. 109 files, 2.6 MB. (113 files and 2.7 MB since #51 added the
+   hardware AES sources; see §6.)
 
 The result is `tools/vendor/keep/tf-psa-crypto.txt`, the object list is
 `VENDOR_OBJECTS` in `src/Makevars`, and `tools/vendor/verify` fails if the two
@@ -144,6 +145,15 @@ and `tests/testthat/test-interface.R` asserts it is one of those four — a
 preprocessor chain that fell through would report an empty string.
 
 ## 6. Hardware acceleration: off, uniformly
+
+**Superseded 2026-09-28 (#51).** Hardware AES is now on (`MBEDTLS_AESNI_C`, `MBEDTLS_AESCE_C`,
+`MBEDTLS_HAVE_ASM`), selected at run time with the software tables as fallback. This section's
+premise, that one C path everywhere was the stronger choice, missed the security trade: the
+pinned release's `SECURITY.md` says its table-based AES leaks the key through cache timing and
+recommends hardware acceleration, and AES gives the same bytes either way. The trim gained
+`aesni.c` and `aesce.c` with their headers (113 files, 2.7 MB). `aesce.c` is added by hand,
+because it carries symbols only on Arm and the derivation runs on x86 (see the keep list's
+header). The original text follows as the record.
 
 `MBEDTLS_HAVE_ASM`, `MBEDTLS_AESNI_C`, `MBEDTLS_AESCE_C` and the
 `SHA*_USE_*_CRYPTO_IF_PRESENT` options are set only by upstream's default

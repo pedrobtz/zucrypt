@@ -141,7 +141,21 @@ test_that("crypt_info() reports the build, from the compiled library", {
   expect_s3_class(info$vendored, "data.frame")
   expect_identical(info$vendored$source, "TF-PSA-Crypto")
   expect_match(info$vendored$version, "^[0-9]+\\.[0-9]+\\.[0-9]+$")
-  expect_false(info$build_flags$hardware_acceleration)
+
+  # Which AES this machine runs is decided at run time (#51): a hardware path
+  # where the CPU has AES instructions, the software tables otherwise. The
+  # two flags must agree with each other; which one a given machine gets is
+  # asserted by aes-paths.yaml, which knows what hardware it runs on.
+  imp <- info$build_flags$aes_implementation
+  expect_true(imp %in% c("aesni", "aesce", "software"))
+  expect_identical(info$build_flags$hardware_acceleration, imp != "software")
+
+  # An expectation set by the CI job that knows the answer. Unset here, and
+  # everywhere else, so the suite runs on any CPU.
+  expected <- Sys.getenv("ZUCRYPT_EXPECT_AES", "")
+  if (nzchar(expected)) {
+    expect_identical(imp, expected)
+  }
 
   # src/zuc_random.c's preprocessor chain has no arm that selects nothing:
   # every platform lands on a named source. An empty string would mean the

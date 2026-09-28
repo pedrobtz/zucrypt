@@ -59,6 +59,10 @@ b9df2faddbd13d4978f28d32c4b324f2fdbba70a38e999f51a87d46a533a8f5d  src/vendor/tf-
 e5ac397ae21eaf82360563bf5855cc9215b8bdbb93e90003d661d1a93d6a644f  src/vendor/tf-psa-crypto/inc/tf-psa-crypto/private/crypto_adjust_config_support.h
 7fc60929c2529202688f30b08bbbb707598996601c55098ebc74c2f877f871d2  src/vendor/tf-psa-crypto/inc/tf-psa-crypto/private/crypto_adjust_config_synonyms.h
 e9d11d3c5daa95e5c746e542eaf6b927b5a2815e54492c2e545f64e9d98b0bde  src/vendor/tf-psa-crypto/lib/aes.c
+10f05ecd562053ffad322e543b8d12a960f90647438e054c4ad79a7fe80afe4f  src/vendor/tf-psa-crypto/lib/aesce.c
+f8b824f1b49e40f42077115902dc7246c3fbb3e975a4b5ffed339fb497f90b68  src/vendor/tf-psa-crypto/lib/aesce.h
+3458909ee5509ba7aa4603aba5bc0e4a451afa755958d40e5e02e650de6e3e1d  src/vendor/tf-psa-crypto/lib/aesni.c
+ff6381a4964f2270df281be25f9b42ab265ea961454f033d58e20ad80b7474f2  src/vendor/tf-psa-crypto/lib/aesni.h
 8cd667908e46cd372bbbaaf8f2081267067ae81953bd819f20798d34f7adafbb  src/vendor/tf-psa-crypto/lib/alignment.h
 75d61a6be2265288bb3e81d972fe3c66e974e5d6b1e8c4ae1a00b2ae09832b07  src/vendor/tf-psa-crypto/lib/check_crypto_config.h
 5c1d267026bb309ca2fb04daf7332d1e3fe2bf5f99aad28093f69eb02b7cba09  src/vendor/tf-psa-crypto/lib/cipher.c

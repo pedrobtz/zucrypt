@@ -85,8 +85,9 @@ provenance in `MANIFEST.tsv`; `Rscript tools/make-kat.R --check` recomputes ever
 `openssl` and fails on a mismatch.
 
 [.agents/stage-1-spike.md](.agents/stage-1-spike.md) records what the spike measured and every
-decision it settled — the pinned release, the eleven-define configuration, the 18-object trim
-and how to re-derive it, the external-RNG choice, and the measurements. Read it before touching
+decision it settled — the pinned release, the configuration (now fourteen defines), the trim
+(now 20 objects, 113 files, since #51 added hardware AES; `aesce.c` is kept by hand because it
+has symbols only on Arm) and how to re-derive it, the external-RNG choice, and the measurements. Read it before touching
 `src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.
 
 The real content of this repository is [.agents/design.md](.agents/design.md), now at
@@ -229,6 +230,12 @@ to each other, and `tests/testthat/test-abi.R` asserts that the shared object ex
 - Binary arguments are **raw vectors only**. A character value is never interpreted as a filename,
   password or byte sequence.
 - Algorithm names are exact scalars — no partial matching, no fallback.
+- AES runs on AES-NI or the Arm Cryptography Extension where the CPU has them, selected at run
+  time, with the table-based software AES as fallback (#51). That fallback leaks key material
+  through cache timing, per upstream's `SECURITY.md`; it is documented, not refused, and
+  `crypt_info()$build_flags$aes_implementation` reports the path in use. Never turn hardware AES
+  off to make platforms "run the same C": AES is deterministic, the bytes are identical, and
+  `aes-paths.yaml` checks each path including a `ZUC_AES_SOFTWARE_ONLY` build.
 - AES wrappers add/strip **no padding and no authentication**; keys must be 16/24/32 bytes, IVs
   exactly 16, data a multiple of 16. Authentication is the caller's responsibility.
 - SHA-1 exists for Office compatibility and is never a default for new formats. AES-ECB was
