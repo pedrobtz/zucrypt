@@ -4,10 +4,34 @@
 #
 # The *class* is the contract. Messages are one line and may be reworded;
 # anything a caller branches on is a class or a field of the condition
-# object. And no message ever contains a key, a password, an IV or any
+# object. And no condition ever carries a key, a password, an IV or any
 # plaintext -- an R error goes to the console, into logs, and into bug
 # reports, and this package's arguments are exactly the values that must not
 # arrive there.
+#
+# That includes the *call*, not only the message. A condition's call is the
+# caller's expression, arguments and all, and R prints it before the message:
+# `Error in crypt_hmac(data, charToRaw("the key"))`. Under do.call() it holds
+# the argument *values*. Until #51 the message was clean and the call leaked
+# both, so the call is reduced here, centrally, to the bare function name --
+# for every condition, including one whose helper passes `call` explicitly.
+
+# `crypt_hmac(<anything>)` becomes `crypt_hmac()`. Only a plain name, or a
+# `pkg::name` / `pkg:::name` reference, survives as the function position;
+# anything else there -- an anonymous function, or a closure object that
+# do.call() spliced in -- is dropped, and the condition has no call at all.
+redact_call <- function(call) {
+  if (!is.call(call)) {
+    return(NULL)
+  }
+  fn <- call[[1L]]
+  named <- is.symbol(fn) ||
+    (is.call(fn) && length(fn) == 3L &&
+       (identical(fn[[1L]], as.name("::")) ||
+          identical(fn[[1L]], as.name(":::"))) &&
+       is.symbol(fn[[2L]]) && is.symbol(fn[[3L]]))
+  if (named) as.call(list(fn)) else NULL
+}
 
 zucrypt_abort <- function(class,
                           message,
@@ -18,7 +42,7 @@ zucrypt_abort <- function(class,
     class = c(class, "zucrypt_error", "error", "condition"),
     list(
       message = message,
-      call = call,
+      call = redact_call(call),
       algorithm = algorithm,
       native_status = native_status
     )

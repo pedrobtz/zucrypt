@@ -29,20 +29,28 @@ test_that("the public functions reproduce every published vector", {
 test_that("inputs are byte-identical after every call", {
   # Native code must never write into an R vector it was handed. R would not
   # complain, and the damage would land in whatever else shares that vector.
-  data <- as.raw(seq.int(0L, 255L))
-  key <- as.raw(rep(0x2b, 32))
-  iv <- as.raw(seq.int(0L, 15L))
-  data0 <- data; key0 <- key; iv0 <- iv
+  #
+  # The expected values are rebuilt from scratch, never copied from the
+  # inputs: `data0 <- data` shares R's storage with `data` until one of them
+  # is modified from R, so a native write into `data` would change both and
+  # the comparison would still pass (#51).
+  fresh_data <- function() as.raw(seq.int(0L, 255L))
+  fresh_key <- function() as.raw(rep(0x2b, 32))
+  fresh_iv <- function() as.raw(seq.int(0L, 15L))
+  data <- fresh_data()
+  key <- fresh_key()
+  iv <- fresh_iv()
+  unchanged <- function(what) {
+    expect_identical(data, fresh_data(), info = what)
+    expect_identical(key, fresh_key(), info = what)
+    expect_identical(iv, fresh_iv(), info = what)
+  }
 
-  invisible(crypt_hash(data))
-  invisible(crypt_hmac(data, key))
-  invisible(crypt_equal(data, data))
-  invisible(crypt_aes_cbc_encrypt(data, key, iv))
-  invisible(crypt_aes_cbc_decrypt(data, key, iv))
-
-  expect_identical(data, data0)
-  expect_identical(key, key0)
-  expect_identical(iv, iv0)
+  invisible(crypt_hash(data)); unchanged("crypt_hash")
+  invisible(crypt_hmac(data, key)); unchanged("crypt_hmac")
+  invisible(crypt_equal(data, data)); unchanged("crypt_equal")
+  invisible(crypt_aes_cbc_encrypt(data, key, iv)); unchanged("encrypt")
+  invisible(crypt_aes_cbc_decrypt(data, key, iv)); unchanged("decrypt")
 })
 
 test_that("results are freshly allocated, not views on the input", {
@@ -146,4 +154,28 @@ test_that("crypt_info() reports the build, from the compiled library", {
   for (alg in info$algorithms) {
     expect_true(length(crypt_hash(raw(0), alg)) > 0L)
   }
+})
+
+test_that("the documented encrypt-then-MAC catches a changed IV", {
+  # ?crypt_aes_cbc's pattern (#51): the tag covers c(iv, ciphertext). The old
+  # advice, a MAC over the ciphertext alone, let the IV be changed -- and
+  # with it the first plaintext block -- while the tag still verified. Both
+  # are checked, so the test shows why the IV has to be inside the MAC.
+  key <- as.raw(1:16)
+  mac_key <- as.raw(101:132)
+  iv <- raw(16)
+  ct <- crypt_aes_cbc_encrypt(charToRaw("0123456789abcdef"), key, iv)
+  tampered <- iv
+  tampered[1] <- as.raw(1)
+
+  # Without the IV in the MAC, the attack works:
+  ct_only <- crypt_hmac(ct, mac_key)
+  expect_true(crypt_equal(ct_only, crypt_hmac(ct, mac_key)))
+  expect_identical(rawToChar(crypt_aes_cbc_decrypt(ct, key, tampered)),
+                   "1123456789abcdef")
+
+  # With it, the change is caught before decryption:
+  tag <- crypt_hmac(c(iv, ct), mac_key)
+  expect_true(crypt_equal(tag, crypt_hmac(c(iv, ct), mac_key)))
+  expect_false(crypt_equal(tag, crypt_hmac(c(tampered, ct), mac_key)))
 })

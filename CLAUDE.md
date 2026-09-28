@@ -243,7 +243,9 @@ to each other, and `tests/testthat/test-abi.R` asserts that the shared object ex
   concrete consumer first.
 - Any future randomness uses platform entropy or a seeded backend RNG, **never R's RNG**.
 - Errors are R conditions `c(<specific>, "zucrypt_error", "error", "condition")` built in R from a
-  `zuc_status`, mapped by enumerator *name*; never attach keys, passwords or plaintext. C returns
+  `zuc_status`, mapped by enumerator *name*; never attach keys, passwords or plaintext -- in the
+  message *or the call*: `zucrypt_abort()` reduces every condition's call to the bare function
+  name, because R prints the call, with its arguments, before the message (#51). C returns
   status codes, never `Rf_error()` below the outermost `.Call`; heap state that must survive a
   `longjmp` (`Rf_error`, `R_CheckUserInterrupt`) is owned by a finalized external pointer.
 - Vendoring uses the family layout — `src/vendor/<source>/`, `tools/patches/`,

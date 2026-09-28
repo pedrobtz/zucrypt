@@ -243,9 +243,10 @@ void zuc_hash_free(zuc_hash *hash);
  * ------------------------------------------------------------------ */
 
 /* Same shape as the digest interface, keyed at creation. Any key length is
- * accepted, including 0, as RFC 2104 specifies. The key is copied into the
- * library's own storage and wiped when the handle is freed; the caller's
- * buffer is not retained. */
+ * accepted, including 0, as RFC 2104 specifies; a key longer than the hash's
+ * block is replaced by its hash, as RFC 2104 also specifies, which gives the
+ * same MAC. The key is copied into the library's own storage and wiped when
+ * the handle is freed; the caller's buffer is not retained. */
 zuc_status zuc_hmac_compute(zuc_alg alg,
                             const uint8_t *key, size_t key_len,
                             const uint8_t *data, size_t data_len,

@@ -30,6 +30,21 @@ status by enumerator name rather than by number. Every condition carries
 (`"aes-256-cbc"`), or `"aes-cbc"` when the key is what is wrong. No message
 ever contains a key, an IV or plaintext.
 
+Fixed before the tag, from the package review in #51:
+
+* A condition no longer carries the call that raised it, only the function's
+  name. Before, `print()` on an error and `conditionCall()` showed the
+  caller's expression -- literal keys and plaintext included -- although the
+  message itself was clean.
+* `crypt_hmac()` (and `zuc_hmac_*()`) accept keys of any length, as
+  documented. Keys of 8,192 bytes or more used to fail with
+  `zucrypt_unsupported_algorithm`, because the backend caps an imported key
+  there; a key longer than the hash's block is now hashed first, as RFC 2104
+  specifies, which gives the same MAC.
+* `?crypt_aes_cbc` now authenticates the IV as well as the ciphertext in its
+  encrypt-then-MAC advice and example. A MAC over the ciphertext alone let
+  the IV, and so the first plaintext block, be changed undetected.
+
 ## C interface
 
 Both shapes the `zu*` family consumes siblings by, at `ZUCRYPT_ABI_VERSION 1`,
