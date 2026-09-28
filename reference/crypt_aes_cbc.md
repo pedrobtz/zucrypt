@@ -3,12 +3,21 @@
 **These functions provide confidentiality only. They do not authenticate
 anything.** Ciphertext produced here can be altered by anyone who can
 reach it, and decryption will return the altered plaintext without
-complaint. Detecting that is your job: compute a MAC over the ciphertext
-with
-[`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
-and verify it with
-[`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md)
-before decrypting, or use an authenticated format.
+complaint. Detecting that is your job, or use an authenticated format.
+If you must authenticate CBC yourself, the minimum is encrypt-then-MAC,
+done in full:
+
+- compute
+  [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
+  over the IV **and** the ciphertext, `c(iv, ciphertext)`. A MAC over
+  the ciphertext alone lets anyone change the IV, and with it the first
+  plaintext block, without the tag noticing;
+
+- use a MAC key independent of the encryption key;
+
+- verify the tag with
+  [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md)
+  **before** decrypting, and do not decrypt at all if it fails.
 
 They also add and strip no padding. The input length must already be a
 multiple of 16 bytes.
@@ -73,9 +82,19 @@ ciphertext
 identical(crypt_aes_cbc_decrypt(ciphertext, key, iv), plaintext)
 #> [1] TRUE
 
-# Authentication is separate, and is not optional.
+# Authentication is separate, and is not optional. The tag covers the IV
+# as well as the ciphertext, under a key of its own.
 mac_key <- as.raw(rep(0x5c, 32))
-tag <- crypt_hmac(ciphertext, mac_key)
-crypt_equal(tag, crypt_hmac(ciphertext, mac_key))
+tag <- crypt_hmac(c(iv, ciphertext), mac_key)
+
+# The receiver checks the tag first, and decrypts only if it matches.
+crypt_equal(tag, crypt_hmac(c(iv, ciphertext), mac_key))
 #> [1] TRUE
+
+# A changed IV would alter the first plaintext block. Because the tag
+# covers the IV, the change is caught before anything is decrypted.
+tampered_iv <- iv
+tampered_iv[1] <- xor(tampered_iv[1], as.raw(1))
+crypt_equal(tag, crypt_hmac(c(tampered_iv, ciphertext), mac_key))
+#> [1] FALSE
 ```
