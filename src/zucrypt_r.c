@@ -43,8 +43,9 @@ SEXP zucrypt_backend_info(void)
     zuc_status st;
     SEXP out, nms;
     const char *names[] = {"backend_name", "backend_version", "random_backend",
-                           "abi_version", "hardware_acceleration"};
-    int i, n = 5;
+                           "abi_version", "hardware_acceleration",
+                           "aes_implementation"};
+    int i, n = 6;
 
     info.struct_size = (uint32_t) sizeof info;
     st = zuc_get_info(&info);
@@ -63,6 +64,7 @@ SEXP zucrypt_backend_info(void)
     SET_VECTOR_ELT(out, 2, Rf_mkString(info.random_backend));
     SET_VECTOR_ELT(out, 3, Rf_ScalarInteger((int) info.abi_version));
     SET_VECTOR_ELT(out, 4, Rf_ScalarLogical(info.hardware_acceleration != 0));
+    SET_VECTOR_ELT(out, 5, Rf_mkString(info.aes_implementation));
     for (i = 0; i < n; i++) {
         SET_STRING_ELT(nms, i, Rf_mkChar(names[i]));
     }

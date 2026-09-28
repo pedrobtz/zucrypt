@@ -39,8 +39,9 @@ option of its dual Apache-2.0 OR GPL-2.0-or-later licence.
   its SHA-256. `tools/vendor/verify` checks offline that the tree, the
   manifest, the build configuration and `inst/COPYRIGHTS` all agree, and runs
   in continuous integration.
-* 109 of the archive's files are included — the dependency closure of the 18
-  sources that carry a symbol under this package's configuration.
+* 113 of the archive's files are included — the dependency closure of the
+  sources that carry a symbol under this package's configuration, including
+  the AES-NI and Arm AES hardware paths, which are selected at run time.
 * Two local patches are applied, and no upstream file is edited in place:
   * `0001-avoid-zero-size-pubkey-array.patch` removes a zero-size array that
     upstream declares when no public-key algorithm is enabled; zero-size

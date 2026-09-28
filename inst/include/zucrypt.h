@@ -182,12 +182,15 @@ typedef struct {
     const char *backend_name;      /* out: e.g. "TF-PSA-Crypto" */
     const char *backend_version;   /* out: e.g. "1.1.1" */
     const char *random_backend;    /* out: the OS random source compiled in */
-    /* Appended after the required prefix: written only when struct_size
-     * covers it, so a caller built against an older header is unaffected. */
-    int         hardware_acceleration; /* out: 1 if AES-NI, AESCE or assembly
-                                          is compiled in; 0 in every current
-                                          build, so all platforms produce the
-                                          same bytes from the same C */
+    /* Appended after the required prefix: each is written only when
+     * struct_size covers it, so a caller built against an older header is
+     * unaffected. */
+    int         hardware_acceleration; /* out: 1 if AES runs on this CPU's
+                                          AES instructions, 0 if on the
+                                          software fallback */
+    const char *aes_implementation;    /* out: "aesni", "aesce" or
+                                          "software" -- decided at run time,
+                                          on this machine */
 } zuc_info;
 
 /* The prefix zuc_get_info() dereferences -- deliberately not sizeof(zuc_info),
@@ -276,7 +279,17 @@ void zuc_hmac_free(zuc_hmac *hmac);
  * Every buffer length must be a multiple of ZUC_AES_BLOCK_SIZE. A ciphertext
  * produced here can be modified by anyone who can reach it, undetectably;
  * authenticating it is the caller's job and is not optional for anything but
- * reading an existing file format that already specifies otherwise. */
+ * reading an existing file format that already specifies otherwise.
+ *
+ * SIDE CHANNELS. AES runs on the CPU's AES instructions where it has them --
+ * AES-NI on x86, the Cryptography Extension on ARMv8 -- chosen at run time.
+ * On a CPU without them it falls back to a table-based software AES whose
+ * memory accesses depend on the key and the data; the backend's own security
+ * policy warns that an attacker able to observe cache timing (another
+ * process on the same machine, or a precise enough network observer) can
+ * recover the key from it. zuc_get_info() reports which path this machine
+ * uses in `aes_implementation`; if it is "software" and that threat is in
+ * your model, do not use this AES for secrets that matter. */
 typedef struct zuc_aes zuc_aes;
 
 /* `key_len` must be 16, 24 or 32; anything else is ZUC_ERR_BAD_LENGTH. The

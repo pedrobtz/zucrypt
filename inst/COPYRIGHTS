@@ -42,7 +42,7 @@ everything else under MIT.
 
 Only part of the upstream release is included here. The vendored tree is the
 dependency closure of the sources that carry a symbol under
-src/zuc_crypto_config.h -- 109 files of an archive with several thousand. The
+src/zuc_crypto_config.h -- 113 files of an archive with several thousand. The
 exact list is tools/vendor/keep/tf-psa-crypto.txt, the release and its
 checksum are in tools/vendor/manifest.tsv, and tools/vendor/verify checks
 offline that the tree, the manifest, the build configuration and this file all

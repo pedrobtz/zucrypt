@@ -273,16 +273,19 @@ of Mbed TLS 4.1 LTS, which upstream supports until March 2029
   can be restricted to a tag pattern. That restriction is a follow-up in `r-actions` (#19).
 
 **The configuration** is `src/zuc_crypto_config.h`, which replaces upstream's configuration. It
-holds eleven defines, each recorded in the manifest's `defines` column and cross-checked by
+holds fourteen defines, each recorded in the manifest's `defines` column and cross-checked by
 `tools/vendor/verify`:
 - SHA-1, SHA-256, SHA-384 and SHA-512;
 - HMAC and the HMAC key type;
 - CBC without padding, and the AES key type;
 - the PSA core;
 - external RNG;
-- `MBEDTLS_PSA_KEY_STORE_DYNAMIC`.
+- `MBEDTLS_PSA_KEY_STORE_DYNAMIC`;
+- hardware AES: `MBEDTLS_AESNI_C`, `MBEDTLS_AESCE_C`, and `MBEDTLS_HAVE_ASM`, which AES-NI
+  needs on x86-64 (#51).
 
-Revision 3 swaps ECB-without-padding for the dynamic key store, so the count stays at eleven.
+Revision 3 swapped ECB-without-padding for the dynamic key store, and #51 added the three
+hardware-AES defines.
 Nothing else is enabled:
 - no public-key cryptography, AEAD or key derivation;
 - no X.509 or TLS;
@@ -317,9 +320,24 @@ Nothing else is enabled:
   - R loads packages with `RTLD_LOCAL`, and Windows DLLs have per-module namespaces. So two
     independently vendored copies, `zucrypt` inside `zuxlsx.so` and a TLS build inside
     `zuhttp.so`, cannot bind to one another.
-- **Keep the feature set and the output identical on every platform.** Hardware acceleration is
-  off everywhere (stage-1-spike §6). `crypt_info()` reports that from the compiled library, not
-  from R (#36).
+- **Keep the feature set and the output identical on every platform; use hardware AES where the
+  CPU has it.** AES is deterministic, so AES-NI, the Arm Cryptography Extension and the software
+  path produce the same bytes, and the published vectors check that on every platform CI reaches.
+  - **Why hardware matters.** The software AES indexes lookup tables with secret-dependent
+    values. The pinned release's own `SECURITY.md` says that leaks through cache timing, locally
+    and possibly remotely, and can recover the key, and it recommends hardware acceleration.
+    Revision 3 first left hardware off "so every platform runs the same C"; the package review in
+    #51 showed that was the wrong trade.
+  - **The fallback.** Both paths are chosen at run time, so a CPU without AES instructions falls
+    back to the software tables rather than failing (`MBEDTLS_AES_USE_HARDWARE_ONLY` is not set).
+    On that fallback the timing exposure remains. It is documented in `?crypt_aes_cbc` and
+    `zucrypt.h`, not refused: refusing would make `zuxlsx` unable to open a workbook on such a
+    machine. The backend has no constant-time software AES to fall back to instead.
+  - **Reporting.** `crypt_info()$build_flags$aes_implementation` and `zuc_info.aes_implementation`
+    report the path this machine runs, `"aesni"`, `"aesce"` or `"software"`, read at run time
+    from the backend (#36, #51). `aes-paths.yaml` asserts the expected path on each CI OS, and
+    runs the whole suite on a software-only build (`ZUC_AES_SOFTWARE_ONLY`), so the fallback is
+    tested even though no CI runner would choose it.
 - **Ship security updates promptly.** The operating system does not patch code compiled into an
   R package.
   - **An archive consumer gets the fix only when that consumer is reinstalled.**

@@ -18,9 +18,12 @@ its first consumer links it, and frozen from v0.2.0; see
 is exactly the set \code{crypt_hash()} and \code{crypt_hmac()} accept.}
 \item{\code{vendored}}{a data frame with one row per vendored source, giving
 its \code{source} name and the \code{version} the compiled library reports.}
-\item{\code{build_flags}}{a named list of compile-time choices worth being
-able to see from R: the operating-system random source that was
-selected, and whether hardware acceleration is compiled in.}
+\item{\code{build_flags}}{a named list: \code{random_backend}, the
+operating-system random source compiled in; \code{aes_implementation},
+which AES this machine runs -- \code{"aesni"} or \code{"aesce"} on a CPU with
+AES instructions, \code{"software"} otherwise, decided at run time; and
+\code{hardware_acceleration}, \code{TRUE} when that is a hardware path. See
+the "Side channels" section of \link{crypt_aes_cbc} for why it matters.}
 }
 }
 \description{

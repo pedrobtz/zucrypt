@@ -96,12 +96,18 @@ Settled before any consumer linked the ABI (design revision 3):
 
 ## Backend
 
-Vendored TF-PSA-Crypto 1.1.1, an LTS release, trimmed to 109 files — the
-dependency closure of the 18 sources that carry a symbol under this package's
+Vendored TF-PSA-Crypto 1.1.1, an LTS release, trimmed to 113 files — the
+dependency closure of the sources that carry a symbol under this package's
 configuration. Installation needs a C99 compiler and nothing else: no system
 cryptographic library, no CMake, no Python or Perl, and no network access.
-Hardware acceleration is disabled on every platform, so every platform
-produces the same bytes.
+
+AES runs on the CPU's AES instructions — AES-NI on x86, the Cryptography
+Extension on 64-bit Arm — chosen at run time, and on a software fallback
+where the CPU has neither. The backend's own security policy warns that the
+software fallback leaks key material through cache timing;
+`crypt_info()$build_flags$aes_implementation` reports which path a machine
+uses, and `?crypt_aes_cbc` explains when that matters. Every path produces
+the same bytes. (Until the review in #51 hardware AES was off everywhere.)
 
 Upstream symbols are hidden. The installed shared object exports exactly one
 symbol, `R_init_zucrypt`, so an independently vendored copy of the same

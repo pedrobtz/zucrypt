@@ -48,6 +48,22 @@ reason they exist. They are not a general-purpose way to encrypt something
 of your own; that needs an authenticated construction, a nonce policy and a
 key derivation step, none of which this package provides.
 }
+\section{Side channels}{
+
+AES runs on the CPU's AES instructions where it has them -- AES-NI on x86,
+the Cryptography Extension on 64-bit Arm -- chosen at run time, and falls
+back to a software implementation where it does not. \code{crypt_info()} says
+which one this machine uses, in \code{build_flags$aes_implementation}.
+
+The software fallback reads lookup tables at addresses that depend on the
+key and the data. The backend's own security policy warns that an attacker
+who can observe cache timing -- another process on the same machine, or,
+with enough precision, the network -- can recover the key from that. If
+\code{aes_implementation} is \code{"software"} and such an attacker is in your
+threat model, do not use these functions for secrets that matter. Every
+implementation produces the same bytes; only this exposure differs.
+}
+
 \section{Segmented formats}{
 
 Each call starts from \code{iv} and treats \code{data} as one continuous CBC stream.
