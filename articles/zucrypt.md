@@ -212,9 +212,10 @@ str(crypt_info())
 #>  $ vendored   :'data.frame': 1 obs. of  2 variables:
 #>   ..$ source : chr "TF-PSA-Crypto"
 #>   ..$ version: chr "1.1.1"
-#>  $ build_flags:List of 2
+#>  $ build_flags:List of 3
 #>   ..$ random_backend       : chr "getrandom"
-#>   ..$ hardware_acceleration: logi FALSE
+#>   ..$ aes_implementation   : chr "aesni"
+#>   ..$ hardware_acceleration: logi TRUE
 ```
 
 `vendored` names the bundled cryptography library and its version. That

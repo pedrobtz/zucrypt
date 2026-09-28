@@ -40,9 +40,13 @@ A list with elements:
 
 - `build_flags`:
 
-  a named list of compile-time choices worth being able to see from R:
-  the operating-system random source that was selected, and whether
-  hardware acceleration is compiled in.
+  a named list: `random_backend`, the operating-system random source
+  compiled in; `aes_implementation`, which AES this machine runs –
+  `"aesni"` or `"aesce"` on a CPU with AES instructions, `"software"`
+  otherwise, decided at run time; and `hardware_acceleration`, `TRUE`
+  when that is a hardware path. See the "Side channels" section of
+  [crypt_aes_cbc](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+  for why it matters.
 
 ## Details
 

@@ -124,6 +124,22 @@ key; for decryption it is whatever the format says it is.</p></dd>
 modified.</p>
     </div>
     <div class="section level2">
+    <h2 id="side-channels">Side channels<a class="anchor" aria-label="anchor" href="#side-channels"></a></h2>
+
+
+<p>AES runs on the CPU's AES instructions where it has them – AES-NI on x86,
+the Cryptography Extension on 64-bit Arm – chosen at run time, and falls
+back to a software implementation where it does not. <code><a href="crypt_info.html">crypt_info()</a></code> says
+which one this machine uses, in <code>build_flags$aes_implementation</code>.</p>
+<p>The software fallback reads lookup tables at addresses that depend on the
+key and the data. The backend's own security policy warns that an attacker
+who can observe cache timing – another process on the same machine, or,
+with enough precision, the network – can recover the key from that. If
+<code>aes_implementation</code> is <code>"software"</code> and such an attacker is in your
+threat model, do not use these functions for secrets that matter. Every
+implementation produces the same bytes; only this exposure differs.</p>
+    </div>
+    <div class="section level2">
     <h2 id="segmented-formats">Segmented formats<a class="anchor" aria-label="anchor" href="#segmented-formats"></a></h2>
 
 

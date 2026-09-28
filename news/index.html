@@ -74,7 +74,8 @@
 </ul></div>
 <div class="section level3">
 <h3 id="backend-0-1-0">Backend<a class="anchor" aria-label="anchor" href="#backend-0-1-0"></a></h3>
-<p>Vendored TF-PSA-Crypto 1.1.1, an LTS release, trimmed to 109 files — the dependency closure of the 18 sources that carry a symbol under this package’s configuration. Installation needs a C99 compiler and nothing else: no system cryptographic library, no CMake, no Python or Perl, and no network access. Hardware acceleration is disabled on every platform, so every platform produces the same bytes.</p>
+<p>Vendored TF-PSA-Crypto 1.1.1, an LTS release, trimmed to 113 files — the dependency closure of the sources that carry a symbol under this package’s configuration. Installation needs a C99 compiler and nothing else: no system cryptographic library, no CMake, no Python or Perl, and no network access.</p>
+<p>AES runs on the CPU’s AES instructions — AES-NI on x86, the Cryptography Extension on 64-bit Arm — chosen at run time, and on a software fallback where the CPU has neither. The backend’s own security policy warns that the software fallback leaks key material through cache timing; <code>crypt_info()$build_flags$aes_implementation</code> reports which path a machine uses, and <code><a href="../reference/crypt_aes_cbc.html">?crypt_aes_cbc</a></code> explains when that matters. Every path produces the same bytes. (Until the review in <a href="https://github.com/pedrobtz/zucrypt/issues/51" class="external-link">#51</a> hardware AES was off everywhere.)</p>
 <p>Upstream symbols are hidden. The installed shared object exports exactly one symbol, <code>R_init_zucrypt</code>, so an independently vendored copy of the same library in another package cannot bind to this one, and no OpenSSL-ABI name is exported beside the <code>libcrypto</code> other packages link.</p>
 </div>
 <div class="section level3">

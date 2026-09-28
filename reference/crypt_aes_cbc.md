@@ -57,6 +57,23 @@ crypt_aes_cbc_decrypt(data, key, iv)
 
 A raw vector the same length as `data`. `data` itself is never modified.
 
+## Side channels
+
+AES runs on the CPU's AES instructions where it has them – AES-NI on
+x86, the Cryptography Extension on 64-bit Arm – chosen at run time, and
+falls back to a software implementation where it does not.
+[`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md)
+says which one this machine uses, in `build_flags$aes_implementation`.
+
+The software fallback reads lookup tables at addresses that depend on
+the key and the data. The backend's own security policy warns that an
+attacker who can observe cache timing – another process on the same
+machine, or, with enough precision, the network – can recover the key
+from that. If `aes_implementation` is `"software"` and such an attacker
+is in your threat model, do not use these functions for secrets that
+matter. Every implementation produces the same bytes; only this exposure
+differs.
+
 ## Segmented formats
 
 Each call starts from `iv` and treats `data` as one continuous CBC
