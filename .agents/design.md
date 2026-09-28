@@ -744,7 +744,11 @@ classes, keyed by C enumerator name, are:
 - Every condition carries `algorithm` and `native_status` fields. AES conditions set
   `algorithm` to the cipher, for example `"aes-256-cbc"`; today they leave it `NA` (#36).
 - Messages are one line and may be reworded; tests assert on class.
-- Keys, passwords, IV-derived secret state and plaintext are never attached to a condition.
+- Keys, passwords, IV-derived secret state and plaintext are never attached to a condition —
+  not in the message, and not in the **call** either. A condition's call is the caller's
+  expression, arguments and all (and, under `do.call()`, their values), and R prints it before
+  the message. `zucrypt_abort()` therefore reduces every call to the bare function name,
+  `crypt_hmac()`, whatever a helper passes (#51).
 
 **Office errors belong to the Office adapter** (`zuxlsx_*`): incorrect passwords, malformed
 containers and integrity failures. Where the format cannot tell causes apart reliably, report an

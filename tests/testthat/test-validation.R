@@ -91,6 +91,54 @@ test_that("no condition message contains key or plaintext bytes", {
   expect_match(conditionMessage(cond), "15")
 })
 
+test_that("no condition carries a secret anywhere: message, call or print", {
+  # #51: conditionMessage() was clean, but the condition's *call* held the
+  # caller's expression -- literal keys and plaintext -- and R prints the call
+  # before the message. The whole condition is checked here, as it is
+  # printed and as it is stored, for every way a secret can reach it.
+  leaks <- function(cond, secrets) {
+    printed <- c(capture.output(print(cond)), conditionMessage(cond),
+                 deparse(conditionCall(cond)),
+                 capture.output(str(unclass(cond))))
+    any(vapply(secrets, function(s) any(grepl(s, printed, fixed = TRUE)),
+               logical(1)))
+  }
+  catch <- function(expr) tryCatch(expr, zucrypt_error = function(e) e)
+
+  # Validation failures, with the secrets written inline in the call.
+  e <- catch(crypt_aes_cbc_encrypt(charToRaw("PRIVATE_PLAINTEXT"),
+                                   charToRaw("PRIVATE_KEY"), raw(16)))
+  expect_s3_class(e, "zucrypt_bad_length")
+  expect_false(leaks(e, c("PRIVATE_PLAINTEXT", "PRIVATE_KEY")))
+  e <- catch(crypt_hmac(charToRaw("SECRET_DATA"), charToRaw("SECRET_KEY"), "md5"))
+  expect_s3_class(e, "zucrypt_unsupported_algorithm")
+  expect_false(leaks(e, c("SECRET_DATA", "SECRET_KEY")))
+  e <- catch(crypt_hash("SECRET_TEXT_AS_STRING"))
+  expect_false(leaks(e, "SECRET_TEXT_AS_STRING"))
+
+  # The function is still named, so the error says where it came from.
+  expect_identical(conditionCall(e), quote(crypt_hash()))
+
+  # do.call() splices argument *values* into the call, bytes and all.
+  secret <- charToRaw("DO_CALL_SECRET")
+  e <- catch(do.call(crypt_aes_cbc_decrypt, list(secret, secret, raw(16))))
+  expect_s3_class(e, "zucrypt_bad_length")
+  expect_false(leaks(e, c("DO_CALL_SECRET", paste(format(secret), collapse = " "))))
+  expect_null(conditionCall(e))   # the function position was a closure, not a name
+
+  # Namespaced calls keep their name and lose their arguments.
+  e <- catch(zucrypt::crypt_hmac(charToRaw("NS_DATA"), charToRaw("NS_KEY"), "md5"))
+  expect_false(leaks(e, c("NS_DATA", "NS_KEY")))
+  expect_identical(conditionCall(e), quote(zucrypt::crypt_hmac()))
+
+  # Native failures go through abort_native() with an explicit call; the
+  # redaction applies to that path too, not only to the default.
+  e <- catch(zucrypt:::abort_native(
+    5L, call = quote(crypt_hmac(charToRaw("NATIVE_SECRET"), key))))
+  expect_s3_class(e, "zucrypt_memory_error")
+  expect_false(leaks(e, "NATIVE_SECRET"))
+})
+
 test_that("the status-to-class map is keyed on enumerator names from C", {
   codes <- zucrypt:::zuc_status_codes()
   map <- zucrypt:::zuc_status_class

@@ -199,14 +199,36 @@ void zuc_hash_free(zuc_hash *hash)
 
 /* The key is imported once into the backend's key store and kept for the
  * handle's lifetime, so that reset does not need the caller's key buffer
- * again -- which means this library never retains a pointer into it. */
+ * again -- which means this library never retains a pointer into it.
+ *
+ * A key longer than the hash's block is hashed first, which is RFC 2104
+ * section 2's own first step: HMAC(K, m) for such a key *is* HMAC(H(K), m).
+ * Doing it here rather than leaving it to the backend matters because the
+ * backend caps an imported key at PSA_MAX_KEY_BITS (8,191 bytes) and refuses
+ * anything longer before its HMAC ever sees it -- so a valid 8 KiB key failed,
+ * reported as ZUC_ERR_UNSUPPORTED on an algorithm this build supports (#51).
+ * The reduced key is at most 64 bytes, far inside that cap, and every key
+ * that imported before gives the same MAC after. */
 static zuc_status import_hmac_key(zuc_alg alg, const uint8_t *key, size_t key_len,
                                   psa_algorithm_t palg, psa_key_id_t *out)
 {
     psa_key_attributes_t attr = psa_key_attributes_init();
+    psa_algorithm_t halg = zuc_int_psa_hash(alg);
+    uint8_t reduced[ZUC_MAX_DIGEST_SIZE];
+    size_t reduced_len = 0;
     psa_status_t ps;
 
-    (void) alg;
+    if (key_len > PSA_HASH_BLOCK_LENGTH(halg)) {
+        ps = psa_hash_compute(halg, key, key_len, reduced, sizeof reduced,
+                              &reduced_len);
+        if (ps != PSA_SUCCESS) {
+            zuc_secure_zero(reduced, sizeof reduced);
+            return zuc_int_from_psa(ps);
+        }
+        key = reduced;
+        key_len = reduced_len;
+    }
+
     psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_SIGN_MESSAGE);
     psa_set_key_algorithm(&attr, palg);
     psa_set_key_type(&attr, PSA_KEY_TYPE_HMAC);
@@ -222,6 +244,8 @@ static zuc_status import_hmac_key(zuc_alg alg, const uint8_t *key, size_t key_le
         ps = psa_import_key(&attr, key, key_len, out);
     }
     psa_reset_key_attributes(&attr);
+    /* H(K) is key material: it computes every MAC K does. */
+    zuc_secure_zero(reduced, sizeof reduced);
     return zuc_int_from_psa(ps);
 }
 

@@ -128,3 +128,41 @@ test_that("large inputs agree with OpenSSL through the public functions", {
     expect_identical(ours, as.raw(theirs)[seq_along(data)], info = bits)
   }
 })
+
+test_that("HMAC accepts keys of any length, including past the backend's cap", {
+  # RFC 2104: a key longer than the block is hashed first. The backend caps
+  # an imported key at 8,191 bytes, so without that reduction an 8,192-byte
+  # key failed as "unsupported algorithm" (#51). Compared with OpenSSL at
+  # both block boundaries and at the cap, one-shot, incremental and after a
+  # reset, for every digest.
+  skip_if_not_installed("openssl")
+  ref <- list(sha1 = openssl::sha1, sha256 = openssl::sha256,
+              sha384 = openssl::sha384, sha512 = openssl::sha512)
+  data <- as.raw((seq_len(300L) * 11L) %% 251L)
+
+  for (n in c(0L, 1L, 63L, 64L, 65L, 127L, 128L, 129L, 8191L, 8192L, 10000L)) {
+    key <- as.raw((seq_len(n) * 7L) %% 256L)
+    for (alg in names(ref)) {
+      expected <- as.raw(ref[[alg]](data, key = key))
+      info <- paste(alg, "key", n)
+      expect_identical(crypt_hmac(data, key, alg), expected, info = info)
+      expect_identical(native_hmac(alg, key, data, c(1L, 150L, 149L)),
+                       expected, info = paste(info, "incremental"))
+      # The reset path reuses the stored key: data then data again must
+      # equal a fresh MAC of the second message.
+      expect_identical(native_hmac_reset(alg, key, raw(5), data), expected,
+                       info = paste(info, "after reset"))
+    }
+  }
+})
+
+test_that("a long HMAC key is equivalent to its hash, without OpenSSL", {
+  # RFC 2104's definition, checked with this package alone so that it runs
+  # where openssl is not installed.
+  key <- as.raw(seq_len(9000L) %% 256L)
+  data <- charToRaw("abc")
+  for (alg in c("sha1", "sha256", "sha384", "sha512")) {
+    expect_identical(crypt_hmac(data, key, alg),
+                     crypt_hmac(data, crypt_hash(key, alg), alg), info = alg)
+  }
+})
