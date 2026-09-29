@@ -18,7 +18,7 @@ test_that("character input is refused rather than silently converted", {
   expect_zucrypt_error(crypt_hmac(raw(4), "key"), "zucrypt_invalid_argument")
   expect_zucrypt_error(crypt_equal("a", raw(1)), "zucrypt_invalid_argument")
   expect_zucrypt_error(
-    crypt_aes_cbc_encrypt("abc", raw(16), raw(16)), "zucrypt_invalid_argument")
+    crypt_aes_cbc_encrypt_nopad("abc", raw(16), raw(16)), "zucrypt_invalid_argument")
 })
 
 test_that("other non-raw types are refused too", {
@@ -47,25 +47,25 @@ test_that("the algorithm argument must be a single name", {
 
 test_that("AES key lengths other than 16, 24 and 32 are refused", {
   for (n in c(0L, 1L, 8L, 15L, 17L, 23L, 25L, 31L, 33L, 64L)) {
-    expect_zucrypt_error(crypt_aes_cbc_encrypt(raw(16), raw(n), raw(16)),
+    expect_zucrypt_error(crypt_aes_cbc_encrypt_nopad(raw(16), raw(n), raw(16)),
                          "zucrypt_bad_length")
-    expect_zucrypt_error(crypt_aes_cbc_decrypt(raw(16), raw(n), raw(16)),
+    expect_zucrypt_error(crypt_aes_cbc_decrypt_nopad(raw(16), raw(n), raw(16)),
                          "zucrypt_bad_length")
   }
 })
 
 test_that("an IV that is not exactly 16 bytes is refused", {
   for (n in c(0L, 8L, 15L, 17L, 32L)) {
-    expect_zucrypt_error(crypt_aes_cbc_encrypt(raw(16), raw(16), raw(n)),
+    expect_zucrypt_error(crypt_aes_cbc_encrypt_nopad(raw(16), raw(16), raw(n)),
                          "zucrypt_bad_length")
   }
 })
 
 test_that("data that is not a whole number of blocks is refused", {
   for (n in c(1L, 15L, 17L, 31L, 33L)) {
-    expect_zucrypt_error(crypt_aes_cbc_encrypt(raw(n), raw(16), raw(16)),
+    expect_zucrypt_error(crypt_aes_cbc_encrypt_nopad(raw(n), raw(16), raw(16)),
                          "zucrypt_bad_length")
-    expect_zucrypt_error(crypt_aes_cbc_decrypt(raw(n), raw(16), raw(16)),
+    expect_zucrypt_error(crypt_aes_cbc_decrypt_nopad(raw(n), raw(16), raw(16)),
                          "zucrypt_bad_length")
   }
 })
@@ -74,7 +74,7 @@ test_that("validation happens before anything is computed", {
   # A bad key with good data must report the key, not a backend failure, and
   # must not depend on the data at all.
   cond <- expect_zucrypt_error(
-    crypt_aes_cbc_encrypt(raw(1), raw(15), raw(0)), "zucrypt_bad_length")
+    crypt_aes_cbc_encrypt_nopad(raw(1), raw(15), raw(0)), "zucrypt_bad_length")
   expect_true(is.na(cond$native_status))
 })
 
@@ -83,7 +83,7 @@ test_that("no condition message contains key or plaintext bytes", {
   # into bug reports. Arguments here are exactly the values that must not.
   secret <- as.raw(rep(0xAB, 15))
   cond <- expect_zucrypt_error(
-    crypt_aes_cbc_encrypt(raw(16), secret, raw(16)), "zucrypt_bad_length")
+    crypt_aes_cbc_encrypt_nopad(raw(16), secret, raw(16)), "zucrypt_bad_length")
   expect_false(grepl("ab", conditionMessage(cond), fixed = TRUE))
   expect_false(grepl("AB", conditionMessage(cond), fixed = TRUE))
   # The length is named, which is not secret and is what makes the message
@@ -106,7 +106,7 @@ test_that("no condition carries a secret anywhere: message, call or print", {
   catch <- function(expr) tryCatch(expr, zucrypt_error = function(e) e)
 
   # Validation failures, with the secrets written inline in the call.
-  e <- catch(crypt_aes_cbc_encrypt(charToRaw("PRIVATE_PLAINTEXT"),
+  e <- catch(crypt_aes_cbc_encrypt_nopad(charToRaw("PRIVATE_PLAINTEXT"),
                                    charToRaw("PRIVATE_KEY"), raw(16)))
   expect_s3_class(e, "zucrypt_bad_length")
   expect_false(leaks(e, c("PRIVATE_PLAINTEXT", "PRIVATE_KEY")))
@@ -121,7 +121,7 @@ test_that("no condition carries a secret anywhere: message, call or print", {
 
   # do.call() splices argument *values* into the call, bytes and all.
   secret <- charToRaw("DO_CALL_SECRET")
-  e <- catch(do.call(crypt_aes_cbc_decrypt, list(secret, secret, raw(16))))
+  e <- catch(do.call(crypt_aes_cbc_decrypt_nopad, list(secret, secret, raw(16))))
   expect_s3_class(e, "zucrypt_bad_length")
   expect_false(leaks(e, c("DO_CALL_SECRET", paste(format(secret), collapse = " "))))
   expect_null(conditionCall(e))   # the function position was a closure, not a name
@@ -167,16 +167,16 @@ test_that("AES conditions say which cipher they are about", {
   catch <- function(expr) tryCatch(expr, zucrypt_error = function(e) e)
 
   # The key is what is wrong, so the key size is unknown: plain "aes-cbc".
-  e <- catch(crypt_aes_cbc_encrypt(raw(16), raw(15), raw(16)))
+  e <- catch(crypt_aes_cbc_encrypt_nopad(raw(16), raw(15), raw(16)))
   expect_s3_class(e, "zucrypt_bad_length")
   expect_identical(e$algorithm, "aes-cbc")
 
   # A valid key names the cipher exactly, whatever else is wrong.
-  e <- catch(crypt_aes_cbc_encrypt(raw(16), raw(32), raw(8)))
+  e <- catch(crypt_aes_cbc_encrypt_nopad(raw(16), raw(32), raw(8)))
   expect_identical(e$algorithm, "aes-256-cbc")
-  e <- catch(crypt_aes_cbc_decrypt(raw(17), raw(24), raw(16)))
+  e <- catch(crypt_aes_cbc_decrypt_nopad(raw(17), raw(24), raw(16)))
   expect_identical(e$algorithm, "aes-192-cbc")
-  e <- catch(crypt_aes_cbc_encrypt("text", raw(16), raw(16)))
+  e <- catch(crypt_aes_cbc_encrypt_nopad("text", raw(16), raw(16)))
   expect_s3_class(e, "zucrypt_invalid_argument")
   expect_identical(e$algorithm, "aes-128-cbc")
 })

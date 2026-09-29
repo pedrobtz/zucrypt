@@ -71,7 +71,7 @@ test_that("segmented CBC resets the chaining state at every boundary", {
     starts <- seq(1L, length(data), by = segment)
     expected <- unlist(lapply(starts, function(s) {
       chunk <- data[s:min(s + segment - 1L, length(data))]
-      zucrypt::crypt_aes_cbc_encrypt(chunk, key, iv)
+      zucrypt::crypt_aes_cbc_encrypt_nopad(chunk, key, iv)
     }))
     expect_identical(encrypted, expected, info = paste("segment", segment))
 
@@ -89,7 +89,7 @@ test_that("a segmented stream differs from one continuous CBC stream", {
   data <- as.raw(rep(0xff, 128))
 
   segmented <- decrypt_segments(data, key, iv, 32L, encrypt = TRUE)
-  continuous <- zucrypt::crypt_aes_cbc_encrypt(data, key, iv)
+  continuous <- zucrypt::crypt_aes_cbc_encrypt_nopad(data, key, iv)
   expect_false(identical(segmented, continuous))
   # The first segment is the one place they must agree.
   expect_identical(segmented[1:32], continuous[1:32])

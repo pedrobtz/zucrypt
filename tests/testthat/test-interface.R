@@ -18,10 +18,10 @@ test_that("the public functions reproduce every published vector", {
   cbc <- kat_vectors("aes-cbc")
   for (v in split(cbc, seq_len(nrow(cbc)))) {
     expect_identical(
-      tohex(crypt_aes_cbc_encrypt(unhex(v$input), unhex(v$key), unhex(v$iv))),
+      tohex(crypt_aes_cbc_encrypt_nopad(unhex(v$input), unhex(v$key), unhex(v$iv))),
       v$output, info = v$id)
     expect_identical(
-      tohex(crypt_aes_cbc_decrypt(unhex(v$output), unhex(v$key), unhex(v$iv))),
+      tohex(crypt_aes_cbc_decrypt_nopad(unhex(v$output), unhex(v$key), unhex(v$iv))),
       v$input, info = v$id)
   }
 })
@@ -49,13 +49,13 @@ test_that("inputs are byte-identical after every call", {
   invisible(crypt_hash(data)); unchanged("crypt_hash")
   invisible(crypt_hmac(data, key)); unchanged("crypt_hmac")
   invisible(crypt_equal(data, data)); unchanged("crypt_equal")
-  invisible(crypt_aes_cbc_encrypt(data, key, iv)); unchanged("encrypt")
-  invisible(crypt_aes_cbc_decrypt(data, key, iv)); unchanged("decrypt")
+  invisible(crypt_aes_cbc_encrypt_nopad(data, key, iv)); unchanged("encrypt")
+  invisible(crypt_aes_cbc_decrypt_nopad(data, key, iv)); unchanged("decrypt")
 })
 
 test_that("results are freshly allocated, not views on the input", {
   data <- as.raw(rep(0x01, 32))
-  out <- crypt_aes_cbc_encrypt(data, as.raw(rep(0x02, 16)), raw(16))
+  out <- crypt_aes_cbc_encrypt_nopad(data, as.raw(rep(0x02, 16)), raw(16))
   out[1] <- as.raw(0xff)
   expect_identical(data, as.raw(rep(0x01, 32)))
 })
@@ -75,14 +75,14 @@ test_that("empty input is valid for digests and HMAC", {
 
 test_that("empty CBC input returns empty, but only after validation", {
   key <- as.raw(rep(0x2b, 16))
-  expect_identical(crypt_aes_cbc_encrypt(raw(0), key, raw(16)), raw(0))
-  expect_identical(crypt_aes_cbc_decrypt(raw(0), key, raw(16)), raw(0))
+  expect_identical(crypt_aes_cbc_encrypt_nopad(raw(0), key, raw(16)), raw(0))
+  expect_identical(crypt_aes_cbc_decrypt_nopad(raw(0), key, raw(16)), raw(0))
 
   # Zero length does not excuse a bad key or IV: the design says the empty
   # result comes *after* parameter validation succeeds.
-  expect_error(crypt_aes_cbc_encrypt(raw(0), raw(15), raw(16)),
+  expect_error(crypt_aes_cbc_encrypt_nopad(raw(0), raw(15), raw(16)),
                class = "zucrypt_bad_length")
-  expect_error(crypt_aes_cbc_encrypt(raw(0), key, raw(8)),
+  expect_error(crypt_aes_cbc_encrypt_nopad(raw(0), key, raw(8)),
                class = "zucrypt_bad_length")
 })
 
@@ -101,11 +101,11 @@ test_that("a round trip returns the original bytes at several key lengths", {
   iv <- as.raw(rep(0x7f, 16))
   for (n in c(16L, 24L, 32L)) {
     key <- as.raw(rep(0x11, n))
-    ct <- crypt_aes_cbc_encrypt(data, key, iv)
-    expect_identical(crypt_aes_cbc_decrypt(ct, key, iv), data)
+    ct <- crypt_aes_cbc_encrypt_nopad(data, key, iv)
+    expect_identical(crypt_aes_cbc_decrypt_nopad(ct, key, iv), data)
     # And a different IV must give different ciphertext, or the IV is being
     # ignored somewhere.
-    expect_false(identical(ct, crypt_aes_cbc_encrypt(data, key, raw(16))))
+    expect_false(identical(ct, crypt_aes_cbc_encrypt_nopad(data, key, raw(16))))
   }
 })
 
@@ -124,8 +124,8 @@ test_that("input larger than one interrupt chunk is handled correctly", {
   expect_identical(crypt_hash(data), native_hash("sha256", data,
                                                  c(n %/% 2L, n - n %/% 2L)))
 
-  ct <- crypt_aes_cbc_encrypt(data, key, iv)
-  expect_identical(crypt_aes_cbc_decrypt(ct, key, iv), data)
+  ct <- crypt_aes_cbc_encrypt_nopad(data, key, iv)
+  expect_identical(crypt_aes_cbc_decrypt_nopad(ct, key, iv), data)
   # Chunking must not restart the chaining: one call through the adapter with
   # no chunking has to agree.
   expect_identical(ct, native_aes("cbc", TRUE, key, iv, data))
@@ -171,21 +171,21 @@ test_that("crypt_info() reports the build, from the compiled library", {
 })
 
 test_that("the documented encrypt-then-MAC catches a changed IV", {
-  # ?crypt_aes_cbc's pattern (#51): the tag covers c(iv, ciphertext). The old
+  # ?crypt_aes_cbc_nopad's pattern (#51): the tag covers c(iv, ciphertext). The old
   # advice, a MAC over the ciphertext alone, let the IV be changed -- and
   # with it the first plaintext block -- while the tag still verified. Both
   # are checked, so the test shows why the IV has to be inside the MAC.
   key <- as.raw(1:16)
   mac_key <- as.raw(101:132)
   iv <- raw(16)
-  ct <- crypt_aes_cbc_encrypt(charToRaw("0123456789abcdef"), key, iv)
+  ct <- crypt_aes_cbc_encrypt_nopad(charToRaw("0123456789abcdef"), key, iv)
   tampered <- iv
   tampered[1] <- as.raw(1)
 
   # Without the IV in the MAC, the attack works:
   ct_only <- crypt_hmac(ct, mac_key)
   expect_true(crypt_equal(ct_only, crypt_hmac(ct, mac_key)))
-  expect_identical(rawToChar(crypt_aes_cbc_decrypt(ct, key, tampered)),
+  expect_identical(rawToChar(crypt_aes_cbc_decrypt_nopad(ct, key, tampered)),
                    "1123456789abcdef")
 
   # With it, the change is caught before decryption:

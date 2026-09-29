@@ -32,7 +32,7 @@ test_that("successful calls leave no live context", {
   key <- as.raw(rep(1L, 32))
   crypt_hash(charToRaw("abc"))
   crypt_hmac(charToRaw("abc"), key)
-  crypt_aes_cbc_decrypt(crypt_aes_cbc_encrypt(raw(32), key, raw(16)),
+  crypt_aes_cbc_decrypt_nopad(crypt_aes_cbc_encrypt_nopad(raw(32), key, raw(16)),
                         key, raw(16))
   # Released eagerly, not by the collector: no gc() before this check.
   expect_identical(live_contexts(), before)
@@ -63,7 +63,7 @@ test_that("an interrupted call frees its context once collected", {
   calls <- list(
     hash = function() crypt_hash(data, "sha512"),
     hmac = function() crypt_hmac(data, key, "sha512"),
-    aes  = function() crypt_aes_cbc_encrypt(data, key, iv)
+    aes  = function() crypt_aes_cbc_encrypt_nopad(data, key, iv)
   )
 
   for (name in names(calls)) {

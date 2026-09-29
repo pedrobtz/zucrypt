@@ -62,8 +62,8 @@ for (algorithm in algorithms) {
 ## One key per AES context now (#30), in a key store that allocates as it
 ## grows -- so a failure can land in the context, in the store, or in the
 ## backend's cipher setup, and each has to come back as ZUC_ERR_MEMORY.
-ciphertext <- crypt_aes_cbc_encrypt(data, key, iv)
-stopifnot(identical(crypt_aes_cbc_decrypt(ciphertext, key, iv), data))
+ciphertext <- crypt_aes_cbc_encrypt_nopad(data, key, iv)
+stopifnot(identical(crypt_aes_cbc_decrypt_nopad(ciphertext, key, iv), data))
 
 stopifnot(crypt_equal(crypt_hash(data), crypt_hash(data)))
 

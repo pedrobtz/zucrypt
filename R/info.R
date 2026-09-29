@@ -48,7 +48,7 @@ available_algorithms <- local({
 #'       which AES this machine runs -- `"aesni"` or `"aesce"` on a CPU with
 #'       AES instructions, `"software"` otherwise, decided at run time; and
 #'       `hardware_acceleration`, `TRUE` when that is a hardware path. See
-#'       the "Side channels" section of [crypt_aes_cbc] for why it matters.}
+#'       the "Side channels" section of [crypt_aes_cbc_nopad] for why it matters.}
 #'   }
 #'
 #' @examples
@@ -75,7 +75,7 @@ crypt_info <- function() {
       # Decided at run time, on this machine: "aesni" or "aesce" where the
       # CPU has AES instructions, "software" where it does not -- the path
       # the backend's own security policy says leaks through cache timing
-      # (see ?crypt_aes_cbc and #51).
+      # (see ?crypt_aes_cbc_nopad and #51).
       aes_implementation = backend[["aes_implementation"]],
       hardware_acceleration = backend[["hardware_acceleration"]]
     )

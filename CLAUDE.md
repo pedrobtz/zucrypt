@@ -21,12 +21,13 @@ gap against `openssl`. Stages 0–5 and 7–10 are complete (Stage 5 closed with
 Stage 8, once its weekly gates ran real tests; Stage 6 was superseded by Stages 7–9). **v0.1.0 is the
 first CRAN release and carries the freeze** (decided 2026-09-29; the GitHub-only tag of #27 and
 the separate v0.2.0 are gone). `zuxlsx` 0.1.0, with password-protected workbooks, follows it
-onto CRAN. **Next is one PR:** renaming the CBC pair `crypt_aes_cbc_encrypt_nopad()` /
-`_decrypt_nopad()` (design §7, #56), which frees the ordinary names for Stage 14's
-openssl-compatible padded pair. **Then Stage 11 — the first consumer and the freeze**
+onto CRAN. The CBC pair is renamed `crypt_aes_cbc_encrypt_nopad()` / `_decrypt_nopad()` (design §7,
+#56), freeing the ordinary names for Stage 14's openssl-compatible padded pair. **Next is
+Stage 11 — the first consumer and the freeze**
 ([#43](https://github.com/pedrobtz/zucrypt/issues/43)), which waits only on `zuxlsx`'s
 decryption core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) on a
-branch, not on its CFB reader or the rest of #22. Stage 12 then submits 0.1.0; on acceptance,
+branch, not on its CFB reader or the rest of #22; Stage 12's vignettes (#17, #13) can be
+written meanwhile. Stage 12 then submits 0.1.0; on acceptance,
 tag `v0.1.0` and move `DESCRIPTION` to `0.1.0.9000`.
 
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
@@ -231,7 +232,7 @@ a green job that proved nothing.
 Three surfaces are exposed:
 
 1. A small R surface: `crypt_info()`, `crypt_hash()`, `crypt_hmac()`, `crypt_equal()`,
-   `crypt_aes_cbc_encrypt()` / `crypt_aes_cbc_decrypt()`.
+   `crypt_aes_cbc_encrypt_nopad()` / `crypt_aes_cbc_decrypt_nopad()`.
 2. A registered function table (`inst/include/zucrypt-r.h`, `zucrypt_api_v1`, resolved lazily
    via `zucrypt_get_api`) for consumers that can carry `Imports:` + `LinkingTo:` + a real
    `importFrom()`. `zuhttp` is the consumer this was *hoped* for, not a real one: its

@@ -140,7 +140,7 @@ for (alg in c("sha1", "sha256", "sha512")) {
   stopifnot(identical(zucrypt::crypt_hash(data, alg), zucryptlink::archive_hash(data, alg)))
   stopifnot(identical(zucrypt::crypt_hmac(data, key, alg), zucryptlink::archive_hmac(data, key, alg)))
 }
-ct <- zucrypt::crypt_aes_cbc_encrypt(data, key, iv)
+ct <- zucrypt::crypt_aes_cbc_encrypt_nopad(data, key, iv)
 stopifnot(identical(zucryptlink::archive_segments(data, key, iv, 4096L, encrypt = TRUE), ct))
 stopifnot(identical(zucryptlink::archive_segments(ct, key, iv, 4096L), data))
 cat("    ", first, " then ", second, ": identical answers\n", sep = "")
