@@ -34,7 +34,7 @@ class(e)
 #> [1] "zucrypt_invalid_argument" "zucrypt_error"           
 #> [3] "error"                    "condition"
 conditionMessage(e)
-#> [1] "`data` must be a raw vector, not character. Use charToRaw() to convert a string deliberately; this package never guesses an encoding, and never treats a string as a file name."
+#> [1] "`data` must be a raw vector or a connection, not character. Use charToRaw() to convert a string deliberately; this package never guesses an encoding, and never treats a string as a file name (pass file(path) for a file)."
 ```
 
 The conversion is always yours to make, and it is always one line:
@@ -129,6 +129,24 @@ The digest of empty input is well defined, and you get it:
 crypt_hex(crypt_hash(raw(0)))
 #> [1] "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 ```
+
+A file is hashed by passing a connection, never its path as a string. It
+is read in 1 MiB chunks, so its size does not matter:
+
+``` r
+
+path <- tempfile()
+writeBin(msg, path)
+crypt_hex(crypt_hash(file(path)))
+#> [1] "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+unlink(path)
+```
+
+An unopened connection is opened in binary mode and closed again; one
+you have already opened must be in binary mode (`"rb"`), because a
+text-mode connection may change the bytes before they are hashed.
+[`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
+takes connections in the same way.
 
 ## `crypt_hmac()`: keyed digests
 
@@ -397,6 +415,7 @@ e$algorithm
 | `zucrypt_invalid_argument` | An argument has the wrong type, for example a string where raw bytes are needed |
 | `zucrypt_unsupported_algorithm` | An algorithm name is not one of `crypt_info()$algorithms` |
 | `zucrypt_bad_length` | A key, IV or data length is not allowed |
+| `zucrypt_connection_error` | A connection passed as `data` could not be opened, or ran dry before its end |
 | `zucrypt_memory_error` | An allocation failed |
 | `zucrypt_backend_error`, `zucrypt_internal_error` | The cryptographic library refused, or an invariant broke; please report these |
 

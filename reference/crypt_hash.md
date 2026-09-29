@@ -1,7 +1,7 @@
 # Compute a message digest
 
-Hashes a raw vector with one of the digest algorithms this build
-provides.
+Hashes a raw vector, or everything a connection yields, with one of the
+digest algorithms this build provides.
 
 ## Usage
 
@@ -13,11 +13,13 @@ crypt_hash(data, algorithm = "sha256")
 
 - data:
 
-  A raw vector. Character input is never accepted: this package does not
-  guess a text encoding and never treats a string as a file name.
-  Convert deliberately with
+  A raw vector, or a connection to read to its end (see "Files and
+  connections" below). Character input is never accepted: this package
+  does not guess a text encoding and never treats a string as a file
+  name. Convert deliberately with
   [`charToRaw()`](https://rdrr.io/r/base/rawConversion.html) or
-  [`serialize()`](https://rdrr.io/r/base/serialize.html).
+  [`serialize()`](https://rdrr.io/r/base/serialize.html), or pass
+  `file(path)` to hash a file.
 
 - algorithm:
 
@@ -43,12 +45,35 @@ specify it – notably the Office encryption profiles this package exists
 to support – and it is not collision resistant. Do not select it for
 anything new.
 
+## Files and connections
+
+A connection is read in 1 MiB chunks, so a file of any size is hashed
+without being held in memory, and the call can be interrupted. Pass an
+unopened connection, such as `file(path)`, and it is opened in binary
+mode (`"rb"`) and closed again afterwards; pass one you have already
+opened and it is read from where it stands to its end, and left open.
+
+An open connection must be in binary mode. A text-mode connection can
+re-encode or translate line endings before the bytes arrive, which would
+hash something other than the file, so it is refused with
+`zucrypt_invalid_argument`. A connection that cannot be opened signals
+`zucrypt_connection_error`, as does a non-blocking connection that runs
+out of data before its end, which is refused rather than hashed short.
+An error while reading is R's own.
+
+What is hashed is what the connection yields:
+[`gzfile()`](https://rdrr.io/r/base/connections.html) gives the
+decompressed bytes, [`file()`](https://rdrr.io/r/base/connections.html)
+the bytes on disk.
+
 ## See also
 
 [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
 for a keyed digest,
 [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md)
-for comparing digests without leaking timing information.
+for comparing digests without leaking timing information,
+[`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
+for hex.
 
 ## Examples
 
@@ -71,4 +96,11 @@ crypt_hash(charToRaw("abc"), "sha512")
 #>  [1] dd af 35 a1 93 61 7a ba cc 41 73 49 ae 20 41 31 12 e6 fa 4e 89 a9 7e a2 0a
 #> [26] 9e ee e6 4b 55 d3 9a 21 92 99 2a 27 4f c1 a8 36 ba 3c 23 a3 fe eb bd 45 4d
 #> [51] 44 23 64 3c e8 0e 2a 9a c9 4f a5 4c a4 9f
+
+# A file, read in chunks rather than all at once.
+path <- tempfile()
+writeBin(charToRaw("abc"), path)
+identical(crypt_hash(file(path)), crypt_hash(charToRaw("abc")))
+#> [1] TRUE
+unlink(path)
 ```

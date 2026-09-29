@@ -1,7 +1,7 @@
 # Compute an HMAC
 
 Computes a keyed message authentication code (RFC 2104) over a raw
-vector.
+vector, or over everything a connection yields.
 
 ## Usage
 
@@ -13,11 +13,13 @@ crypt_hmac(data, key, algorithm = "sha256")
 
 - data:
 
-  A raw vector. Character input is never accepted: this package does not
-  guess a text encoding and never treats a string as a file name.
-  Convert deliberately with
+  A raw vector, or a connection to read to its end (see "Files and
+  connections" below). Character input is never accepted: this package
+  does not guess a text encoding and never treats a string as a file
+  name. Convert deliberately with
   [`charToRaw()`](https://rdrr.io/r/base/rawConversion.html) or
-  [`serialize()`](https://rdrr.io/r/base/serialize.html).
+  [`serialize()`](https://rdrr.io/r/base/serialize.html), or pass
+  `file(path)` to hash a file.
 
 - key:
 
@@ -37,6 +39,12 @@ crypt_hmac(data, key, algorithm = "sha256")
 ## Value
 
 A raw vector the length of the underlying digest.
+
+## Files and connections
+
+`data` may be a connection, read in chunks exactly as for
+[`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md);
+see "Files and connections" there. The key is always a raw vector.
 
 ## Verifying a MAC
 

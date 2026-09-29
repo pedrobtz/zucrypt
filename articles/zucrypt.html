@@ -125,7 +125,7 @@ conversion:</p>
 <span><span class="co">#&gt; [1] "zucrypt_invalid_argument" "zucrypt_error"           </span></span>
 <span><span class="co">#&gt; [3] "error"                    "condition"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">conditionMessage</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "`data` must be a raw vector, not character. Use charToRaw() to convert a string deliberately; this package never guesses an encoding, and never treats a string as a file name."</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] "`data` must be a raw vector or a connection, not character. Use charToRaw() to convert a string deliberately; this package never guesses an encoding, and never treats a string as a file name (pass file(path) for a file)."</span></span></code></pre></div>
 <p>The conversion is always yours to make, and it is always one
 line:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -193,6 +193,18 @@ choose it for anything new.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">raw</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"</span></span></code></pre></div>
+<p>A file is hashed by passing a connection, never its path as a string.
+It is read in 1 MiB chunks, so its size does not matter:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/readBin.html" class="external-link">writeBin</a></span><span class="op">(</span><span class="va">msg</span>, <span class="va">path</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/connections.html" class="external-link">file</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span></code></pre></div>
+<p>An unopened connection is opened in binary mode and closed again; one
+you have already opened must be in binary mode (<code>"rb"</code>),
+because a text-mode connection may change the bytes before they are
+hashed. <code><a href="../reference/crypt_hmac.html">crypt_hmac()</a></code> takes connections in the same way.</p>
 </div>
 <div class="section level2">
 <h2 id="crypt_hmac-keyed-digests">
@@ -202,14 +214,14 @@ choose it for anything new.</p>
 which makes it the standard way to check that data has not been changed
 by someone who does not hold the key. The key is raw too, of any
 length:</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">key</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"Jefe"</span><span class="op">)</span></span>
 <span><span class="va">tag</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_hmac.html">crypt_hmac</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"what do ya want for nothing?"</span><span class="op">)</span>, <span class="va">key</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="va">tag</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"</span></span></code></pre></div>
 <p>That is test case 2 of RFC 4231. The algorithm argument works as it
 does for <code><a href="../reference/crypt_hash.html">crypt_hash()</a></code>:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hmac.html">crypt_hmac</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"what do ya want for nothing?"</span><span class="op">)</span>, <span class="va">key</span>, <span class="st">"sha512"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737"</span></span></code></pre></div>
 <p>In real use the key should be random bytes from a cryptographic
@@ -225,7 +237,7 @@ not generate randomness; <code><a href="https://jeroen.r-universe.dev/openssl/re
 <p>When you check a tag you received against the one you expect, compare
 with <code><a href="../reference/crypt_equal.html">crypt_equal()</a></code>, never <code><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical()</a></code> or
 <code>==</code>:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">received</span> <span class="op">&lt;-</span> <span class="va">tag</span></span>
 <span><span class="fu"><a href="../reference/crypt_equal.html">crypt_equal</a></span><span class="op">(</span><span class="va">received</span>, <span class="fu"><a href="../reference/crypt_hmac.html">crypt_hmac</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"what do ya want for nothing?"</span><span class="op">)</span>, <span class="va">key</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
@@ -240,7 +252,7 @@ were right — and a tag can then be guessed one byte at a time.
 contents.</p>
 <p>The length is not treated as secret: inputs of different lengths are
 simply not equal.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/crypt_equal.html">crypt_equal</a></span><span class="op">(</span><span class="va">tag</span>, <span class="va">tag</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">16</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] FALSE</span></span></code></pre></div>
 </div>
@@ -252,7 +264,7 @@ simply not equal.</p>
 Everything in it is read from the compiled library, so it describes the
 code you are running, not a file that says what was meant to be
 compiled:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_info.html">crypt_info</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 5</span></span>
 <span><span class="co">#&gt;  $ version    :Classes 'package_version', 'numeric_version'  hidden list of 1</span></span>
@@ -301,7 +313,7 @@ also the argument for not doing it yourself.</p>
 <p>This is the first two blocks of the NIST SP 800-38A F.2.1 example,
 which is the kind of thing these functions exist for: matching bytes
 that another implementation specifies.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">unhex</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">as.raw</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/strtoi.html" class="external-link">strtoi</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/substr.html" class="external-link">substring</a></span><span class="op">(</span><span class="va">x</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nchar</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fu"><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nchar</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span>, <span class="fl">16L</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
@@ -323,14 +335,14 @@ never reused with the same key.</p>
 <h3 id="padding-is-yours">Padding is yours<a class="anchor" aria-label="anchor" href="#padding-is-yours"></a>
 </h3>
 <p>Data that is not a multiple of 16 bytes is refused, not padded:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">e</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_encrypt_nopad</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"hello"</span><span class="op">)</span>, <span class="va">key</span>, <span class="va">iv</span><span class="op">)</span>,</span>
 <span>              error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="va">e</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "zucrypt_bad_length" "zucrypt_error"      "error"             </span></span>
 <span><span class="co">#&gt; [4] "condition"</span></span></code></pre></div>
 <p>If your format uses PKCS#7 padding, apply and check it yourself:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">pad_pkcs7</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">16L</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%%</a></span> <span class="fl">16L</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">x</span>, <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">as.raw</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="va">n</span>, <span class="va">n</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
@@ -355,7 +367,7 @@ never reused with the same key.</p>
 boundary with its own IV — Office’s agile encryption does this in
 4096-byte segments. Each call starts from the IV it is given, so a
 segmented format is one call per segment:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The NIST plaintext above as two 16-byte "segments", each from the same IV.</span></span>
 <span><span class="va">segments</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/split.html" class="external-link">split</a></span><span class="op">(</span><span class="va">pt</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, each <span class="op">=</span> <span class="fl">16</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">segmented</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">segments</span>, <span class="va">crypt_aes_cbc_encrypt_nopad</span>, key <span class="op">=</span> <span class="va">key</span>, iv <span class="op">=</span> <span class="va">iv</span><span class="op">)</span>,</span>
@@ -380,7 +392,7 @@ specifies; here both use one IV only to keep the example short.</p>
 ciphertext with a <em>second, independent</em> key, send the tag
 alongside, and check it with <code><a href="../reference/crypt_equal.html">crypt_equal()</a></code> <em>before</em>
 decrypting anything.</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">enc_key</span> <span class="op">&lt;-</span> <span class="fu">unhex</span><span class="op">(</span><span class="st">"603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"</span><span class="op">)</span></span>
 <span><span class="va">mac_key</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">as.raw</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">32</span><span class="op">)</span>   <span class="co"># in real use: 32 random bytes, kept secret</span></span>
 <span></span>
@@ -414,7 +426,7 @@ authenticated construction is the better tool for your own data.</p>
 <p>Every error is a condition with a specific class, then
 <code>zucrypt_error</code>, then <code>error</code>. Branch on the
 class, never on the message, which may be reworded:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">e</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_encrypt_nopad</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">raw</a></span><span class="op">(</span><span class="fl">32</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">raw</a></span><span class="op">(</span><span class="fl">15</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">raw</a></span><span class="op">(</span><span class="fl">16</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>              error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="va">e</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span></span>
@@ -448,10 +460,15 @@ are needed</td>
 <td>A key, IV or data length is not allowed</td>
 </tr>
 <tr class="even">
+<td><code>zucrypt_connection_error</code></td>
+<td>A connection passed as <code>data</code> could not be opened, or ran
+dry before its end</td>
+</tr>
+<tr class="odd">
 <td><code>zucrypt_memory_error</code></td>
 <td>An allocation failed</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>
 <code>zucrypt_backend_error</code>,
 <code>zucrypt_internal_error</code>
@@ -465,7 +482,7 @@ report these</td>
 <code>native_status</code> fields. None of them ever contains a key, an
 IV or any of your data, so an error message is safe to paste into a bug
 report.</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">handled</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="va">msg</span>, <span class="st">"md5"</span><span class="op">)</span>,</span>
 <span>  zucrypt_unsupported_algorithm <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="st">"md5 is not provided; use sha256"</span></span>

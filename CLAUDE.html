@@ -110,7 +110,7 @@
 </div>
 <div class="section level2">
 <h2 id="non-obvious-constraints-from-the-design">Non-obvious constraints from the design<a class="anchor" aria-label="anchor" href="#non-obvious-constraints-from-the-design"></a></h2>
-<ul><li>Binary arguments are <strong>raw vectors only</strong>. A character value is never interpreted as a filename, password or byte sequence.</li>
+<ul><li>Binary arguments are <strong>raw vectors only</strong>, with one exception: <code>data</code> to <code><a href="reference/crypt_hash.html">crypt_hash()</a></code> and <code><a href="reference/crypt_hmac.html">crypt_hmac()</a></code> may be a connection (#11), streamed in 1 MiB chunks through <code>zucrypt_*_stream_*</code> and refused in text mode. A character value is never interpreted as a filename, password or byte sequence: a file is hashed as <code>crypt_hash(file(path))</code>.</li>
 <li>Algorithm names are exact scalars — no partial matching, no fallback.</li>
 <li>AES runs on AES-NI or the Arm Cryptography Extension where the CPU has them, selected at run time, with the table-based software AES as fallback (#51). That fallback leaks key material through cache timing, per upstream’s <code>SECURITY.md</code>; it is documented, not refused, and <code>crypt_info()$build_flags$aes_implementation</code> reports the path in use. Never turn hardware AES off to make platforms “run the same C”: AES is deterministic, the bytes are identical, and <code>aes-paths.yaml</code> checks each path including a <code>ZUC_AES_SOFTWARE_ONLY</code> build.</li>
 <li>AES wrappers add/strip <strong>no padding and no authentication</strong>; keys must be 16/24/32 bytes, IVs exactly 16, data a multiple of 16. Authentication is the caller’s responsibility.</li>

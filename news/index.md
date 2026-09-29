@@ -17,10 +17,14 @@ Seven functions, and deliberately no more:
 - [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md)
   and
   [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
-  — SHA-1, SHA-256, SHA-384 and SHA-512 digests and keyed digests. Raw
-  vectors in, raw vectors out; a character value is never given a
-  guessed encoding and never treated as a file name. Algorithm names
-  match exactly, with no partial matching and no fallback.
+  — SHA-1, SHA-256, SHA-384 and SHA-512 digests and keyed digests, of a
+  raw vector or of everything a connection yields:
+  `crypt_hash(file(path))` hashes a file in 1 MiB chunks without reading
+  it into memory
+  ([\#11](https://github.com/pedrobtz/zucrypt/issues/11)). Raw vectors
+  in, raw vectors out; a character value is never given a guessed
+  encoding and never treated as a file name. Algorithm names match
+  exactly, with no partial matching and no fallback.
 - [`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
   — lower-case hex of a raw vector, converted in C, for printing or
   storing a digest. Hex stays an explicit step at the call site

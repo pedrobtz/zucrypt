@@ -359,8 +359,15 @@ shared object exports `R_init_zucrypt` and nothing else.
 
 ## Non-obvious constraints from the design
 
-- Binary arguments are **raw vectors only**. A character value is never
-  interpreted as a filename, password or byte sequence.
+- Binary arguments are **raw vectors only**, with one exception: `data`
+  to
+  [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md)
+  and
+  [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
+  may be a connection (#11), streamed in 1 MiB chunks through
+  `zucrypt_*_stream_*` and refused in text mode. A character value is
+  never interpreted as a filename, password or byte sequence: a file is
+  hashed as `crypt_hash(file(path))`.
 - Algorithm names are exact scalars — no partial matching, no fallback.
 - AES runs on AES-NI or the Arm Cryptography Extension where the CPU has
   them, selected at run time, with the table-based software AES as

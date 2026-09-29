@@ -44,7 +44,7 @@
 <h3 id="r-interface-0-1-0">R interface<a class="anchor" aria-label="anchor" href="#r-interface-0-1-0"></a></h3>
 <p>Seven functions, and deliberately no more:</p>
 <ul><li>
-<code><a href="../reference/crypt_hash.html">crypt_hash()</a></code> and <code><a href="../reference/crypt_hmac.html">crypt_hmac()</a></code> — SHA-1, SHA-256, SHA-384 and SHA-512 digests and keyed digests. Raw vectors in, raw vectors out; a character value is never given a guessed encoding and never treated as a file name. Algorithm names match exactly, with no partial matching and no fallback.</li>
+<code><a href="../reference/crypt_hash.html">crypt_hash()</a></code> and <code><a href="../reference/crypt_hmac.html">crypt_hmac()</a></code> — SHA-1, SHA-256, SHA-384 and SHA-512 digests and keyed digests, of a raw vector or of everything a connection yields: <code>crypt_hash(file(path))</code> hashes a file in 1 MiB chunks without reading it into memory (<a href="https://github.com/pedrobtz/zucrypt/issues/11" class="external-link">#11</a>). Raw vectors in, raw vectors out; a character value is never given a guessed encoding and never treated as a file name. Algorithm names match exactly, with no partial matching and no fallback.</li>
 <li>
 <code><a href="../reference/crypt_hex.html">crypt_hex()</a></code> — lower-case hex of a raw vector, converted in C, for printing or storing a digest. Hex stays an explicit step at the call site (<a href="https://github.com/pedrobtz/zucrypt/issues/59" class="external-link">#59</a>).</li>
 <li>
