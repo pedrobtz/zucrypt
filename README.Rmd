@@ -103,7 +103,9 @@ the two ways the `zu*` family links siblings:
   `Imports:`. *Experimental* until a package other than a test fixture uses
   it.
 
-See `?zucrypt_c_api` for both, and for what is and is not promised.
+[Using zucrypt from C](https://pedrobtz.github.io/zucrypt/articles/c-api.html)
+walks through choosing a shape and wiring it up; `?zucrypt_c_api` is the
+reference, including what is and is not promised.
 
 ## Status
 

@@ -419,7 +419,11 @@ Work items:
     reinstalled;
   - what the testing does and does not establish.
 - **Write the C-API vignette** (#13), now that the promise is settled. It quotes both fixture
-  packages rather than inventing examples.
+  packages rather than inventing examples. *Done 2026-09-29, as a pkgdown article
+  (`vignettes/articles/c-api.Rmd`, "Using zucrypt from C"): choosing a shape, the
+  `configure`/`Makevars.in` wiring with the single-quoted `PKG_LIBS`, the backend's lifetime
+  including `.onUnload()`, the table's `Imports:` + `importFrom()` + lazy resolution, the ABI 1
+  promise, and how a security fix reaches each shape.*
 - **Write the getting-started article** (#15). *Done early, 2026-09-26:
   `vignettes/articles/zucrypt.Rmd`, pkgdown's "Get started" page, excluded from the
   tarball by `.Rbuildignore`. It covers all six functions, including an encrypt-then-MAC
