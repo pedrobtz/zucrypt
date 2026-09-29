@@ -13,7 +13,7 @@
 #'
 #' @return A raw vector of the digest, 20 bytes for `"sha1"` and 32, 48 or 64
 #'   for the SHA-2 family. Hex formatting is an explicit step at the call
-#'   site; see the examples.
+#'   site, with [crypt_hex()]; see the examples.
 #'
 #' @section Choosing an algorithm:
 #' `"sha256"` is the default and the right answer unless something external
@@ -30,7 +30,7 @@
 #' digest
 #'
 #' # Hex, when you need it, is an explicit conversion.
-#' paste(format(digest), collapse = "")
+#' crypt_hex(digest)
 #'
 #' # The digest of empty input is well defined.
 #' crypt_hash(raw(0))

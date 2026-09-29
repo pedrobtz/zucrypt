@@ -2,19 +2,22 @@
 
 First release, and the first on CRAN. A focused set of cryptographic primitives over
 raw vectors, backed by a vendored, pinned crypto library, published to R and
-to C. The six R functions are stable. The C interface is not yet: the static
+to C. The seven R functions are stable. The C interface is not yet: the static
 archive is provisional until its first consumer has linked it, and the
 registered table is experimental (see "C interface" below). The archive is
 frozen before this version is submitted (roadmap Stages 11 and 12).
 
 ## R interface
 
-Six functions, and deliberately no more:
+Seven functions, and deliberately no more:
 
 * `crypt_hash()` and `crypt_hmac()` — SHA-1, SHA-256, SHA-384 and SHA-512
   digests and keyed digests. Raw vectors in, raw vectors out; a character
   value is never given a guessed encoding and never treated as a file name.
   Algorithm names match exactly, with no partial matching and no fallback.
+* `crypt_hex()` — lower-case hex of a raw vector, converted in C, for
+  printing or storing a digest. Hex stays an explicit step at the call site
+  (#59).
 * `crypt_equal()` — constant-time comparison. Unequal lengths return `FALSE`
   rather than pretending the length is secret.
 * `crypt_aes_cbc_encrypt_nopad()` and `crypt_aes_cbc_decrypt_nopad()` —

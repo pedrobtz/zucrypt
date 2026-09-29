@@ -9,6 +9,10 @@ implements [design.md](design.md) revision 4.
 - **v0.1.0 is the first CRAN release** (decided 2026-09-29, replacing the GitHub-only tag of
   #27 and the separate v0.2.0). It carries the freeze. `zuxlsx` 0.1.0, with password-protected
   workbooks, follows it onto CRAN.
+- **Two R-only additions join v0.1.0** (decided 2026-09-29, for `dastash`, which stores
+  SHA-256 as hex and hashes files): `crypt_hex()` (#59) and connection input to
+  `crypt_hash()`/`crypt_hmac()` (#11, moved here from Stage 13). Neither touches the archive,
+  so neither affects the freeze.
 - **The CBC rename is done.** **Next:** Stage 11, which waits on `zuxlsx`'s decryption core
   in C (zuxlsx#22 step 3) but not on the rest of zuxlsx#22. Stage 12 takes v0.1.0 to CRAN;
   its vignettes (#17, #13) can be written meanwhile.
@@ -50,7 +54,7 @@ every surface change first.
 
 | Release | Where | What it promises | Gated by |
 | --- | --- | --- | --- |
-| **v0.1.0** | CRAN, first release | The six R functions are stable. The archive is frozen as ABI 1. The table is *experimental* (design §8.6) | Stages 7–12, the CBC rename (#56), and `zuxlsx`'s decryption core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) |
+| **v0.1.0** | CRAN, first release | The seven R functions are stable (six, plus `crypt_hex()`, #59), and `crypt_hash()`/`crypt_hmac()` take connections (#11). The archive is frozen as ABI 1. The table is *experimental* (design §8.6) | Stages 7–12, the CBC rename (#56), and `zuxlsx`'s decryption core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) |
 | **v0.2.0** | CRAN | Tranche 1: randomness, the remaining digests, Base64, and the openssl-shaped layer with its gate and migration article (design §7.1) | Stage 13 |
 | **v0.3.0** | CRAN | Tranche 2: AES-GCM, ChaCha20-Poly1305, CTR, PKCS#7 padding, PBKDF2, HKDF | Stage 14 |
 | **v0.4.0** | CRAN | *Candidate.* Tranche 3: key objects, PEM and DER, RSA, signatures, envelopes | Stage 15, if admitted |
@@ -96,6 +100,7 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 9 — Documentation that matches the code | v0.1.0 | #36 (the rest) | Stage 8 | **done**, #47 and #48. Its tag (#27) is superseded: v0.1.0 goes to CRAN in Stage 12 |
 | 10 — The archive proved the way a consumer uses it | v0.1.0 | #32, #33 (fixture location) | Stage 9 | **done**, #49 |
 | — The CBC rename | v0.1.0 | #56 | Stage 10 | **done** |
+| — Hex output and connection hashing | v0.1.0 | #59, #11 | — | in progress |
 | 11 — The first consumer, and the freeze | v0.1.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | The rename. `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) | waiting on that core |
 | 12 — v0.1.0 and CRAN | v0.1.0 | #17, #13, #15 | Stage 11 | |
 | 13 — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #9, #11, #16 | Stage 12 | |

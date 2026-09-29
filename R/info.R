@@ -4,7 +4,7 @@
 # disagree with what the build can actually do -- an algorithm configured out
 # of the backend disappears from here without anyone editing this file.
 #
-# Not exported. design.md section 7 fixes the R surface at six functions, and
+# Not exported. design.md section 7 fixes the R surface, and
 # this is reachable through crypt_info()$algorithms, which is where a user
 # should be looking anyway.
 # Cached, like zuc_status_codes() in R/conditions.R: the answer is fixed at
