@@ -12,6 +12,8 @@ otherwise.
   : Compute a message digest
 - [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
   : Compute an HMAC
+- [`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
+  : Encode bytes as hexadecimal
 
 ## Comparison and information
 

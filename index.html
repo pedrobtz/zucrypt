@@ -74,7 +74,7 @@
 <span><span class="co">#&gt; [26] 1c 63 53 3e 25 fc 8f</span></span>
 <span></span>
 <span><span class="co"># Hex is an explicit conversion at the call site, not a default.</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">digest</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">""</span><span class="op">)</span></span>
+<span><span class="fu"><a href="reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="va">digest</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "9ecb36561341d18eb65484e833efea61edc74b84cf5e6ae1b81c63533e25fc8f"</span></span>
 <span></span>
 <span><span class="co"># A keyed digest, and the right way to check one.</span></span>
@@ -109,7 +109,7 @@
 <div class="section level2">
 <h2 id="status">Status<a class="anchor" aria-label="anchor" href="#status"></a>
 </h2>
-<p>Version 0.1.0. The six R functions are stable; the C interface is provisional (the archive) or experimental (the table), as above. Every change to either is recorded in <code>NEWS.md</code>. What is compiled in, where it came from, and how a security fix reaches you are in <a href="https://pedrobtz.github.io/zucrypt/articles/backend.html">The vendored backend</a>. The design is in <code>.agents/design.md</code>, and <code>.agents/roadmap.md</code> records how it was built, what was deliberately left out, and what comes next.</p>
+<p>Version 0.1.0. The seven R functions are stable; the C interface is provisional (the archive) or experimental (the table), as above. Every change to either is recorded in <code>NEWS.md</code>. What is compiled in, where it came from, and how a security fix reaches you are in <a href="https://pedrobtz.github.io/zucrypt/articles/backend.html">The vendored backend</a>. The design is in <code>.agents/design.md</code>, and <code>.agents/roadmap.md</code> records how it was built, what was deliberately left out, and what comes next.</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>

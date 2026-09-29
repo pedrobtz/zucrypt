@@ -42,7 +42,7 @@ digest
 #> [26] 1c 63 53 3e 25 fc 8f
 
 # Hex is an explicit conversion at the call site, not a default.
-paste(format(digest), collapse = "")
+crypt_hex(digest)
 #> [1] "9ecb36561341d18eb65484e833efea61edc74b84cf5e6ae1b81c63533e25fc8f"
 
 # A keyed digest, and the right way to check one.
@@ -107,7 +107,7 @@ for both, and for what is and is not promised.
 
 ## Status
 
-Version 0.1.0. The six R functions are stable; the C interface is
+Version 0.1.0. The seven R functions are stable; the C interface is
 provisional (the archive) or experimental (the table), as above. Every
 change to either is recorded in `NEWS.md`. What is compiled in, where it
 came from, and how a security fix reaches you are in [The vendored

@@ -30,7 +30,9 @@ crypt_hash(data, algorithm = "sha256")
 ## Value
 
 A raw vector of the digest, 20 bytes for `"sha1"` and 32, 48 or 64 for
-the SHA-2 family. Hex formatting is an explicit step at the call site;
+the SHA-2 family. Hex formatting is an explicit step at the call site,
+with
+[`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md);
 see the examples.
 
 ## Choosing an algorithm
@@ -57,7 +59,7 @@ digest
 #> [26] 1c 63 53 3e 25 fc 8f
 
 # Hex, when you need it, is an explicit conversion.
-paste(format(digest), collapse = "")
+crypt_hex(digest)
 #> [1] "9ecb36561341d18eb65484e833efea61edc74b84cf5e6ae1b81c63533e25fc8f"
 
 # The digest of empty input is well defined.

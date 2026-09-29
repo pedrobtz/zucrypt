@@ -39,12 +39,14 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="zucrypt-010">zucrypt 0.1.0<a class="anchor" aria-label="anchor" href="#zucrypt-010"></a></h2>
-<p>First release, and the first on CRAN. A focused set of cryptographic primitives over raw vectors, backed by a vendored, pinned crypto library, published to R and to C. The six R functions are stable. The C interface is not yet: the static archive is provisional until its first consumer has linked it, and the registered table is experimental (see “C interface” below). The archive is frozen before this version is submitted (roadmap Stages 11 and 12).</p>
+<p>First release, and the first on CRAN. A focused set of cryptographic primitives over raw vectors, backed by a vendored, pinned crypto library, published to R and to C. The seven R functions are stable. The C interface is not yet: the static archive is provisional until its first consumer has linked it, and the registered table is experimental (see “C interface” below). The archive is frozen before this version is submitted (roadmap Stages 11 and 12).</p>
 <div class="section level3">
 <h3 id="r-interface-0-1-0">R interface<a class="anchor" aria-label="anchor" href="#r-interface-0-1-0"></a></h3>
-<p>Six functions, and deliberately no more:</p>
+<p>Seven functions, and deliberately no more:</p>
 <ul><li>
 <code><a href="../reference/crypt_hash.html">crypt_hash()</a></code> and <code><a href="../reference/crypt_hmac.html">crypt_hmac()</a></code> — SHA-1, SHA-256, SHA-384 and SHA-512 digests and keyed digests. Raw vectors in, raw vectors out; a character value is never given a guessed encoding and never treated as a file name. Algorithm names match exactly, with no partial matching and no fallback.</li>
+<li>
+<code><a href="../reference/crypt_hex.html">crypt_hex()</a></code> — lower-case hex of a raw vector, converted in C, for printing or storing a digest. Hex stays an explicit step at the call site (<a href="https://github.com/pedrobtz/zucrypt/issues/59" class="external-link">#59</a>).</li>
 <li>
 <code><a href="../reference/crypt_equal.html">crypt_equal()</a></code> — constant-time comparison. Unequal lengths return <code>FALSE</code> rather than pretending the length is secret.</li>
 <li>

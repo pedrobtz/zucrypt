@@ -68,7 +68,7 @@
     
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://github.com/pedrobtz/zucrypt" class="external-link">zucrypt</a></span><span class="op">)</span></span></code></pre></div>
-<p>zucrypt has six functions:</p>
+<p>zucrypt has seven functions:</p>
 <table class="table">
 <colgroup>
 <col width="50%">
@@ -88,14 +88,18 @@
 <td>A keyed digest (HMAC) of some bytes</td>
 </tr>
 <tr class="odd">
+<td><code><a href="../reference/crypt_hex.html">crypt_hex()</a></code></td>
+<td>Lower-case hex of some bytes, for printing or storing a digest</td>
+</tr>
+<tr class="even">
 <td><code><a href="../reference/crypt_equal.html">crypt_equal()</a></code></td>
 <td>Comparing a secret value in constant time</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code><a href="../reference/crypt_info.html">crypt_info()</a></code></td>
 <td>What the installed build contains</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>
 <code><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_encrypt_nopad()</a></code>,
 <code><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_decrypt_nopad()</a></code>
@@ -156,10 +160,11 @@ something else, that is the right choice:</p>
 <span><span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="va">msg</span><span class="op">)</span></span>
 <span><span class="co">#&gt;  [1] ba 78 16 bf 8f 01 cf ea 41 41 40 de 5d ae 22 23 b0 03 61 a3 96 17 7a 9c b4</span></span>
 <span><span class="co">#&gt; [26] 10 ff 61 f2 00 15 ad</span></span></code></pre></div>
-<p>Hex is an explicit step at the call site, not a default:</p>
+<p>Hex is an explicit step at the call site, not a default.
+<code><a href="../reference/crypt_hex.html">crypt_hex()</a></code> does it in C, so it costs little beside the
+hash:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">hex</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">""</span><span class="op">)</span></span>
-<span><span class="fu">hex</span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="va">msg</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="va">msg</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"</span></span></code></pre></div>
 <p>That is the FIPS 180-2 test vector for SHA-256(“abc”). The other
 algorithms are named exactly as <code>crypt_info()$algorithms</code>
@@ -169,7 +174,7 @@ lists them:</p>
 <span><span class="co">#&gt; [1] "sha1"   "sha256" "sha384" "sha512"</span></span>
 <span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">a</span> <span class="kw">in</span> <span class="fu"><a href="../reference/crypt_info.html">crypt_info</a></span><span class="op">(</span><span class="op">)</span><span class="op">$</span><span class="va">algorithms</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%-6s %s\n"</span>, <span class="va">a</span>, <span class="fu">hex</span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="va">msg</span>, <span class="va">a</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%-6s %s\n"</span>, <span class="va">a</span>, <span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="va">msg</span>, <span class="va">a</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span><span class="co">#&gt; sha1   a9993e364706816aba3e25717850c26c9cd0d89d</span></span>
 <span><span class="co">#&gt; sha256 ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad</span></span>
@@ -186,7 +191,7 @@ typo cannot quietly select a different digest.</p>
 choose it for anything new.</p>
 <p>The digest of empty input is well defined, and you get it:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">hex</span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">raw</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">raw</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -200,12 +205,12 @@ length:</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">key</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"Jefe"</span><span class="op">)</span></span>
 <span><span class="va">tag</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_hmac.html">crypt_hmac</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"what do ya want for nothing?"</span><span class="op">)</span>, <span class="va">key</span><span class="op">)</span></span>
-<span><span class="fu">hex</span><span class="op">(</span><span class="va">tag</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="va">tag</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"</span></span></code></pre></div>
 <p>That is test case 2 of RFC 4231. The algorithm argument works as it
 does for <code><a href="../reference/crypt_hash.html">crypt_hash()</a></code>:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">hex</span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hmac.html">crypt_hmac</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"what do ya want for nothing?"</span><span class="op">)</span>, <span class="va">key</span>, <span class="st">"sha512"</span><span class="op">)</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_hmac.html">crypt_hmac</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"what do ya want for nothing?"</span><span class="op">)</span>, <span class="va">key</span>, <span class="st">"sha512"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737"</span></span></code></pre></div>
 <p>In real use the key should be random bytes from a cryptographic
 source, at least as long as the digest, and kept secret. zucrypt does
@@ -306,7 +311,7 @@ that another implementation specifies.</p>
 <span>                    <span class="st">"ae2d8a571e03ac9c9eb76fac45af8e51"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">ct</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_encrypt_nopad</a></span><span class="op">(</span><span class="va">pt</span>, <span class="va">key</span>, <span class="va">iv</span><span class="op">)</span></span>
-<span><span class="fu">hex</span><span class="op">(</span><span class="va">ct</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="va">ct</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "7649abac8119b246cee98e9b12e9197d5086cb9b507219ee95db113a917678b2"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_decrypt_nopad</a></span><span class="op">(</span><span class="va">ct</span>, <span class="va">key</span>, <span class="va">iv</span><span class="op">)</span>, <span class="va">pt</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>

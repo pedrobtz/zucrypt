@@ -69,7 +69,7 @@ quietly different algorithm.</p></dd>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A raw vector of the digest, 20 bytes for <code>"sha1"</code> and 32, 48 or 64
 for the SHA-2 family. Hex formatting is an explicit step at the call
-site; see the examples.</p>
+site, with <code><a href="crypt_hex.html">crypt_hex()</a></code>; see the examples.</p>
     </div>
     <div class="section level2">
     <h2 id="choosing-an-algorithm">Choosing an algorithm<a class="anchor" aria-label="anchor" href="#choosing-an-algorithm"></a></h2>
@@ -95,7 +95,7 @@ digests without leaking timing information.</p></div>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [26] 1c 63 53 3e 25 fc 8f</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># Hex, when you need it, is an explicit conversion.</span></span></span>
-<span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="va">digest</span><span class="op">)</span>, collapse <span class="op">=</span> <span class="st">""</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="fu"><a href="crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="va">digest</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "9ecb36561341d18eb65484e833efea61edc74b84cf5e6ae1b81c63533e25fc8f"</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># The digest of empty input is well defined.</span></span></span>

@@ -5,12 +5,13 @@
 library(zucrypt)
 ```
 
-zucrypt has six functions:
+zucrypt has seven functions:
 
 | Function | What it is for |
 |----|----|
 | [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md) | A digest of some bytes: SHA-1, SHA-256, SHA-384 or SHA-512 |
 | [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md) | A keyed digest (HMAC) of some bytes |
+| [`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md) | Lower-case hex of some bytes, for printing or storing a digest |
 | [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md) | Comparing a secret value in constant time |
 | [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md) | What the installed build contains |
 | [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md), [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md) | Unauthenticated AES-CBC, for formats that specify it |
@@ -80,12 +81,13 @@ crypt_hash(msg)
 #> [26] 10 ff 61 f2 00 15 ad
 ```
 
-Hex is an explicit step at the call site, not a default:
+Hex is an explicit step at the call site, not a default.
+[`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
+does it in C, so it costs little beside the hash:
 
 ``` r
 
-hex <- function(x) paste(format(x), collapse = "")
-hex(crypt_hash(msg))
+crypt_hex(crypt_hash(msg))
 #> [1] "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 ```
 
@@ -98,7 +100,7 @@ crypt_info()$algorithms
 #> [1] "sha1"   "sha256" "sha384" "sha512"
 
 for (a in crypt_info()$algorithms) {
-  cat(sprintf("%-6s %s\n", a, hex(crypt_hash(msg, a))))
+  cat(sprintf("%-6s %s\n", a, crypt_hex(crypt_hash(msg, a))))
 }
 #> sha1   a9993e364706816aba3e25717850c26c9cd0d89d
 #> sha256 ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
@@ -124,7 +126,7 @@ The digest of empty input is well defined, and you get it:
 
 ``` r
 
-hex(crypt_hash(raw(0)))
+crypt_hex(crypt_hash(raw(0)))
 #> [1] "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 ```
 
@@ -138,7 +140,7 @@ someone who does not hold the key. The key is raw too, of any length:
 
 key <- charToRaw("Jefe")
 tag <- crypt_hmac(charToRaw("what do ya want for nothing?"), key)
-hex(tag)
+crypt_hex(tag)
 #> [1] "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
 ```
 
@@ -148,7 +150,7 @@ for
 
 ``` r
 
-hex(crypt_hmac(charToRaw("what do ya want for nothing?"), key, "sha512"))
+crypt_hex(crypt_hmac(charToRaw("what do ya want for nothing?"), key, "sha512"))
 #> [1] "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737"
 ```
 
@@ -263,7 +265,7 @@ pt  <- unhex(paste0("6bc1bee22e409f96e93d7e117393172a",
                     "ae2d8a571e03ac9c9eb76fac45af8e51"))
 
 ct <- crypt_aes_cbc_encrypt_nopad(pt, key, iv)
-hex(ct)
+crypt_hex(ct)
 #> [1] "7649abac8119b246cee98e9b12e9197d5086cb9b507219ee95db113a917678b2"
 identical(crypt_aes_cbc_decrypt_nopad(ct, key, iv), pt)
 #> [1] TRUE
