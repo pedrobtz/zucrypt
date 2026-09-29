@@ -123,7 +123,7 @@ test_that("large inputs agree with OpenSSL through the public functions", {
   iv <- as.raw(seq_len(16L))
   for (bits in c(128L, 192L, 256L)) {
     k <- as.raw(seq_len(bits %/% 8L) + 40L)
-    ours <- crypt_aes_cbc_encrypt(data, k, iv)
+    ours <- crypt_aes_cbc_encrypt_nopad(data, k, iv)
     theirs <- openssl::aes_cbc_encrypt(data, key = k, iv = iv)
     expect_identical(ours, as.raw(theirs)[seq_along(data)], info = bits)
   }

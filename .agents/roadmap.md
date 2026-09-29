@@ -9,8 +9,9 @@ implements [design.md](design.md) revision 4.
 - **v0.1.0 is the first CRAN release** (decided 2026-09-29, replacing the GitHub-only tag of
   #27 and the separate v0.2.0). It carries the freeze. `zuxlsx` 0.1.0, with password-protected
   workbooks, follows it onto CRAN.
-- **Next:** the CBC rename, then Stage 11, which waits on `zuxlsx`'s decryption core in C
-  (zuxlsx#22 step 3) but not on the rest of zuxlsx#22. Stage 12 takes v0.1.0 to CRAN.
+- **The CBC rename is done.** **Next:** Stage 11, which waits on `zuxlsx`'s decryption core
+  in C (zuxlsx#22 step 3) but not on the rest of zuxlsx#22. Stage 12 takes v0.1.0 to CRAN;
+  its vignettes (#17, #13) can be written meanwhile.
 - **Re-planned 2026-09-29 for design revision 4.** Stages 11 and 12 are unchanged except one
   Stage 11 item, the `zuc_alg` ranges. Stages 13–17 are new: the openssl-shaped layer and its
   tranches, one CRAN minor release each. Stage 18, the TLS engine for `zuhttp` inside this
@@ -57,11 +58,11 @@ every surface change first.
 | **v0.6.0** | CRAN | *Candidate.* Tranche 5: X.509 certificate data, on a second manifest row | Stage 17, if admitted |
 | **next minor** | CRAN | *Candidate.* A TLS client engine for `zuhttp`, as a run-time table; never in the archive (design §10) | Stage 18, on `zuhttp`'s trigger |
 
-**v0.1.0 needs one more change before Stage 11** (#56): `crypt_aes_cbc_encrypt()` and
-`_decrypt()` become `crypt_aes_cbc_encrypt_nopad()` and `_decrypt_nopad()` (design §7, §7.1),
-through the R code, `?crypt_aes_cbc`, the tests, the article, `tools/alloc-exercise.R`,
-`tools/check-linking.sh`, the `zucrypttest` fixture and NEWS. It is one PR, like any other,
-with a local check at 0/0/0 and green CI. The C archive (`zuc_aes_*`) does not change.
+**The CBC rename is done** (#56, 2026-09-29): `crypt_aes_cbc_encrypt()` and `_decrypt()` are
+now `crypt_aes_cbc_encrypt_nopad()` and `_decrypt_nopad()` (design §7, §7.1), with the help
+topic at `?crypt_aes_cbc_nopad`, through the R code, the tests, the article,
+`tools/alloc-exercise.R`, `tools/check-linking.sh`, the `zucrypttest` fixture and NEWS. The C
+archive (`zuc_aes_*`) and the internal `.Call` entry point did not change.
 
 **Stages 15–17 are candidates, not commitments** (design §6, criterion 5). Each opens with a
 recorded decision, taken once the stage before it has shipped: is there demonstrated demand
@@ -94,7 +95,7 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 8 — Evidence that has run | v0.1.0 | #31, #34, #35; closes #26 | Stage 7. A fix in `r-actions` for the allocation interposer | **done**, #46 (r-actions v1.12.2–v1.15.0) |
 | 9 — Documentation that matches the code | v0.1.0 | #36 (the rest) | Stage 8 | **done**, #47 and #48. Its tag (#27) is superseded: v0.1.0 goes to CRAN in Stage 12 |
 | 10 — The archive proved the way a consumer uses it | v0.1.0 | #32, #33 (fixture location) | Stage 9 | **done**, #49 |
-| — The CBC rename | v0.1.0 | #56 | Stage 10 | next |
+| — The CBC rename | v0.1.0 | #56 | Stage 10 | **done** |
 | 11 — The first consumer, and the freeze | v0.1.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | The rename. `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) | waiting on that core |
 | 12 — v0.1.0 and CRAN | v0.1.0 | #17, #13, #15 | Stage 11 | |
 | 13 — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #9, #11, #16 | Stage 12 | |

@@ -17,10 +17,10 @@ Six functions, and deliberately no more:
   Algorithm names match exactly, with no partial matching and no fallback.
 * `crypt_equal()` — constant-time comparison. Unequal lengths return `FALSE`
   rather than pretending the length is secret.
-* `crypt_aes_cbc_encrypt()` and `crypt_aes_cbc_decrypt()` — AES-128/192/256
-  in CBC mode, with no padding and **no authentication**. Interoperability
-  tools for formats that specify unauthenticated CBC, not a way to encrypt
-  something of your own.
+* `crypt_aes_cbc_encrypt_nopad()` and `crypt_aes_cbc_decrypt_nopad()` —
+  AES-128/192/256 in CBC mode, with no padding and **no authentication**.
+  Interoperability tools for formats that specify unauthenticated CBC, not a
+  way to encrypt something of your own.
 * `crypt_info()` — what this build contains, read from the compiled library.
 
 Failures are R conditions classed
@@ -41,9 +41,16 @@ Fixed before the tag, from the package review in #51:
   `zucrypt_unsupported_algorithm`, because the backend caps an imported key
   there; a key longer than the hash's block is now hashed first, as RFC 2104
   specifies, which gives the same MAC.
-* `?crypt_aes_cbc` now authenticates the IV as well as the ciphertext in its
-  encrypt-then-MAC advice and example. A MAC over the ciphertext alone let
-  the IV, and so the first plaintext block, be changed undetected.
+* `?crypt_aes_cbc_nopad` now authenticates the IV as well as the ciphertext
+  in its encrypt-then-MAC advice and example. A MAC over the ciphertext alone
+  let the IV, and so the first plaintext block, be changed undetected.
+
+Renamed before release (#56): the CBC pair was `crypt_aes_cbc_encrypt()` and
+`crypt_aes_cbc_decrypt()` during development. The `_nopad` suffix names the
+difference from `openssl::aes_cbc_encrypt()`, which pads, so that code moved
+from `openssl` by changing a prefix can never silently get the padding back
+as plaintext. The unsuffixed names are reserved for an `openssl`-compatible
+padded pair. The C interface (`zuc_aes_*()`) is unchanged.
 
 ## C interface
 
@@ -106,7 +113,7 @@ Extension on 64-bit Arm — chosen at run time, and on a software fallback
 where the CPU has neither. The backend's own security policy warns that the
 software fallback leaks key material through cache timing;
 `crypt_info()$build_flags$aes_implementation` reports which path a machine
-uses, and `?crypt_aes_cbc` explains when that matters. Every path produces
+uses, and `?crypt_aes_cbc_nopad` explains when that matters. Every path produces
 the same bytes. (Until the review in #51 hardware AES was off everywhere.)
 
 Upstream symbols are hidden. The installed shared object exports exactly one

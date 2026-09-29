@@ -80,7 +80,7 @@ info$vendored
 The AES-CBC functions exist too, and are deliberately not shown here: they add
 no padding and no authentication, and presenting them beside a hash would
 suggest they are a general-purpose way to encrypt something. See
-`?crypt_aes_cbc` before using them.
+`?crypt_aes_cbc_nopad` before using them.
 
 [Getting started](https://pedrobtz.github.io/zucrypt/articles/zucrypt.html)
 walks through every function, including what using AES-CBC correctly takes

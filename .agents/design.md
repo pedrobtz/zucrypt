@@ -434,7 +434,7 @@ Nothing else is enabled:
     #51 showed that was the wrong trade.
   - **The fallback.** Both paths are chosen at run time, so a CPU without AES instructions falls
     back to the software tables rather than failing (`MBEDTLS_AES_USE_HARDWARE_ONLY` is not set).
-    On that fallback the timing exposure remains. It is documented in `?crypt_aes_cbc` and
+    On that fallback the timing exposure remains. It is documented in `?crypt_aes_cbc_nopad` and
     `zucrypt.h`, not refused: refusing would make `zuxlsx` unable to open a workbook on such a
     machine. The backend has no constant-time software AES to fall back to instead.
   - **Reporting.** `crypt_info()$build_flags$aes_implementation` and `zuc_info.aes_implementation`
@@ -586,9 +586,9 @@ crypt_aes_cbc_decrypt_nopad(data, key, iv)
 ```
 
 **These six are stable from v0.1.0 (§8.6).** The names follow the family's short package prefix:
-`komp_`, `xml_`, `json_`, `yaml_`, and `zu_` in `zuhttp`. The CBC pair is on `main` as
-`crypt_aes_cbc_encrypt()`/`_decrypt()` until the rename that precedes the v0.1.0 tag (#56);
-the `_nopad` suffix names the difference that matters, and frees the ordinary names for §7.1.
+`komp_`, `xml_`, `json_`, `yaml_`, and `zu_` in `zuhttp`. The CBC pair was
+`crypt_aes_cbc_encrypt()`/`_decrypt()` until the rename before v0.1.0 (#56); the `_nopad`
+suffix names the difference that matters, and frees the ordinary names for §7.1.
 
 Contract:
 

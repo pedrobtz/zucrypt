@@ -59,10 +59,10 @@
 #' iv <- as.raw(seq.int(0, 15))
 #' plaintext <- charToRaw("sixteen bytes!! and sixteen more")
 #'
-#' ciphertext <- crypt_aes_cbc_encrypt(plaintext, key, iv)
+#' ciphertext <- crypt_aes_cbc_encrypt_nopad(plaintext, key, iv)
 #' ciphertext
 #'
-#' identical(crypt_aes_cbc_decrypt(ciphertext, key, iv), plaintext)
+#' identical(crypt_aes_cbc_decrypt_nopad(ciphertext, key, iv), plaintext)
 #'
 #' # Authentication is separate, and is not optional. The tag covers the IV
 #' # as well as the ciphertext, under a key of its own.
@@ -78,12 +78,12 @@
 #' tampered_iv[1] <- xor(tampered_iv[1], as.raw(1))
 #' crypt_equal(tag, crypt_hmac(c(tampered_iv, ciphertext), mac_key))
 #'
-#' @name crypt_aes_cbc
+#' @name crypt_aes_cbc_nopad
 NULL
 
-#' @rdname crypt_aes_cbc
+#' @rdname crypt_aes_cbc_nopad
 #' @export
-crypt_aes_cbc_encrypt <- function(data, key, iv) {
+crypt_aes_cbc_encrypt_nopad <- function(data, key, iv) {
   check_aes_key(key)
   algorithm <- aes_algorithm(key)
   check_aes_iv(iv, algorithm)
@@ -98,9 +98,9 @@ crypt_aes_cbc_encrypt <- function(data, key, iv) {
   res$value
 }
 
-#' @rdname crypt_aes_cbc
+#' @rdname crypt_aes_cbc_nopad
 #' @export
-crypt_aes_cbc_decrypt <- function(data, key, iv) {
+crypt_aes_cbc_decrypt_nopad <- function(data, key, iv) {
   check_aes_key(key)
   algorithm <- aes_algorithm(key)
   check_aes_iv(iv, algorithm)

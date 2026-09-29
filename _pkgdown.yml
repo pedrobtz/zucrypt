@@ -28,7 +28,7 @@ reference:
     caller's job. These are interoperability tools, not a way to encrypt
     something of your own.
   contents:
-  - crypt_aes_cbc
+  - crypt_aes_cbc_nopad
 
 - title: C API
   desc: >

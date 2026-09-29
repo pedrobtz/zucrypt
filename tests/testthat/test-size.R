@@ -33,9 +33,9 @@ test_that("multi-megabyte CBC chains correctly across interrupt chunks", {
   # The adapter processes the whole buffer in one call; the wrapper splits it
   # into 1 MiB chunks. If the chaining state were reset or dropped between
   # chunks these would differ from the first megabyte onwards.
-  expect_identical(crypt_aes_cbc_encrypt(data, key, iv),
+  expect_identical(crypt_aes_cbc_encrypt_nopad(data, key, iv),
                    native_aes("cbc", TRUE, key, iv, data))
-  expect_identical(crypt_aes_cbc_decrypt(crypt_aes_cbc_encrypt(data, key, iv),
+  expect_identical(crypt_aes_cbc_decrypt_nopad(crypt_aes_cbc_encrypt_nopad(data, key, iv),
                                          key, iv),
                    data)
 })
@@ -60,7 +60,7 @@ test_that("processing a large input does not allocate per block", {
   # chunk, so a per-chunk allocation would be recorded and a scalar would not.
   utils::Rprofmem(log, threshold = 65536)
   digest <- crypt_hash(data)
-  ciphertext <- crypt_aes_cbc_encrypt(data, key, iv)
+  ciphertext <- crypt_aes_cbc_encrypt_nopad(data, key, iv)
   utils::Rprofmem(NULL)
 
   records <- readLines(log, warn = FALSE)
