@@ -57,13 +57,15 @@ Long-form documentation is pkgdown-only, in `vignettes/articles/`
 (zukomp’s layout), which `.Rbuildignore` keeps out of the CRAN tarball;
 `Config/Needs/website` names knitr and rmarkdown for it.
 `vignettes/articles/zucrypt.Rmd` is the site’s “Get started” page and
-walks through all seven functions; `vignettes/articles/backend.Rmd`
-(“The vendored backend”, \#17) is the one a CRAN or security reviewer
-reads, and its facts (file counts, defines, sizes, patches) must be
-updated whenever the vendored tree or its configuration changes. Their
-examples are executed when the site builds, so they must stay runnable
-with no `Suggests` beyond the website needs — mention openssl or sodium
-in prose, never in a chunk.
+walks through all seven functions; `vignettes/articles/c-api.Rmd`
+(“Using zucrypt from C”, \#13) is for a package author linking either C
+shape and quotes the `tools/` fixtures, so it moves when they do;
+`vignettes/articles/backend.Rmd` (“The vendored backend”, \#17) is the
+one a CRAN or security reviewer reads, and its facts (file counts,
+defines, sizes, patches) must be updated whenever the vendored tree or
+its configuration changes. Their examples are executed when the site
+builds, so they must stay runnable with no `Suggests` beyond the website
+needs — mention openssl or sodium in prose, never in a chunk.
 
 The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from
 source, exports exactly the seven `crypt_*` functions of design §7
