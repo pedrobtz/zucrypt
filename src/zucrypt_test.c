@@ -530,6 +530,69 @@ SEXP zucrypt_test_not_ready(void)
     return res;
 }
 
+/* The NULL-buffer contract zucrypt.h states for the incremental and CBC
+ * calls (zucrypt#43, from zuxlsx): a pointer may be NULL only when its
+ * length is 0. Returns each call's status by name, plus whether a digest fed
+ * only NULL/0 updates equals the digest of the empty input. Every handle is
+ * freed before anything is allocated in R. */
+SEXP zucrypt_test_null_buffers(void)
+{
+    static const char *names[] = {
+        "hash_update_null_0", "hash_update_null_1",
+        "hmac_new_null_key_0", "hmac_update_null_0", "hmac_update_null_1",
+        "aes_encrypt_null_0", "aes_decrypt_null_0", "aes_encrypt_null_16",
+        "empty_digest_matches"
+    };
+    enum { N = 9 };
+    zuc_status st[N - 1];
+    int same = 0, i;
+    uint8_t key[ZUC_AES_KEY_SIZE_128] = {0}, iv[ZUC_AES_BLOCK_SIZE] = {0};
+    uint8_t a[ZUC_MAX_DIGEST_SIZE], b[ZUC_MAX_DIGEST_SIZE];
+    size_t alen = 0, blen = 0;
+    zuc_hash *hash = NULL;
+    zuc_hmac *hmac = NULL;
+    zuc_aes *aes = NULL;
+    SEXP res, nms;
+
+    if (zuc_hash_new(ZUC_ALG_SHA256, &hash) != ZUC_OK ||
+        zuc_aes_new(key, sizeof key, &aes) != ZUC_OK ||
+        zuc_aes_cbc_set_state(aes, iv) != ZUC_OK) {
+        zuc_hash_free(hash);
+        zuc_aes_free(aes);
+        Rf_error("zucrypt: could not create the handles this test needs");
+    }
+
+    st[0] = zuc_hash_update(hash, NULL, 0);
+    st[1] = zuc_hash_update(hash, NULL, 1);
+    st[2] = zuc_hmac_new(ZUC_ALG_SHA256, NULL, 0, &hmac);
+    st[3] = hmac != NULL ? zuc_hmac_update(hmac, NULL, 0) : ZUC_ERR_INTERNAL;
+    st[4] = hmac != NULL ? zuc_hmac_update(hmac, NULL, 1) : ZUC_ERR_INTERNAL;
+    st[5] = zuc_aes_cbc_encrypt(aes, NULL, 0, NULL);
+    st[6] = zuc_aes_cbc_decrypt(aes, NULL, 0, NULL);
+    st[7] = zuc_aes_cbc_encrypt(aes, NULL, ZUC_AES_BLOCK_SIZE, NULL);
+
+    if (zuc_hash_finish(hash, a, sizeof a, &alen) == ZUC_OK &&
+        zuc_hash_compute(ZUC_ALG_SHA256, NULL, 0, b, sizeof b, &blen) == ZUC_OK) {
+        same = alen == blen && memcmp(a, b, alen) == 0;
+    }
+
+    zuc_hash_free(hash);
+    zuc_hmac_free(hmac);
+    zuc_aes_free(aes);
+
+    res = PROTECT(Rf_allocVector(STRSXP, N));
+    nms = PROTECT(Rf_allocVector(STRSXP, N));
+    for (i = 0; i < N - 1; i++) {
+        SET_STRING_ELT(res, i, Rf_mkChar(zuc_status_name(st[i])));
+        SET_STRING_ELT(nms, i, Rf_mkChar(names[i]));
+    }
+    SET_STRING_ELT(res, N - 1, Rf_mkChar(same ? "TRUE" : "FALSE"));
+    SET_STRING_ELT(nms, N - 1, Rf_mkChar(names[N - 1]));
+    Rf_setAttrib(res, R_NamesSymbol, nms);
+    UNPROTECT(2);
+    return res;
+}
+
 /* Hold `n` live AES handles and `n` live HMAC handles at once, then run a
  * one-shot HMAC and a CBC call with all of them live, then free everything.
  * Under the static key store this failed at the 17th AES handle (#30).
@@ -634,5 +697,6 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_not_ready",      (DL_FUNC) &zucrypt_test_not_ready,      0},
     {"zucrypt_test_live_handles",   (DL_FUNC) &zucrypt_test_live_handles,   1},
     {"zucrypt_test_live_contexts",  (DL_FUNC) &zucrypt_test_live_contexts,  0},
+    {"zucrypt_test_null_buffers",   (DL_FUNC) &zucrypt_test_null_buffers,   0},
     {NULL, NULL, 0}
 };

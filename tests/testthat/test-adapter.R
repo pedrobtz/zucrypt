@@ -226,3 +226,45 @@ test_that("64 live handles of each kind coexist (#30)", {
   expect_identical(again$aes_created, 1000L)
   expect_identical(again$hmac_created, 1000L)
 })
+
+test_that("a buffer pointer may be NULL exactly when its length is 0", {
+  # zucrypt.h's contract, made explicit before the freeze because zuxlsx had
+  # to guess it (zucrypt#43): NULL with length 0 is a valid no-op, NULL with
+  # a length is ZUC_ERR_INVALID_ARGUMENT, for every incremental and CBC call.
+  got <- .Call(zucrypt:::zucrypt_test_null_buffers)
+  expect_identical(
+    got,
+    c(hash_update_null_0 = "ZUC_OK",
+      hash_update_null_1 = "ZUC_ERR_INVALID_ARGUMENT",
+      hmac_new_null_key_0 = "ZUC_OK",
+      hmac_update_null_0 = "ZUC_OK",
+      hmac_update_null_1 = "ZUC_ERR_INVALID_ARGUMENT",
+      aes_encrypt_null_0 = "ZUC_OK",
+      aes_decrypt_null_0 = "ZUC_OK",
+      aes_encrypt_null_16 = "ZUC_ERR_INVALID_ARGUMENT",
+      empty_digest_matches = "TRUE")
+  )
+})
+
+test_that("the zuc_alg ranges are ordered, contiguous and hold every value", {
+  # zucrypt.h reserves the ranges as ZUC_ALG_*_FIRST/_LAST macros (design.md
+  # section 8.1). They are permanent from ABI 1, so check they do not overlap
+  # or leave a gap, and that every assigned identifier sits in its range.
+  h <- readLines(system.file("include", "zucrypt.h", package = "zucrypt"))
+  m <- regmatches(h, regexec("^#define ZUC_ALG_([A-Z]+)_(FIRST|LAST) +([0-9]+)", h))
+  m <- do.call(rbind, m[lengths(m) == 4L])
+  bounds <- tapply(as.integer(m[, 4]), list(m[, 2], m[, 3]), identity)
+  bounds <- bounds[order(bounds[, "FIRST"]), , drop = FALSE]
+  expect_identical(rownames(bounds),
+                   c("DIGEST", "MAC", "CIPHER", "KDF", "KEY", "SIGNATURE"))
+  expect_identical(unname(bounds[1, "FIRST"]), 1L)
+  expect_identical(unname(bounds[-1, "FIRST"]),
+                   unname(bounds[-nrow(bounds), "LAST"]) + 1L)
+  expect_identical(unname(bounds[nrow(bounds), "LAST"]), 255L)
+
+  # Every digest enumerator is numbered inside the digest range.
+  e <- regmatches(h, regexec("^ *ZUC_ALG_SHA[0-9]+ *= *([0-9]+)", h))
+  ids <- as.integer(vapply(e[lengths(e) == 2L], `[[`, "", 2L))
+  expect_length(ids, 4L)
+  expect_true(all(ids >= bounds["DIGEST", "FIRST"] & ids <= bounds["DIGEST", "LAST"]))
+})

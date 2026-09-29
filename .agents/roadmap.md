@@ -13,9 +13,10 @@ implements [design.md](design.md) revision 4.
   SHA-256 as hex and hashes files): `crypt_hex()` (#59) and connection input to
   `crypt_hash()`/`crypt_hmac()` (#11, moved here from Stage 13). Neither touches the archive,
   so neither affects the freeze.
-- **The CBC rename is done.** **Next:** Stage 11, which waits on `zuxlsx`'s decryption core
-  in C (zuxlsx#22 step 3) but not on the rest of zuxlsx#22. Stage 12 takes v0.1.0 to CRAN;
-  its vignettes (#17, #13) can be written meanwhile.
+- **The CBC rename is done, and so is Stage 11**: zuxlsx#22 step 3 (zuxlsx#64) decrypted the
+  real fixture against `main` on three operating systems, its two pre-freeze findings are
+  fixed, and ABI 1 is frozen (2026-09-29). **Next:** Stage 12 takes v0.1.0 to CRAN. The
+  vendored-backend article (#17) is done; the C-API vignette (#13) is left.
 - **Re-planned 2026-09-29 for design revision 4.** Stages 11 and 12 are unchanged except one
   Stage 11 item, the `zuc_alg` ranges. Stages 13–17 are new: the openssl-shaped layer and its
   tranches, one CRAN minor release each. Stage 18, the TLS engine for `zuhttp` inside this
@@ -101,7 +102,7 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 10 — The archive proved the way a consumer uses it | v0.1.0 | #32, #33 (fixture location) | Stage 9 | **done**, #49 |
 | — The CBC rename | v0.1.0 | #56 | Stage 10 | **done** |
 | — Hex output and connection hashing | v0.1.0 | #59, #11 | — | in progress |
-| 11 — The first consumer, and the freeze | v0.1.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | The rename. `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) | waiting on that core |
+| 11 — The first consumer, and the freeze | v0.1.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | The rename. `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) | **done**, 2026-09-29 |
 | 12 — v0.1.0 and CRAN | v0.1.0 | #17, #13, #15 | Stage 11 | |
 | 13 — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #9, #16 | Stage 12 | |
 | 14 — Tranche 2: authenticated encryption and key derivation | v0.3.0 | #10, #12 | Stage 13 | |
@@ -341,6 +342,17 @@ Exit:
 - The export check fails on a deliberately unhidden build. Record it in the PR.
 
 ## Stage 11 — The first consumer, and the freeze
+
+**Done 2026-09-29.** zuxlsx#64 (`feat/agile-decrypt-core`) decrypted `two-sheets-encrypted.xlsx`
+byte-exact against `main`, with a UTF-16 password fixture too, green on Linux, macOS and
+Windows; its report is on #43. Nothing was missing from `zucrypt.h`. Its two pre-freeze
+findings were taken: `tools/zucryptlink` gained the `.onUnload()` without which
+`R_unload_` (and `zuc_shutdown()`) never runs, with `check-linking.sh` step 9 proving the DLL
+is released; and the NULL-buffer rule is stated in `zucrypt.h` and tested. The `zuc_alg` ranges
+are reserved, `revdep.yaml` builds zuxlsx against every push, the freeze is stated in
+`zucrypt.h`, `?zucrypt_c_api`, the README (badge now "stable") and NEWS, and the table stays
+experimental. A one-shot `zuc_aes_cbc_decrypt_oneshot()` was suggested and is a possible
+addition, not a change.
 
 Goal: freeze ABI 1 because a real consumer has shown the archive suits it, not because a stage
 number came up.
@@ -692,7 +704,7 @@ Pins stay commits, with the tag in a trailing comment, and a bump is its own rev
 | `native-checks.yaml` (layering) | Stage 8 | The `UNPROTECT`/`return` lint and its canary |
 | `vendor-upstream.yaml` | Stage 7, if r-actions supports it | Follow the 1.1 LTS tags only |
 | `consumer.yaml` | Stage 10 | Two fixture packages under `tools/`, three operating systems |
-| reverse dependency (new, bespoke or r-actions) | Stage 11 | Build `zuxlsx@main` against this checkout |
+| `revdep.yaml` (new, bespoke) | Stage 11 | Build `zuxlsx` against this checkout on three operating systems and run its decryption tests; its ref is `feat/agile-decrypt-core` until zuxlsx#64 merges, then `main` |
 | `R-CMD-check.yaml` | Stage 13 | One leg sets `ZUCRYPT_REQUIRE_OPENSSL=1`, so the compatibility gate must run there |
 | `vendor.yaml` | Stage 13 | Tarball-size gate (5 MB) and the object and file counts printed per run |
 | `aes-paths.yaml` | Stage 14 | GCM and CTR on each path |
