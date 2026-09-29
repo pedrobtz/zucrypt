@@ -20,7 +20,7 @@ permissions: read-all
 
 jobs:
   alloc-failure:
-    uses: pedrobtz/r-actions/.github/workflows/alloc-failure.yml@68c22c173f9ddbb7e51284fe230053174e941afc # v1.15.0
+    uses: pedrobtz/r-actions/.github/workflows/alloc-failure.yml@v1
     with:
       # R_ENABLE_JIT=0, and the same script's prefix as the baseline: see the
       # header of tools/alloc-exercise.R. Together they put the sweep's

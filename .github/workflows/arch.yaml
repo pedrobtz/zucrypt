@@ -26,7 +26,7 @@ permissions: read-all
 
 jobs:
   arch:
-    uses: pedrobtz/r-actions/.github/workflows/arch.yml@68c22c173f9ddbb7e51284fe230053174e941afc # v1.15.0
+    uses: pedrobtz/r-actions/.github/workflows/arch.yml@v1
     with:
       # The Debian legs install testthat from Debian's own binary rather than
       # building it, and generate en_US.UTF-8: R CMD check sets that locale,
