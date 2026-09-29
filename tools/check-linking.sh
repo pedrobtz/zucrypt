@@ -19,7 +19,9 @@
 #   6. the archive and zucrypt.so report the same backend release;
 #   7. zucrypt.so and the fixture coexist in one process, loaded in either
 #      order: two backend copies, two key stores, no crosstalk;
-#   8. the fixture still works with zucrypt removed from the library path.
+#   8. the fixture still works with zucrypt removed from the library path;
+#   9. unloading the fixture unloads its DLL -- so R_unload_ runs and the
+#      backend is shut down -- and it reloads and works, three times over.
 #
 # zukomp's tools/check-linking.sh, with tools/zukomplink, is the model. Its
 # CLAUDE.md records why a hand-compiled main() was retired: it "exercised
@@ -175,5 +177,27 @@ WITHOUT
 # probably is -- off the path, so "absent" means absent.
 R_LIBS="$LIB" R_LIBS_USER='-' Rscript "$WORK/without.R"
 mv "$LIB/.zucrypt-hidden" "$LIB/zucrypt"
+
+echo "==> 9. unloading the namespace unloads the DLL, and it reloads cleanly"
+# R_unload_zucryptlink(), which calls zuc_shutdown(), runs only when the DLL
+# is unloaded, and with useDynLib that happens only if .onUnload asks for it
+# (zucrypt#43). The DLL disappearing from getLoadedDLLs() is the observable
+# proof; each reload runs R_init_ -- zuc_init() -- again from a shut-down
+# backend, and must answer correctly.
+cat > "$WORK/unload.R" <<'UNLOAD'
+abc <- "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+hex <- function(x) paste(format(x, width = 2), collapse = "")
+for (i in 1:3) {
+  loadNamespace("zucryptlink")
+  stopifnot(identical(hex(zucryptlink::archive_hash(charToRaw("abc"))), abc))
+  unloadNamespace("zucryptlink")
+  if ("zucryptlink" %in% names(getLoadedDLLs())) {
+    stop("unloadNamespace() left zucryptlink's DLL loaded: .onUnload is missing ",
+         "or does not call library.dynam.unload(), so zuc_shutdown() never ran")
+  }
+}
+cat("    three load/unload cycles; the DLL is released each time\n")
+UNLOAD
+rscript "$WORK/unload.R"
 
 echo "all checks passed"

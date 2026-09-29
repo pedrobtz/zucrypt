@@ -19,8 +19,13 @@
  *      plain "lib" second. Link it and call these functions directly.
  *
  * Shape 2 owns the backend's lifetime: call zuc_init() before anything else
- * and zuc_shutdown() when done. Shape 1 does not -- the zucrypt package
- * initialises the backend when its namespace loads.
+ * and zuc_shutdown() when done. In an R package that is zuc_init() in
+ * R_init_<pkg>() and zuc_shutdown() in R_unload_<pkg>() -- and R calls the
+ * latter only when the DLL is unloaded, which with useDynLib happens only if
+ * the package's .onUnload() calls library.dynam.unload("<pkg>", libpath).
+ * Without that line the backend is never shut down. Shape 1 does not own the
+ * lifetime -- the zucrypt package initialises the backend when its namespace
+ * loads.
  *
  * Threads: main thread only in this version. See the note on zuc_init().
  *
@@ -44,14 +49,14 @@ extern "C" {
 /* The ABI this header describes.
  *
  * Stability (design.md section 8.6): this header and libzucrypt.a are
- * PROVISIONAL until v0.1.0 is released on CRAN, where they become frozen
- * ABI 1, once the first consumer -- zuxlsx's agile decryption -- has linked
- * the archive. Until
- * then a change is allowed, and every one is recorded in NEWS.md. The
- * registered function table in zucrypt-r.h is EXPERIMENTAL and outside the
- * promise below until a package that is not a test fixture uses it.
+ * FROZEN as ABI 1 from v0.1.0, zucrypt's first CRAN release. The freeze
+ * followed its first consumer: zuxlsx's agile decryption was written against
+ * the archive, linked it on Linux, macOS and Windows, and decrypted a real
+ * encrypted workbook with it (zucrypt#43, zuxlsx#22). The registered
+ * function table in zucrypt-r.h is EXPERIMENTAL and outside the promise
+ * below until a package that is not a test fixture uses it.
  *
- * The promise, within a major version, once frozen:
+ * The promise, within major version 1:
  *
  *   - Functions may be added. Nothing declared here is removed, renamed, or
  *     given a different signature or meaning.
@@ -115,6 +120,19 @@ const char *zuc_status_name(zuc_status status);
  * than letting the numbering shift under a consumer built against another
  * configuration.
  *
+ * Values are grouped into ranges, reserved before the freeze so that a
+ * family added later has room without renumbering (design.md section 8.1).
+ * A range says what kind of identifier a value is; no value inside one is
+ * assigned in advance, and assignment within a range is in order of
+ * arrival. The bounds are inclusive.
+ *
+ *     1 -  63   digests
+ *    64 -  95   MACs other than HMAC (HMAC is named by its digest)
+ *    96 - 159   ciphers and cipher modes, AEAD included
+ *   160 - 191   key derivation
+ *   192 - 223   key families (RSA, curves)
+ *   224 - 255   signature schemes
+ *
  * SHA-1 exists for compatibility with document formats that specify it. It
  * is not a default for anything new. */
 typedef enum {
@@ -125,8 +143,21 @@ typedef enum {
     ZUC_ALG_SHA384 = 3,
     ZUC_ALG_SHA512 = 4
 
-    /* 5..15 reserved for further digests. */
+    /* 5..63 reserved for further digests. */
 } zuc_alg;
+
+#define ZUC_ALG_DIGEST_FIRST     1
+#define ZUC_ALG_DIGEST_LAST     63
+#define ZUC_ALG_MAC_FIRST       64
+#define ZUC_ALG_MAC_LAST        95
+#define ZUC_ALG_CIPHER_FIRST    96
+#define ZUC_ALG_CIPHER_LAST    159
+#define ZUC_ALG_KDF_FIRST      160
+#define ZUC_ALG_KDF_LAST       191
+#define ZUC_ALG_KEY_FIRST      192
+#define ZUC_ALG_KEY_LAST       223
+#define ZUC_ALG_SIGNATURE_FIRST 224
+#define ZUC_ALG_SIGNATURE_LAST  255
 
 /* Lower-case canonical name, e.g. "sha256". NULL for an unknown value. */
 const char *zuc_alg_name(zuc_alg alg);
@@ -227,7 +258,9 @@ typedef struct zuc_hash zuc_hash;
  * built context is destroyed rather than returned. */
 zuc_status zuc_hash_new(zuc_alg alg, zuc_hash **out);
 
-/* Feed more input. A zero-length update is valid and does nothing. */
+/* Feed more input. A zero-length update is valid and does nothing, and
+ * `data` may then be NULL; with a nonzero length, NULL is
+ * ZUC_ERR_INVALID_ARGUMENT. */
 zuc_status zuc_hash_update(zuc_hash *hash, const uint8_t *data, size_t data_len);
 
 /* Produce the digest. The handle is finished afterwards and must be reset
@@ -246,7 +279,8 @@ void zuc_hash_free(zuc_hash *hash);
  * HMAC
  * ------------------------------------------------------------------ */
 
-/* Same shape as the digest interface, keyed at creation. Any key length is
+/* Same shape as the digest interface, keyed at creation, with the same NULL
+ * rule: `data` (and `key`) may be NULL only when its length is 0. Any key length is
  * accepted, including 0, as RFC 2104 specifies; a key longer than the hash's
  * block is replaced by its hash, as RFC 2104 also specifies, which gives the
  * same MAC. The key is copied into the library's own storage and wiped when
@@ -315,7 +349,7 @@ zuc_status zuc_aes_cbc_get_state(const zuc_aes *aes, uint8_t *state);
 
 /* CBC over a whole number of blocks, continuing from the chaining state and
  * advancing it. `len` must be a multiple of ZUC_AES_BLOCK_SIZE; 0 is valid
- * and does nothing.
+ * and does nothing, and `in` and `out` may then be NULL.
  *
  * Overlap: `in` and `out` may be the same pointer (exact in-place is
  * supported and tested). Any other overlap is rejected with ZUC_ERR_OVERLAP

@@ -1,0 +1,131 @@
+# Builds zuxlsx -- the static archive's first real consumer -- against this
+# checkout, and runs its decryption tests (roadmap Stage 11, zucrypt#43).
+#
+# Bespoke, like consumer.yaml and abi.yaml: r-actions has no reverse-
+# dependency workflow, and which consumer to build, at which ref, is specific
+# to this package. It is written so that zukomp and zuxml can adopt it by
+# changing the consumer and its test filter (zukomp#35 tracks the family's
+# convergence on this).
+#
+# What it proves that tools/zucryptlink does not: that the archive as it is
+# on this branch still serves the consumer that ABI 1 was frozen on. The
+# fixture checks the linking wiring; this checks the real call sites --
+# zuxlsx's spin loop, CBC segment loop and HMAC over a real encrypted
+# workbook, on the platform (Windows) where the lib/x64 lookup matters.
+#
+# The order of the install steps is the point. zuxlsx's Remotes: names
+# pedrobtz/zucrypt@main, so setup-r-dependencies installs zucrypt from
+# GitHub first; this checkout is installed over it afterwards, and zuxlsx's
+# configure then resolves libzucrypt.a from *this* build. A guard step fails
+# the job if the installed zucrypt is still the GitHub one.
+on:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - '**.md'
+      - 'vignettes/**'
+      - '_pkgdown.yml'
+      - '.agents/**'
+      - 'docs/**'
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      zuxlsx-ref:
+        description: 'zuxlsx branch, tag or commit to build'
+        required: false
+
+name: revdep.yaml
+
+permissions: read-all
+
+env:
+  # zuxlsx#64 carries the agile decryption core the freeze was made on. Switch
+  # to main when it merges there (the branch is deleted then, and this job
+  # fails loudly at checkout rather than building something else).
+  ZUXLSX_REF: feat/agile-decrypt-core
+
+jobs:
+  zuxlsx:
+    runs-on: ${{ matrix.os }}
+    name: zuxlsx (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    # Rtools' bash on Windows, for the reason consumer.yaml gives.
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: pedrobtz/zuxlsx
+          ref: ${{ inputs.zuxlsx-ref || env.ZUXLSX_REF }}
+          path: .revdep/zuxlsx
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          http-user-agent: release
+          use-public-rspm: true
+
+      # zuxlsx's dependencies, including zukomp and zuxml from its Remotes:,
+      # and (for now) zucrypt@main, which the next step replaces.
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          working-directory: .revdep/zuxlsx
+          extra-packages: any::testthat, any::withr
+
+      - name: Install zucrypt from this checkout
+        run: R CMD INSTALL --preclean .
+
+      - name: Check the installed zucrypt is this checkout
+        shell: Rscript {0}
+        run: |
+          d <- utils::packageDescription("zucrypt")
+          # A GitHub install records RemoteType; R CMD INSTALL of a checkout
+          # does not. Building zuxlsx against zucrypt@main here would test
+          # the wrong archive and pass.
+          if (!is.null(d$RemoteType)) {
+            stop("zucrypt was installed from ", d$RemoteType, " (", d$RemoteSha,
+                 "), not from this checkout")
+          }
+          lib <- system.file("lib", .Platform$r_arch, package = "zucrypt")
+          if (!nzchar(lib)) lib <- system.file("lib", package = "zucrypt")
+          stopifnot(file.exists(file.path(lib, "libzucrypt.a")))
+          cat("zucrypt", format(d$Version), "from this checkout; archive in", lib, "\n")
+
+      - name: Install zuxlsx (configure links this checkout's libzucrypt.a)
+        run: R CMD INSTALL .revdep/zuxlsx
+
+      # Against the installed zuxlsx, so what runs is what configure linked.
+      # Fails when zero expectations run, for consumer.yaml's reason: a test
+      # file that was renamed or skipped would otherwise be a green job that
+      # proved nothing.
+      - name: Run zuxlsx's decryption tests
+        shell: Rscript {0}
+        run: |
+          res <- testthat::test_dir(
+            ".revdep/zuxlsx/tests/testthat",
+            package = "zuxlsx",
+            load_package = "installed",
+            filter = "agile",
+            reporter = "summary",
+            stop_on_failure = FALSE
+          )
+          df <- as.data.frame(res)
+          n <- sum(df$passed) + sum(df$failed)
+          cat(sprintf("discovered %d assertions in %d files\n", n, nrow(df)))
+          if (nrow(df) == 0L || n == 0L) {
+            stop("no zuxlsx decryption tests ran: the job proved nothing")
+          }
+          if (sum(df$failed) > 0L || any(df$error)) {
+            stop("zuxlsx's decryption tests failed against this zucrypt")
+          }

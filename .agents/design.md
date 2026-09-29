@@ -624,7 +624,7 @@ explicit responsibility.
 
 **File and connection hashing** (#11) is not a separate function, and never a path string:
 `crypt_hash()` and `crypt_hmac()` accept a connection as `data`, from v0.1.0 (moved forward
-from Stage 13 for `dastash`). `file(path)` hashes a file. R reads 1 MiB chunks with
+from Stage 13; `dastash` asked, but is not a committed consumer). `file(path)` hashes a file. R reads 1 MiB chunks with
 `readBin()` into an incremental context owned by a finalized external pointer
 (`zucrypt_*_stream_new/update/finish` in the R glue, over the archive's `zuc_hash_*` and
 `zuc_hmac_*`), with an interrupt check per chunk. An unopened connection is opened `"rb"` and
@@ -886,11 +886,12 @@ Windows:
 | The openssl-shaped layer (§7.1), from v0.2.0 | — | — | Each function is stable from the release that ships it. Its contract is `openssl`'s at the version NEWS records; a divergence upstream becomes a documented difference, never a changed `crypt_` function |
 
 **The freeze** is the event that moves the archive to "frozen", in v0.1.0 (revision 4,
-item 10). It happens when all of the following hold:
+item 10). **Declared 2026-09-29 (roadmap Stage 11, #43)**, when all of the following held:
 - `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) links `libzucrypt.a` from `main` on a
   `zuxlsx` branch and decrypts the real encrypted fixture to its known plaintext;
 - `tools/zucryptlink` is green on three operating systems;
-- `zuxlsx` builds against `zucrypt@main` in this repository's CI.
+- `zuxlsx` builds against `zucrypt@main` in this repository's CI (`revdep.yaml`, on every push
+  and pull request, three operating systems).
 
 **What "frozen" means.** Within major version 1:
 - functions and table fields may be added;

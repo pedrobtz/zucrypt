@@ -117,16 +117,16 @@ The three surfaces are at different stages:
 \itemize{
 \item \strong{The seven \verb{crypt_*()} R functions} are stable.
 \item \strong{The static archive} -- \code{zucrypt.h}, \code{libzucrypt.a} and where it is
-installed -- is \emph{provisional} until 0.1.0 is released on CRAN, where it
-becomes frozen ABI 1, once its first consumer (\code{zuxlsx}'s decryption of
-password protected workbooks) has linked it. Until then a change is possible, and
-every one is recorded in \code{NEWS.md}.
+installed -- is \emph{frozen} as ABI 1 from 0.1.0. The freeze followed its
+first consumer: \code{zuxlsx}'s decryption of password-protected workbooks was
+written against it, linked it on Linux, macOS and Windows, and decrypted
+a real encrypted workbook with it.
 \item \strong{The registered table} (\code{zucrypt-r.h}) is \emph{experimental}: no package
 uses it yet. It may change in any release until one does, again with
 every change recorded in \code{NEWS.md}.
 }
 
-\code{ZUCRYPT_ABI_VERSION} is \code{1}. Once frozen, within a major version:
+\code{ZUCRYPT_ABI_VERSION} is \code{1}. Within major version 1:
 functions and table fields may be added; nothing is removed, reordered or
 given a new meaning; enumerator values are permanent, so an algorithm
 compiled out of a build keeps its number and reports itself unavailable;

@@ -22,3 +22,13 @@ archive_derive <- function(seed, spins, algorithm = "sha512") {
 archive_segments <- function(data, key, iv, segment, encrypt = FALSE) {
   .Call(zl_segments, data, key, iv, as.integer(segment), isTRUE(encrypt))
 }
+
+# The half of the lifecycle `useDynLib` does not do. R calls
+# R_unload_zucryptlink() -- and so zuc_shutdown() -- only when the DLL is
+# unloaded, and with useDynLib nothing unloads it unless the namespace says
+# so here. Without this, unloadNamespace() left the backend initialised and
+# its key store allocated (found by zuxlsx, zucrypt#43). A consumer of the
+# archive copies this line with its own package name.
+.onUnload <- function(libpath) {
+  library.dynam.unload("zucryptlink", libpath)
+}
