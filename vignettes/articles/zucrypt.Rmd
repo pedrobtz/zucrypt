@@ -108,6 +108,21 @@ The digest of empty input is well defined, and you get it:
 crypt_hex(crypt_hash(raw(0)))
 ```
 
+A file is hashed by passing a connection, never its path as a string. It is
+read in 1 MiB chunks, so its size does not matter:
+
+```{r}
+path <- tempfile()
+writeBin(msg, path)
+crypt_hex(crypt_hash(file(path)))
+unlink(path)
+```
+
+An unopened connection is opened in binary mode and closed again; one you have
+already opened must be in binary mode (`"rb"`), because a text-mode connection
+may change the bytes before they are hashed. `crypt_hmac()` takes connections
+in the same way.
+
 ## `crypt_hmac()`: keyed digests
 
 An HMAC is a digest that only someone holding the key can compute, which makes
@@ -317,6 +332,7 @@ e$algorithm
 | `zucrypt_invalid_argument` | An argument has the wrong type, for example a string where raw bytes are needed |
 | `zucrypt_unsupported_algorithm` | An algorithm name is not one of `crypt_info()$algorithms` |
 | `zucrypt_bad_length` | A key, IV or data length is not allowed |
+| `zucrypt_connection_error` | A connection passed as `data` could not be opened, or ran dry before its end |
 | `zucrypt_memory_error` | An allocation failed |
 | `zucrypt_backend_error`, `zucrypt_internal_error` | The cryptographic library refused, or an invariant broke; please report these |
 

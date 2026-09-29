@@ -125,15 +125,18 @@ aes_algorithm <- function(key) {
 }
 
 check_raw <- function(x, arg, algorithm = NA_character_,
-                      call = sys.call(-1L)) {
+                      call = sys.call(-1L), connection_ok = FALSE) {
   if (!is.raw(x)) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      sprintf(paste0("`%s` must be a raw vector, not %s. ",
+      sprintf(paste0("`%s` must be a raw vector%s, not %s. ",
                      "Use charToRaw() to convert a string deliberately; ",
                      "this package never guesses an encoding, and never ",
-                     "treats a string as a file name."),
-              arg, class(x)[1]),
+                     "treats a string as a file name%s."),
+              arg,
+              if (connection_ok) " or a connection" else "",
+              class(x)[1],
+              if (connection_ok) " (pass file(path) for a file)" else ""),
       algorithm = algorithm,
       call = call
     )

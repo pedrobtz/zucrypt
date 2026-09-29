@@ -83,3 +83,52 @@ test_that("an interrupted call frees its context once collected", {
     expect_identical(live_contexts(), before, info = name)
   }
 })
+
+test_that("connection input leaves no live context, however it ends", {
+  # #11: the stream's context lives in an external pointer across R-level
+  # calls, so each way out of digest_connection() is a separate path.
+  path <- tempfile()
+  writeBin(as.raw(rep_len(0:255, 3L * 1048576L)), path)
+  on.exit(unlink(path))
+  key <- as.raw(rep(1L, 32))
+
+  gc()
+  before <- live_contexts()
+  crypt_hash(file(path))
+  crypt_hmac(file(path), key)
+  # Released eagerly on success: no gc() before this check.
+  expect_identical(live_contexts(), before)
+
+  # A text-mode connection is refused before any context exists.
+  con <- file(path, "r")
+  expect_error(crypt_hash(con), class = "zucrypt_invalid_argument")
+  close(con)
+  expect_identical(live_contexts(), before)
+})
+
+test_that("an interrupted connection hash frees its context once collected", {
+  skip_on_cran()   # a 64 MiB file, and timing-dependent by construction
+  path <- tempfile()
+  writeBin(as.raw(rep_len(0:255, 64L * 1024L * 1024L)), path)
+  on.exit(unlink(path))
+  key <- as.raw(rep(0x2bL, 32))
+  calls <- list(
+    hash = function() crypt_hash(file(path), "sha512"),
+    hmac = function() crypt_hmac(file(path), key, "sha512")
+  )
+
+  gc()
+  before <- live_contexts()
+  for (name in names(calls)) {
+    cut_short <- FALSE
+    for (limit in c(0.01, 0.05, 0.2)) {
+      if (interrupted_by_time_limit(calls[[name]], limit)) {
+        cut_short <- TRUE
+        break
+      }
+    }
+    expect_true(cut_short, info = name)
+    gc()
+    expect_identical(live_contexts(), before, info = name)
+  }
+})

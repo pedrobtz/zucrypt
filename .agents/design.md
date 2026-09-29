@@ -523,7 +523,7 @@ and never enter the archive.
 
 | Tranche | Enters | Standard and oracle | Backend cost |
 | --- | --- | --- | --- |
-| 1 (Stage 13) | OS randomness (#9); MD5, SHA-224, RIPEMD-160, SHA-3; Base64; the openssl-shaped digest and HMAC functions, with character and connection input (#11) | RFC 1321, FIPS 180-4, FIPS 202, RFC 4648; `openssl` | small: `md5.c`, `ripemd160.c`, `sha3.c`, `base64.c` |
+| 1 (Stage 13) | OS randomness (#9); MD5, SHA-224, RIPEMD-160, SHA-3; Base64; the openssl-shaped digest and HMAC functions, with character and connection input (the latter from v0.1.0, #11) | RFC 1321, FIPS 180-4, FIPS 202, RFC 4648; `openssl` | small: `md5.c`, `ripemd160.c`, `sha3.c`, `base64.c` |
 | 2 (Stage 14) | AES-GCM (#10), ChaCha20-Poly1305, AES-CTR, PKCS#7 padding for CBC; PBKDF2-HMAC and HKDF (#12) | NIST SP 800-38A and 38D, RFC 8439, RFC 8018 and 6070, RFC 5869; `openssl` | moderate: `gcm.c`, `chacha20.c`, `poly1305.c`, `chachapoly.c`, the KDF core |
 | 3 (Stage 15) | Key objects; PEM and DER read and write; RSA key generation, PKCS#1 v1.5 and PSS signatures, OAEP and v1.5 encryption; `openssl`'s envelope format; SSH key formats; bignum conversion | RFC 8017, FIPS 186-5, RFC 5208 and 7468; `openssl` cross-reading and cross-verification | large: `bignum*.c`, `rsa.c`, `pk*.c`, `pem.c`, `asn1*.c`, `oid.c` |
 | 4 (Stage 16) | EC key generation, ECDSA (RFC 6979 as an option), NIST-curve ECDH, X25519 | FIPS 186-5, RFC 6979, RFC 7748, NIST CAVP; `openssl`, `sodium` for X25519 | moderate on top of 3: `ecp*.c`, `ecdsa.c` |
@@ -593,8 +593,9 @@ suffix names the difference that matters, and frees the ordinary names for §7.1
 
 Contract:
 
-- Binary arguments are raw vectors. A character value is never interpreted as a filename,
-  password or byte sequence.
+- Binary arguments are raw vectors; `data` to `crypt_hash()` and `crypt_hmac()` may also be a
+  connection (#11, below). A character value is never interpreted as a filename, password or
+  byte sequence.
 - A scalar algorithm name selects one documented algorithm. There is no partial matching
   (`match.arg()` is not used), and no fallback to another algorithm.
 - Hashes and HMACs are returned as raw vectors. Hex formatting is an explicit conversion at the
@@ -621,10 +622,16 @@ These functions operate on keys the caller supplies. They do not turn a password
 provides confidentiality only, and its documentation must make authentication the caller's
 explicit responsibility.
 
-**File and connection hashing** (#11) is not a separate function. It is the connection input
-of the openssl-shaped layer (§7.1), which chunks through the incremental path, checks for
-interrupts between chunks, and refuses text-mode connections, whose encoding conversion would
-change the bytes.
+**File and connection hashing** (#11) is not a separate function, and never a path string:
+`crypt_hash()` and `crypt_hmac()` accept a connection as `data`, from v0.1.0 (moved forward
+from Stage 13 for `dastash`). `file(path)` hashes a file. R reads 1 MiB chunks with
+`readBin()` into an incremental context owned by a finalized external pointer
+(`zucrypt_*_stream_new/update/finish` in the R glue, over the archive's `zuc_hash_*` and
+`zuc_hmac_*`), with an interrupt check per chunk. An unopened connection is opened `"rb"` and
+closed; an open one is read from where it stands and left open. Text-mode connections are
+refused, because encoding conversion would change the bytes; a connection that cannot be opened,
+or a non-blocking one that runs dry before its end, is `zucrypt_connection_error`. §7.1's
+mirrored functions take connections through the same path.
 
 ### 7.1 The openssl-shaped layer
 
@@ -1032,6 +1039,7 @@ classes, keyed by C enumerator name, are:
 | `ZUC_ERR_ABI` | `zucrypt_abi_mismatch` |
 | `ZUC_ERR_INTERNAL` | `zucrypt_internal_error` |
 | `ZUC_ERR_NOT_READY` | `zucrypt_internal_error`. R initialises the backend in `R_init_zucrypt`, so from R this can only be a bug |
+| (none: raised in R) | `zucrypt_connection_error`: a connection given as `data` cannot be opened, or ran out of data before its end (#11) |
 
 **How the map and the conditions behave.**
 - The names are fetched from C with `.Call(zucrypt_status_codes)`, so renumbering cannot remap a

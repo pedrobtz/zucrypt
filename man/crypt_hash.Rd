@@ -7,9 +7,11 @@
 crypt_hash(data, algorithm = "sha256")
 }
 \arguments{
-\item{data}{A raw vector. Character input is never accepted: this package
-does not guess a text encoding and never treats a string as a file name.
-Convert deliberately with \code{\link[=charToRaw]{charToRaw()}} or \code{\link[=serialize]{serialize()}}.}
+\item{data}{A raw vector, or a connection to read to its end (see
+"Files and connections" below). Character input is never accepted: this
+package does not guess a text encoding and never treats a string as a
+file name. Convert deliberately with \code{\link[=charToRaw]{charToRaw()}} or \code{\link[=serialize]{serialize()}}, or
+pass \code{file(path)} to hash a file.}
 
 \item{algorithm}{A single algorithm name: one of \code{"sha1"}, \code{"sha256"},
 \code{"sha384"} or \code{"sha512"}, and whatever \code{crypt_info()$algorithms} reports
@@ -23,7 +25,8 @@ for the SHA-2 family. Hex formatting is an explicit step at the call
 site, with \code{\link[=crypt_hex]{crypt_hex()}}; see the examples.
 }
 \description{
-Hashes a raw vector with one of the digest algorithms this build provides.
+Hashes a raw vector, or everything a connection yields, with one of the
+digest algorithms this build provides.
 }
 \section{Choosing an algorithm}{
 
@@ -32,6 +35,26 @@ requires otherwise. \code{"sha1"} is available because document formats specify
 it -- notably the Office encryption profiles this package exists to
 support -- and it is not collision resistant. Do not select it for
 anything new.
+}
+
+\section{Files and connections}{
+
+A connection is read in 1 MiB chunks, so a file of any size is hashed
+without being held in memory, and the call can be interrupted. Pass an
+unopened connection, such as \code{file(path)}, and it is opened in binary mode
+(\code{"rb"}) and closed again afterwards; pass one you have already opened and
+it is read from where it stands to its end, and left open.
+
+An open connection must be in binary mode. A text-mode connection can
+re-encode or translate line endings before the bytes arrive, which would
+hash something other than the file, so it is refused with
+\code{zucrypt_invalid_argument}. A connection that cannot be opened signals
+\code{zucrypt_connection_error}, as does a non-blocking connection that runs out
+of data before its end, which is refused rather than hashed short. An
+error while reading is R's own.
+
+What is hashed is what the connection yields: \code{gzfile()} gives the
+decompressed bytes, \code{file()} the bytes on disk.
 }
 
 \examples{
@@ -46,8 +69,14 @@ crypt_hash(raw(0))
 
 crypt_hash(charToRaw("abc"), "sha512")
 
+# A file, read in chunks rather than all at once.
+path <- tempfile()
+writeBin(charToRaw("abc"), path)
+identical(crypt_hash(file(path)), crypt_hash(charToRaw("abc")))
+unlink(path)
+
 }
 \seealso{
 \code{\link[=crypt_hmac]{crypt_hmac()}} for a keyed digest, \code{\link[=crypt_equal]{crypt_equal()}} for comparing
-digests without leaking timing information.
+digests without leaking timing information, \code{\link[=crypt_hex]{crypt_hex()}} for hex.
 }

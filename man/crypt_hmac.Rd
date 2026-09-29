@@ -7,9 +7,11 @@
 crypt_hmac(data, key, algorithm = "sha256")
 }
 \arguments{
-\item{data}{A raw vector. Character input is never accepted: this package
-does not guess a text encoding and never treats a string as a file name.
-Convert deliberately with \code{\link[=charToRaw]{charToRaw()}} or \code{\link[=serialize]{serialize()}}.}
+\item{data}{A raw vector, or a connection to read to its end (see
+"Files and connections" below). Character input is never accepted: this
+package does not guess a text encoding and never treats a string as a
+file name. Convert deliberately with \code{\link[=charToRaw]{charToRaw()}} or \code{\link[=serialize]{serialize()}}, or
+pass \code{file(path)} to hash a file.}
 
 \item{key}{A raw vector holding the key. Any length is accepted, including
 zero, as the standard specifies. This is a key, not a password: deriving
@@ -26,8 +28,15 @@ quietly different algorithm.}
 A raw vector the length of the underlying digest.
 }
 \description{
-Computes a keyed message authentication code (RFC 2104) over a raw vector.
+Computes a keyed message authentication code (RFC 2104) over a raw vector,
+or over everything a connection yields.
 }
+\section{Files and connections}{
+
+\code{data} may be a connection, read in chunks exactly as for \code{\link[=crypt_hash]{crypt_hash()}};
+see "Files and connections" there. The key is always a raw vector.
+}
+
 \section{Verifying a MAC}{
 
 Compare with \code{\link[=crypt_equal]{crypt_equal()}}, never with \code{identical()} or \code{==}. An ordinary

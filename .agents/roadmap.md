@@ -103,7 +103,7 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | — Hex output and connection hashing | v0.1.0 | #59, #11 | — | in progress |
 | 11 — The first consumer, and the freeze | v0.1.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | The rename. `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) | waiting on that core |
 | 12 — v0.1.0 and CRAN | v0.1.0 | #17, #13, #15 | Stage 11 | |
-| 13 — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #9, #11, #16 | Stage 12 | |
+| 13 — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #9, #16 | Stage 12 | |
 | 14 — Tranche 2: authenticated encryption and key derivation | v0.3.0 | #10, #12 | Stage 13 | |
 | 15 — Tranche 3: key objects, PEM and DER, RSA | v0.4.0 | new | Stage 14 | |
 | 16 — Tranche 4: EC keys, ECDSA, ECDH, X25519 | v0.5.0 | new | Stage 15 | |
@@ -486,7 +486,8 @@ Work items:
   `crypt_sha256()`, `crypt_sha384()`, `crypt_sha512()`, `crypt_sha2(x, size)`,
   `crypt_sha3(x, size)`, `crypt_ripemd160()`, `crypt_multihash()`, each with `key = NULL` for
   HMAC, and raw, character and connection input by the §7.1 typing rules. Connection input
-  closes #11; `crypt_hash_file()` is withdrawn. `crypt_rand_num()` beside `crypt_rand_bytes()`.
+  reuses the core's stream path, in v0.1.0 since #11; `crypt_hash_file()` is withdrawn.
+  `crypt_rand_num()` beside `crypt_rand_bytes()`.
 - **Measure the claim.** The migration article's table is generated from
   `getNamespaceExports("openssl")` at the pinned version (78 at 2.3.4), so every export is in
   exactly one of: covered, planned (with its stage), or a gap with its reason. A README line
@@ -502,7 +503,7 @@ Work items:
   `openssl` import actually removes a system requirement. The survey run behind the README
   count is saved with package versions, source hashes, scan failures and per-package results.
 - **Reference index** grouped into core, openssl-shaped, and C interface.
-- Close #9, #11 and #16. Record the `openssl` version the gate ran against in NEWS.
+- Close #9 and #16. Record the `openssl` version the gate ran against in NEWS.
 
 Exit:
 
