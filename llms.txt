@@ -119,6 +119,15 @@ it was built, what was deliberately left out, and what comes next.
 
 ## Installation
 
+From CRAN:
+
+``` r
+
+install.packages("zucrypt")
+```
+
+The development version, from GitHub:
+
 ``` r
 
 # install.packages("pak")
