@@ -44,8 +44,9 @@ extern "C" {
 /* The ABI this header describes.
  *
  * Stability (design.md section 8.6): this header and libzucrypt.a are
- * PROVISIONAL in v0.1.0. They become frozen ABI 1 in v0.2.0, once the first
- * consumer -- zuxlsx's agile decryption -- has linked the archive. Until
+ * PROVISIONAL until v0.1.0 is released on CRAN, where they become frozen
+ * ABI 1, once the first consumer -- zuxlsx's agile decryption -- has linked
+ * the archive. Until
  * then a change is allowed, and every one is recorded in NEWS.md. The
  * registered function table in zucrypt-r.h is EXPERIMENTAL and outside the
  * promise below until a package that is not a test fixture uses it.

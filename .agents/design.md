@@ -3,7 +3,8 @@
 Status: revision 4, adopted 2026-09-29. §3–§8 and §11–§12 describe the package on `main`;
 §6, §7.1 and §10 describe where revision 4 takes it. [roadmap.md](roadmap.md) Stages 7–10
 have implemented revision 3's decisions, all except the two tied to the first consumer: the
-ABI 1 freeze (§8.6, Stage 11) and CRAN (Stage 12). Stages 13–17 implement revision 4. §9,
+ABI 1 freeze (§8.6, Stage 11) and CRAN (Stage 12), both in v0.1.0, the first CRAN release.
+Stages 13–17 implement revision 4. §9,
 and §13 steps 3–5, are plans owned by `zuxlsx` and `zuhttp`.
 Date: 2026-09-19. Revised 2026-09-20 against the `zu*` packages as shipped; reviewed
 2026-09-22 against the implementation (#37); revision 3 on 2026-09-25; implementation
@@ -75,11 +76,15 @@ distinguish `zuxml` and `zukomp` is that each is useful on its own. This revisio
      I/O needs no second manifest row. X.509 does: certificates need Mbed TLS proper.
    - There is no EdDSA. X25519 exists (ECDH over Curve25519); Ed25519 does not. That is the
      first documented gap against `openssl`, and it is recorded rather than worked around.
-10. **Release order.** (§13)
-    v0.2.0 precedes whichever `zuxlsx` release first links the archive, 0.1.0 if passwords are
-    pulled forward there. Every later release is additions only, one per tranche. Tranches 1
-    and 2 are the plan; tranches 3–5 are candidates, each decided afresh against the fifth
-    admission criterion when the one before it has shipped (#56).
+10. **Release order: v0.1.0 is the first CRAN release, and carries the freeze.** (§8.6, §13)
+    This supersedes revision 3's item 10 (a GitHub-only v0.1.0, CRAN at v0.2.0), decided
+    2026-09-29. `zuxlsx` 0.1.0 ships password-protected workbooks and links zucrypt 0.1.0's
+    archive, so the archive freezes there. It freezes on `zuxlsx`'s decryption core in C
+    (zuxlsx#22 step 3), which exercises every archive call `zuxlsx` makes, rather than on all
+    of zuxlsx#22, whose CFB reader and parsing never call zucrypt. Every later release is
+    additions only, one per tranche, numbered from 0.2.0. Tranches 1 and 2 are the plan;
+    tranches 3–5 are candidates, each decided afresh against the fifth admission criterion
+    when the one before it has shipped (#56).
 
 **Amended 2026-09-29 by the review in #56**, before anything was merged:
 - The fifth admission criterion (item 2), and tranches 3–5 made conditional (item 10).
@@ -462,7 +467,7 @@ either package to `zuxlsx`.
 
 ## 6. Algorithm scope
 
-**The profile on `main`** is what v0.1.0 and v0.2.0 ship:
+**The profile on `main`** is what v0.1.0 ships:
 
 | Capability | First consumer | Exposure |
 | --- | --- | --- |
@@ -856,16 +861,17 @@ Windows:
 
 ### 8.6 Stability
 
-| Surface | v0.1.0 (GitHub tag) | v0.2.0 (CRAN) | Changes allowed |
+| Surface | `main` before the freeze | v0.1.0 (CRAN) onward | Changes allowed |
 | --- | --- | --- | --- |
 | The six `crypt_*` functions and their condition classes | stable | stable | Additions only; nothing removed or given a new meaning |
 | `zucrypt.h`, `libzucrypt.a`, install path | **provisional** | **frozen as ABI 1** | Before the freeze: any change, recorded in `NEWS.md` and applied to `zuxlsx` together. After: additions only |
 | `zucrypt-r.h`, the registered table | **experimental** | experimental | Any change, recorded in `NEWS.md`. Leaves the tier when a non-fixture package uses it |
-| The openssl-shaped layer (§7.1), from v0.3.0 | — | — | Each function is stable from the release that ships it. Its contract is `openssl`'s at the version NEWS records; a divergence upstream becomes a documented difference, never a changed `crypt_` function |
+| The openssl-shaped layer (§7.1), from v0.2.0 | — | — | Each function is stable from the release that ships it. Its contract is `openssl`'s at the version NEWS records; a divergence upstream becomes a documented difference, never a changed `crypt_` function |
 
-**The freeze** is the event that moves the archive to "frozen". It happens when all of the
-following hold:
-- `zuxlsx`'s agile decryption C path has merged, linking `libzucrypt.a`;
+**The freeze** is the event that moves the archive to "frozen", in v0.1.0 (revision 4,
+item 10). It happens when all of the following hold:
+- `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) links `libzucrypt.a` from `main` on a
+  `zuxlsx` branch and decrypts the real encrypted fixture to its known plaintext;
 - `tools/zucryptlink` is green on three operating systems;
 - `zuxlsx` builds against `zucrypt@main` in this repository's CI.
 
@@ -1056,28 +1062,30 @@ fixtures with known passwords and redistribution permission.
 
 1. **Backend spike.** Done: stage-1-spike.md.
 2. **Core package.** Done: roadmap Stages 2–4.
-3. **Settle and prove the core** (roadmap Stages 7–9, v0.1.0): revision 3's surface changes,
-   gates that execute, independent vectors, and documentation that matches the code.
-4. **First consumer and freeze** (roadmap Stages 10–12, v0.2.0 on CRAN):
+3. **Settle and prove the core** (roadmap Stages 7–9): revision 3's surface changes, gates
+   that execute, independent vectors, and documentation that matches the code.
+4. **First consumer, freeze and CRAN** (roadmap Stages 10–12, v0.1.0, the first CRAN
+   release):
    - the archive fixture package;
-   - `zuxlsx`'s agile C path against the archive;
+   - the CBC rename (#56);
+   - `zuxlsx`'s decryption core in C against the archive (zuxlsx#22 step 3);
    - the ABI 1 freeze.
 
    The family's first end-to-end success criterion is reading a password-encrypted workbook
-   without Java, Python or a system OpenSSL. It is met in the first `zuxlsx` release that
-   links the archive (0.2.0, or 0.1.0 if passwords are pulled forward), which follows
-   `zucrypt` 0.2.0 onto CRAN.
+   without Java, Python or a system OpenSSL. It is met by `zuxlsx` 0.1.0, which follows
+   `zucrypt` 0.1.0 onto CRAN.
 5. **HTTP evaluation**, owned by `zuhttp`: its Mbed TLS spike, on the shared manifest row, with
    native OS TLS retained.
-6. **Tranche 1** (roadmap Stage 13, v0.3.0): randomness, the remaining digests, Base64, and
+6. **Tranche 1** (roadmap Stage 13, v0.2.0): randomness, the remaining digests, Base64, and
    the openssl-shaped layer with its gate and migration article over what already exists.
-7. **Tranche 2** (Stage 14, v0.4.0): AEAD, CTR, padding, PBKDF2 and HKDF.
-8. **Tranches 3 and 4** (Stages 15–16, v0.5.0 and v0.6.0): key objects, PEM and DER and RSA,
-   then the curves. Ordered by measured use among `openssl`'s importers
+7. **Tranche 2** (Stage 14, v0.3.0): AEAD, CTR, padding, PBKDF2 and HKDF.
+8. **Tranches 3 and 4** (Stages 15–16, v0.4.0 and v0.5.0, candidates): key objects, PEM and
+   DER and RSA, then the curves. Ordered by measured use among `openssl`'s importers
    (`tools/openssl-usage.R`, roadmap Stage 13).
-9. **Tranche 5** (Stage 17, v0.7.0): X.509 certificate data on a second manifest row.
+9. **Tranche 5** (Stage 17, v0.6.0, candidate): X.509 certificate data on a second manifest
+   row.
 
-Each release after v0.2.0 is additions only, to the R surface and to the archive, and each is
+Each release after v0.1.0 is additions only, to the R surface and to the archive, and each is
 a CRAN release. The `zuhttp` provider, if taken, is a separate repository and starts from
 step 9's manifest row.
 

@@ -9,7 +9,7 @@ The plan of record is [design.md](.agents/design.md) revision 4 (2026-09-29) and
 `zuxlsx`'s archive provider, `zucrypt` becomes an alternative to the `openssl` package with no
 system library, vendored Mbed TLS ecosystem underneath, through an openssl-shaped `crypt_` layer
 (design §7.1: `crypt_sha256(x, key = NULL)`, `crypt_rand_bytes(n)`, ...) added in tranches
-after v0.2.0 (Stages 13–14 planned; 15–17 candidates, each decided when the one before has
+after v0.1.0 (Stages 13–14 planned; 15–17 candidates, each decided when the one before has
 shipped; one CRAN minor release each). A primitive enters on the admission rule of design §6
 (a numbered standard, published vectors, an outside oracle, a composition contract, a
 demonstrated workflow benefit), no longer on a named consumer. The review in #56 amended the
@@ -17,14 +17,16 @@ revision before it merged; design §"Revision 4" lists what it changed. Two back
 ASN.1 are inside the pinned TF-PSA-Crypto tree, so key I/O needs no second vendored library,
 while X.509 does (Stage 17); and the release has X25519 but no Ed25519, the first documented
 gap against `openssl`. Stages 0–5 and 7–10 are complete (Stage 5 closed with
-Stage 8, once its weekly gates ran real tests; Stage 6 was superseded by Stages 7–9). **The
-v0.1.0 tag is still the maintainer's** ([#27](https://github.com/pedrobtz/zucrypt/issues/27)),
-and one PR precedes it: renaming the CBC pair `crypt_aes_cbc_encrypt_nopad()` /
+Stage 8, once its weekly gates ran real tests; Stage 6 was superseded by Stages 7–9). **v0.1.0 is the
+first CRAN release and carries the freeze** (decided 2026-09-29; the GitHub-only tag of #27 and
+the separate v0.2.0 are gone). `zuxlsx` 0.1.0, with password-protected workbooks, follows it
+onto CRAN. **Next is one PR:** renaming the CBC pair `crypt_aes_cbc_encrypt_nopad()` /
 `_decrypt_nopad()` (design §7, #56), which frees the ordinary names for Stage 14's
-openssl-compatible padded pair. Then tag it, publish the release, and move `DESCRIPTION` to
-`0.1.0.9000`. **Stage 11 — the first
-consumer and the freeze — is next** ([#43](https://github.com/pedrobtz/zucrypt/issues/43)), and
-it waits on [zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)'s C path.
+openssl-compatible padded pair. **Then Stage 11 — the first consumer and the freeze**
+([#43](https://github.com/pedrobtz/zucrypt/issues/43)), which waits only on `zuxlsx`'s
+decryption core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) on a
+branch, not on its CFB reader or the rest of #22. Stage 12 then submits 0.1.0; on acceptance,
+tag `v0.1.0` and move `DESCRIPTION` to `0.1.0.9000`.
 
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
 it in CI and fails on any difference, so never edit `README.md` by hand.
@@ -44,9 +46,9 @@ AES-ECB (#29), made the PSA key store dynamic (#30), appended `ZUC_ERR_NOT_READY
 `ZUCRYPT_API_HAS`, and moved the install layout to zukomp's (#33).
 
 **Stability comes in tiers (design §8.6).** The six R functions are stable. The archive
-(`zucrypt.h`, `libzucrypt.a`, `ZUCRYPT_ABI_VERSION 1`) is *provisional* until `zuxlsx`'s agile C
-path ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) has merged against it, and is
-frozen in v0.2.0 (Stage 11). The table is *experimental*: no package uses it (#14). Until the
+(`zucrypt.h`, `libzucrypt.a`, `ZUCRYPT_ABI_VERSION 1`) is *provisional* until `zuxlsx`'s decryption
+core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) has linked it, and is
+frozen in v0.1.0 (Stage 11), the first CRAN release. The table is *experimental*: no package uses it (#14). Until the
 freeze, an archive change is allowed but must be recorded in `NEWS.md`.
 
 Both shapes have a consumer fixture package under `tools/`, zukomp's layout, and neither is
@@ -109,8 +111,8 @@ revision 4. §3–§8 and §11–§12 describe `main` as amended by revision 3's
 7–12 implement; §6, §7.1 and §10 describe where revision 4 takes it, which Stages 13–17
 implement; §9 and §13 steps 3–5 are plans owned by `zuxlsx` and `zuhttp`. Read it before writing code; it is the authoritative spec for the API,
 boundaries and constraints summarised below, and it is where design changes belong.
-[.agents/roadmap.md](.agents/roadmap.md) Part A is the plan from here (Stages 7–12, v0.1.0 then
-v0.2.0 on CRAN; Stages 13–17, one tranche and one CRAN minor release each); Part B is the executed v0.1.0 roadmap, kept as the record. Check which stage
+[.agents/roadmap.md](.agents/roadmap.md) Part A is the plan from here (Stages 7–12, v0.1.0 on
+CRAN; Stages 13–17, one tranche and one CRAN minor release each); Part B is the executed v0.1.0 roadmap, kept as the record. Check which stage
 is current before starting work. One rule added by the re-plan: a stage that adds or changes a
 scheduled job closes only after that job's first real run, dispatched by hand.
 

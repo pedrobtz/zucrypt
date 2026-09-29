@@ -37,7 +37,7 @@ available_algorithms <- local({
 #'     \item{`version`}{the `zucrypt` package version, as a `package_version`.}
 #'     \item{`abi_version`}{the C ABI version published to `LinkingTo`
 #'       consumers, as an integer: `1`. The archive's ABI is provisional until
-#'       its first consumer links it, and frozen from v0.2.0; see
+#'       its first consumer links it, and frozen from the CRAN release of 0.1.0; see
 #'       [zucrypt_c_api].}
 #'     \item{`algorithms`}{the digest algorithms this build provides, which
 #'       is exactly the set `crypt_hash()` and `crypt_hmac()` accept.}

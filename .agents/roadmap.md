@@ -4,17 +4,18 @@ Status: adopted 2026-09-25 (#38); re-planned 2026-09-29 for design revision 4. T
 implements [design.md](design.md) revision 4.
 - Stages 0–4 are done.
 - Stage 5 was reopened (#26) and closed with Stage 8, once its weekly gates ran real tests.
-- Stage 6 was prepared and never tagged. Its remaining items became Stages 7–9, and the
-  v0.1.0 tag is the last item of Stage 9.
-- **Stages 7–10 are done** (#45, #46, #47, #49), with #48 clearing the last check NOTE. The
-  v0.1.0 tag waits on the maintainer (#27).
-- **Stage 11 is next.** It waits on zuxlsx's agile C path, and Stage 12 follows it to v0.2.0,
-  the first CRAN release.
+- Stage 6 was prepared and never tagged. Its remaining items became Stages 7–9.
+- **Stages 7–10 are done** (#45, #46, #47, #49), with #48 clearing the last check NOTE.
+- **v0.1.0 is the first CRAN release** (decided 2026-09-29, replacing the GitHub-only tag of
+  #27 and the separate v0.2.0). It carries the freeze. `zuxlsx` 0.1.0, with password-protected
+  workbooks, follows it onto CRAN.
+- **Next:** the CBC rename, then Stage 11, which waits on `zuxlsx`'s decryption core in C
+  (zuxlsx#22 step 3) but not on the rest of zuxlsx#22. Stage 12 takes v0.1.0 to CRAN.
 - **Re-planned 2026-09-29 for design revision 4.** Stages 11 and 12 are unchanged except one
   Stage 11 item, the `zuc_alg` ranges. Stages 13–17 are new: the openssl-shaped layer and its
   tranches, one CRAN minor release each. The goal they serve: an alternative to the `openssl`
   package, vendored Mbed TLS ecosystem underneath, for what `openssl` is used for.
-- **Amended the same day by the review in #56.** Before the v0.1.0 tag, the CBC pair is
+- **Amended the same day by the review in #56.** Before v0.1.0, the CBC pair is
   renamed `_nopad` (design §7). Stage 14's GCM keeps RFC 5116's contract rather than
   `openssl`'s. Stages 15–17 are candidates, each decided when the one before it has shipped.
   Stage 13's survey counts detected usage, and real migrations are added before any claim.
@@ -47,15 +48,14 @@ every surface change first.
 
 | Release | Where | What it promises | Gated by |
 | --- | --- | --- | --- |
-| **v0.1.0** | GitHub tag | The six R functions are stable. The archive ABI is *provisional*. The table is *experimental* (design §8.6) | Stages 7–9, and the CBC rename (#56) |
-| **v0.2.0** | CRAN | The archive is frozen as ABI 1. The table is still experimental | Stages 10–12, and `zuxlsx`'s agile C path ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) |
-| **v0.3.0** | CRAN | Tranche 1: randomness, the remaining digests, Base64, and the openssl-shaped layer with its gate and migration article (design §7.1) | Stage 13 |
-| **v0.4.0** | CRAN | Tranche 2: AES-GCM, ChaCha20-Poly1305, CTR, PKCS#7 padding, PBKDF2, HKDF | Stage 14 |
-| **v0.5.0** | CRAN | *Candidate.* Tranche 3: key objects, PEM and DER, RSA, signatures, envelopes | Stage 15, if admitted |
-| **v0.6.0** | CRAN | *Candidate.* Tranche 4: EC keys, ECDSA, ECDH, X25519 | Stage 16, if admitted |
-| **v0.7.0** | CRAN | *Candidate.* Tranche 5: X.509 certificate data, on a second manifest row | Stage 17, if admitted |
+| **v0.1.0** | CRAN, first release | The six R functions are stable. The archive is frozen as ABI 1. The table is *experimental* (design §8.6) | Stages 7–12, the CBC rename (#56), and `zuxlsx`'s decryption core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) |
+| **v0.2.0** | CRAN | Tranche 1: randomness, the remaining digests, Base64, and the openssl-shaped layer with its gate and migration article (design §7.1) | Stage 13 |
+| **v0.3.0** | CRAN | Tranche 2: AES-GCM, ChaCha20-Poly1305, CTR, PKCS#7 padding, PBKDF2, HKDF | Stage 14 |
+| **v0.4.0** | CRAN | *Candidate.* Tranche 3: key objects, PEM and DER, RSA, signatures, envelopes | Stage 15, if admitted |
+| **v0.5.0** | CRAN | *Candidate.* Tranche 4: EC keys, ECDSA, ECDH, X25519 | Stage 16, if admitted |
+| **v0.6.0** | CRAN | *Candidate.* Tranche 5: X.509 certificate data, on a second manifest row | Stage 17, if admitted |
 
-**v0.1.0 needs one more change before the tag** (#56, #27): `crypt_aes_cbc_encrypt()` and
+**v0.1.0 needs one more change before Stage 11** (#56): `crypt_aes_cbc_encrypt()` and
 `_decrypt()` become `crypt_aes_cbc_encrypt_nopad()` and `_decrypt_nopad()` (design §7, §7.1),
 through the R code, `?crypt_aes_cbc`, the tests, the article, `tools/alloc-exercise.R`,
 `tools/check-linking.sh`, the `zucrypttest` fixture and NEWS. It is one PR, like any other,
@@ -66,16 +66,23 @@ recorded decision, taken once the stage before it has shipped: is there demonstr
 (verified migrations, requests, the survey re-run against the adoption the earlier releases
 got)? If not, the stage waits, and the plan says so rather than slipping silently.
 
-**The family order fixes v0.2.0's deadline:**
-1. zucrypt reaches CRAN before whichever `zuxlsx` release first links the archive (0.2.0, or
-   0.1.0 if passwords are pulled forward there), since `zuxlsx` cannot pass CRAN's checks with
-   a `LinkingTo:` on a package that is not there.
-2. zucrypt reaches CRAN after `zuxlsx`'s C path has shown that the archive suits it, since
-   freezing first is the mistake this plan corrects.
+**The family order** (decided 2026-09-29): zucrypt 0.1.0 on CRAN, then `zuxlsx` 0.1.0 on CRAN
+with password-protected workbooks.
+1. zucrypt reaches CRAN first, since `zuxlsx` cannot pass CRAN's checks with a `LinkingTo:` on
+   a package that is not there.
+2. `zuxlsx` 0.1.0 links zucrypt 0.1.0's archive, so 0.1.0 is where the archive freezes, and
+   it freezes on the consumer's own code, not on fixtures alone: freezing first is the mistake
+   this plan corrects. What must exist is the part of zuxlsx#22 that touches the archive, its
+   step 3 — key derivation, key decryption, the segment loop and the HMAC check, in C — tested
+   against the real encrypted fixture with the `EncryptionInfo` parameters supplied from R.
+   The CFB stream reader, `EncryptionInfo` parsing, fuzzing and limits (zuxlsx#25, #26, #45)
+   never call zucrypt, so they finish after zucrypt is submitted, before `zuxlsx` is.
 
-zucrypt 0.2.0 and that `zuxlsx` release are therefore one sequence: C path merged, then zucrypt
-frozen and submitted, then `zuxlsx` submitted. Every zucrypt release after 0.2.0 is additions
-only, so none of them puts `zuxlsx` in the sequence again.
+The sequence is: zuxlsx's decryption core on a branch against zucrypt `main`, then zucrypt
+frozen and submitted as 0.1.0, then the rest of zuxlsx#22, then `zuxlsx` 0.1.0 submitted with
+`LinkingTo: zucrypt (>= 0.1.0)`. Every zucrypt release after 0.1.0 is additions only, so none
+of them puts `zuxlsx` in the sequence again. If the rest of zuxlsx#22 finds that the archive
+needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`.
 
 ## Stage map
 
@@ -83,15 +90,16 @@ only, so none of them puts `zuxlsx` in the sequence again.
 | --- | --- | --- | --- | --- |
 | 7 — Settle the surface before anything links it | v0.1.0 | #29, #30, #28, #33 (layout and licence), #19 (decision), #36 (header and resolver text) | — | **done**, #45 |
 | 8 — Evidence that has run | v0.1.0 | #31, #34, #35; closes #26 | Stage 7. A fix in `r-actions` for the allocation interposer | **done**, #46 (r-actions v1.12.2–v1.15.0) |
-| 9 — Documentation that matches the code, and the tag | v0.1.0 | #36 (the rest), #27 | Stage 8 | **done**, #47 and #48; the tag waits on the maintainer (#27) |
-| 10 — The archive proved the way a consumer uses it | v0.2.0 | #32, #33 (fixture location) | Stage 9 | **done**, #49 |
-| 11 — The first consumer, and the freeze | v0.2.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | Stage 10. `zuxlsx`'s agile C path merged | next; waiting on zuxlsx#22 |
-| 12 — v0.2.0 and CRAN | v0.2.0 | #17, #13, #15 | Stage 11 | |
-| 13 — Tranche 1: the openssl-shaped layer over what exists | v0.3.0 | #9, #11, #16 | Stage 12 | |
-| 14 — Tranche 2: authenticated encryption and key derivation | v0.4.0 | #10, #12 | Stage 13 | |
-| 15 — Tranche 3: key objects, PEM and DER, RSA | v0.5.0 | new | Stage 14 | |
-| 16 — Tranche 4: EC keys, ECDSA, ECDH, X25519 | v0.6.0 | new | Stage 15 | |
-| 17 — Tranche 5: certificates | v0.7.0 | new | Stage 16 | |
+| 9 — Documentation that matches the code | v0.1.0 | #36 (the rest) | Stage 8 | **done**, #47 and #48. Its tag (#27) is superseded: v0.1.0 goes to CRAN in Stage 12 |
+| 10 — The archive proved the way a consumer uses it | v0.1.0 | #32, #33 (fixture location) | Stage 9 | **done**, #49 |
+| — The CBC rename | v0.1.0 | #56 | Stage 10 | next |
+| 11 — The first consumer, and the freeze | v0.1.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | The rename. `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) | waiting on that core |
+| 12 — v0.1.0 and CRAN | v0.1.0 | #17, #13, #15 | Stage 11 | |
+| 13 — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #9, #11, #16 | Stage 12 | |
+| 14 — Tranche 2: authenticated encryption and key derivation | v0.3.0 | #10, #12 | Stage 13 | |
+| 15 — Tranche 3: key objects, PEM and DER, RSA | v0.4.0 | new | Stage 14 | |
+| 16 — Tranche 4: EC keys, ECDSA, ECDH, X25519 | v0.5.0 | new | Stage 15 | |
+| 17 — Tranche 5: certificates | v0.6.0 | new | Stage 16 | |
 
 Issue #14 is closed as *not planned* when this plan merges (design revision 3, item 9).
 
@@ -328,16 +336,21 @@ Exit:
 Goal: freeze ABI 1 because a real consumer has shown the archive suits it, not because a stage
 number came up.
 
-Entry: `zuxlsx`'s agile decryption C path
-([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) is merged in that repository,
-linking `libzucrypt.a` from this repository's `main`.
+Entry: `zuxlsx`'s decryption core in C
+([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) exists on a `zuxlsx`
+branch, linking `libzucrypt.a` from this repository's `main` through `LinkingTo:` and
+`configure`, and decrypts the real encrypted fixture to its known plaintext with the
+`EncryptionInfo` parameters supplied from R. It covers every archive call `zuxlsx` will make:
+the spin loop, the key and verifier decryption, the per-segment IV, the segment loop and the
+HMAC over the package. It need not be merged; the CFB reader and the rest of zuxlsx#22 need
+not exist.
 
 Work items:
 
 - **Answer the consumer.** Anything `zuxlsx` finds missing or awkward is fixed here before the
   freeze, and recorded in NEWS. A change that is not an addition is allowed only in this window.
-- **Add a reverse-dependency job.** It builds `zuxlsx` at its `main` against this checkout, and
-  runs its decryption tests on three operating systems. This is the family convergence target that
+- **Add a reverse-dependency job.** It builds `zuxlsx` at that branch (at `main` once it
+  merges) against this checkout, and runs its decryption tests on three operating systems. This is the family convergence target that
   [zukomp#35](https://github.com/pedrobtz/zukomp/issues/35) tracks for `zukomp`. Write it so that
   `zukomp` and `zuxml` can adopt it unchanged, or propose it to `r-actions` as a reusable
   workflow.
@@ -359,9 +372,9 @@ Exit:
 - The freeze is stated in every place design §8.6 lists.
 - #28 closes.
 
-## Stage 12 — v0.2.0 and CRAN
+## Stage 12 — v0.1.0 and CRAN
 
-Goal: zucrypt on CRAN, before `zuxlsx` 0.2.0 is submitted.
+Goal: zucrypt on CRAN as 0.1.0, its first release, before `zuxlsx` 0.1.0 is submitted.
 
 Work items:
 
@@ -389,7 +402,7 @@ Work items:
 - **Rewrite `cran-comments.md`** as a first submission. It lists only checks that have run, and
   explains the vendored backend and the installed static archive in one paragraph each.
 - **Reposition the package before it is first published** (design revision 4, item 1), so
-  that the title CRAN shows from the first release is the one that still holds at 0.7.0.
+  that the title CRAN shows from the first release is the one that still holds at 0.6.0.
   *Done early, 2026-09-29:* `DESCRIPTION`'s Title is "Cryptography Without System
   Dependencies", the family's phrasing (`zuxlsx`: "Read 'xlsx' Workbooks Without System
   Dependencies"), true with six functions and true with sixty; the Description names the
@@ -397,10 +410,13 @@ Work items:
   describes what ships and promises no migration: that claim waits for Stage 13's layer
   (#56). The README's opening and the getting-started article were aligned in the same PR.
   Still to do here: the README's lifecycle statement, once the freeze is declared.
-- Set the version to 0.2.0.
-- **Submission** is for the maintainer: tag `v0.2.0` and submit.
+- The version stays 0.1.0. There is no GitHub-only release before it; #27 closes as
+  superseded.
+- **Submission** is for the maintainer: submit, and on acceptance tag `v0.1.0` and publish the
+  GitHub release.
 
-Exit: accepted on CRAN, `main` at `0.2.0.9000`, and `zuxlsx` notified that it can submit.
+Exit: accepted on CRAN, `main` at `0.1.0.9000`, and `zuxlsx` notified that it can submit 0.1.0
+once the rest of zuxlsx#22 has merged.
 
 ## Stage 13 — Tranche 1: the openssl-shaped layer over what exists
 
@@ -409,7 +425,7 @@ primitives already exist, so that every later tranche adds to a working pattern 
 inventing one. Plus the one primitive every later tranche needs: randomness.
 
 Entry: development can start on a branch once Stage 11 has frozen the archive, since every
-addition is compatible; the 0.3.0 release follows 0.2.0 on CRAN. Nothing here changes the
+addition is compatible; the 0.2.0 release follows 0.1.0 on CRAN. Nothing here changes the
 frozen archive; every C addition is appended.
 
 **Why this subset first, measured 2026-09-29** with `tools/openssl-usage.R` over the R sources
@@ -488,7 +504,7 @@ Exit:
 - The migration trials are recorded, and the article's claims are no stronger than they are.
 - The alloc-failure sweep's `min-target-hits` is raised to cover the new adapter code, and its
   first real run shows it.
-- Accepted on CRAN as 0.3.0.
+- Accepted on CRAN as 0.2.0.
 
 ## Stage 14 — Tranche 2: authenticated encryption and key derivation
 
@@ -522,11 +538,11 @@ Work items:
 Exit: vectors and the gate green on three operating systems; design §12's authenticated
 encryption gate green (tampered ciphertext, tag and associated data, truncated tag, wrong key:
 each an error, no plaintext); the sweep reaches the AEAD adapter; `tools/zucrypttest` calls
-every new table entry; the archive fixture links the new `zuc_*` functions; CRAN 0.4.0.
+every new table entry; the archive fixture links the new `zuc_*` functions; CRAN 0.3.0.
 
 ## Stage 15 — Tranche 3 (candidate): key objects, PEM and DER, RSA
 
-Entry: the admission decision (design §6, criterion 5), recorded once 0.4.0 has shipped. The
+Entry: the admission decision (design §6, criterion 5), recorded once 0.3.0 has shipped. The
 same holds for Stages 16 and 17, each after the stage before it.
 
 Goal: the first public-key tranche, ordered by the measurement above: key reading and writing
@@ -562,7 +578,7 @@ Work items:
   anything else in the stage, and the numbers go in the PR.
 
 Exit: cross-reading, cross-verification and the vectors green on three operating systems;
-constant-time claims are upstream's and are quoted, not restated; CRAN 0.5.0.
+constant-time claims are upstream's and are quoted, not restated; CRAN 0.4.0.
 
 ## Stage 16 — Tranche 4 (candidate): EC keys, ECDSA, ECDH and X25519
 
@@ -580,7 +596,7 @@ Work items:
   the reason: the pinned release has no EdDSA. Two importers need it (`jose`, `shinyOAuth`).
 - The gate is cross-verification throughout, since signing and key generation are randomised.
 
-Exit: CRAN 0.6.0.
+Exit: CRAN 0.5.0.
 
 ## Stage 17 — Tranche 5 (candidate): certificates
 
@@ -602,7 +618,7 @@ Work items:
 - Test fixtures: a synthetic CA, intermediate and leaf generated by a `tools/` script with
   `openssl`, committed with provenance.
 
-Exit: CRAN 0.7.0, and the manifest row documented well enough that a sibling provider could
+Exit: CRAN 0.6.0, and the manifest row documented well enough that a sibling provider could
 start from it.
 
 ## After Stage 17
@@ -639,13 +655,13 @@ Pins stay commits, with the tag in a trailing comment, and a bump is its own rev
 - **An r-actions release is on the critical path.** Stage 8 cannot close until the interposer is
   fixed upstream. CLAUDE.md forbids hand-rolled jobs, so the mitigation is to file the fix early,
   in Stage 7, not to work around it.
-- **v0.2.0 waits on another repository by design.** If `zuxlsx#22` stalls, so does the
-  freeze, and freezing without that consumer is the mistake being corrected: do not trade it
-  away for a date. Under revision 4 the R package has users of its own, so the *first CRAN
-  release* no longer has to wait on the archive (#56). If the stall is long, revisit
-  decoupling them: a CRAN release with the archive still provisional and said so, and the
-  freeze in whichever later release follows zuxlsx#22. That is a decision to record here
-  before acting on it, not a default.
+- **v0.1.0 waits on another repository by design**, but only on the part of it that touches
+  the archive: `zuxlsx`'s decryption core in C (zuxlsx#22 step 3), not its CFB reader, fuzzing
+  or limits. Freezing without that core is the mistake being corrected: do not trade it away
+  for a date.
+- **The rest of zuxlsx#22 may still find a gap.** It then becomes an addition in a zucrypt
+  0.1.x, submitted before `zuxlsx` 0.1.0. A needed change that is not an addition would mean
+  ABI 2, which is exactly what freezing on the consumer's decryption core is meant to prevent.
 - **Re-deriving the trim twice.** ECB's removal and the dynamic store both change the define set.
   Do them in one commit, so the trim is derived and reviewed once.
 - **The dynamic key store allocates.** Its slices are heap memory, so it adds allocation sites in

@@ -96,7 +96,7 @@ the two ways the `zu*` family links siblings:
   (`lib/x64/` on Windows), beside the licence of the backend compiled into it.
   This is the primary shape. It is *provisional* until its first consumer —
   `zuxlsx`’s decryption of password-protected workbooks — has linked it, and
-  is frozen as ABI 1 in 0.2.0.
+  is frozen as ABI 1 when 0.1.0, the first CRAN release, is published.
 - **A registered function table**, for a package that can carry an
   `Imports:`. *Experimental* until a package other than a test fixture uses
   it.
