@@ -12,10 +12,9 @@ Description: Cryptographic functions over raw vectors, including message
     secure erasure, backed by a bundled and pinned copy of the 'Mbed TLS'
     project's cryptography library, 'TF-PSA-Crypto'
     (<https://github.com/Mbed-TLS/TF-PSA-Crypto>). No system cryptographic
-    library, 'Java' or 'Python' is required at install or run time. The
-    function set follows the 'openssl' package's, so that code written
-    against it can move over by changing a prefix. Algorithm names are
-    matched exactly, and failures are reported as structured conditions.
+    library, 'Java' or 'Python' is required at install or run time.
+    Algorithm names are matched exactly, and failures are reported as
+    structured conditions.
     The same primitives are published to other packages as a static archive
     and as a registered C interface, so that a package can call them from C
     without going through R.

@@ -23,21 +23,26 @@ distinguish `zuxml` and `zukomp` is that each is useful on its own. This revisio
 `zucrypt` the same property, with a target that already exists.
 
 1. **The goal is a no-system-library alternative to the `openssl` R package.** (§1, §2)
-   - `openssl` needs system libssl, `sodium` needs libsodium on Linux, and `digest` covers
-     digests only. A vendored, pinned backend with a broad surface and no system library is
-     not on CRAN.
-   - The audience is packages that import `openssl` for a handful of functions, and users on
-     machines where system OpenSSL is absent or unversioned.
+   - `openssl` needs system libssl and `sodium` needs libsodium on Linux. Self-contained
+     cryptography already exists on CRAN (`rmonocypher`; `digest`'s `hmac()` and `AES()`), so
+     the pitch is not uniqueness. It is the combination: standard algorithms that
+     interoperate, familiar R calls, a bundled and maintained backend, and a C interface.
+   - The audience is package authors who need a few cryptographic operations and want fewer
+     installation requirements: Linux source installs, restricted build environments, compiled
+     packages. Windows and macOS users installing `openssl` as a binary gain little.
    - `zuxlsx` stays the archive consumer, unchanged. Nothing here moves the archive or its
      freeze.
 2. **The admission rule replaces the named-consumer rule.** (§2, §6)
    A primitive enters when it has: a standard with a number; a published vector set with
-   provenance; an oracle outside this package; and a composition contract stating what it does
-   not do. The consumer rule is withdrawn; #9, #10 and #12 already satisfy the new one.
+   provenance; an oracle outside this package; a composition contract stating what it does
+   not do; and a demonstrated workflow benefit that justifies its maintenance (#56). The
+   consumer rule is withdrawn; #9, #10 and #12 already satisfy the new one.
 3. **An openssl-shaped layer, under the `crypt_` prefix.** (§7.1)
    - Each mirrored function is `crypt_` plus `openssl`'s name, with `openssl`'s arguments,
      order, dispatch and return types: `crypt_sha256(x, key = NULL)`, `crypt_rand_bytes(n)`,
-     `crypt_aes_gcm_encrypt(...)`. Migration is a prefix change.
+     `crypt_base64_encode(x)`. For the functions the layer covers, and apart from its
+     documented differences, migration is a prefix change; the promise is documented
+     compatibility for selected operations, not universal substitution (#56).
    - Unprefixed names, and `zu_`, are rejected: `zu_` is `zukomp`'s C namespace and `zuhttp`'s
      R prefix, and the family has one R prefix per package.
    - The gate: every mirrored function is byte-identical to `openssl` on the same inputs, or
@@ -72,7 +77,23 @@ distinguish `zuxml` and `zukomp` is that each is useful on its own. This revisio
      first documented gap against `openssl`, and it is recorded rather than worked around.
 10. **Release order.** (§13)
     v0.2.0 precedes whichever `zuxlsx` release first links the archive, 0.1.0 if passwords are
-    pulled forward there. Every later release is additions only, one per tranche.
+    pulled forward there. Every later release is additions only, one per tranche. Tranches 1
+    and 2 are the plan; tranches 3–5 are candidates, each decided afresh against the fifth
+    admission criterion when the one before it has shipped (#56).
+
+**Amended 2026-09-29 by the review in #56**, before anything was merged:
+- The fifth admission criterion (item 2), and tranches 3–5 made conditional (item 10).
+- **Compatibility is subordinate to the security contract** (§7.1). `openssl` 2.3.4's
+  `aes_gcm_encrypt()` returns no tag and its `aes_gcm_decrypt()` returns tampered plaintext
+  without error; mirroring that would ship unauthenticated "AEAD". Where `openssl` falls short
+  of a primitive's standard contract, the standard wins and the difference is documented.
+- **The CBC pair is renamed before v0.1.0** to `crypt_aes_cbc_encrypt_nopad()` and
+  `crypt_aes_cbc_decrypt_nopad()` (§7, §7.1). Under the old names a caller migrating
+  `openssl::aes_cbc_decrypt()` by prefix would silently get the PKCS#7 padding back in the
+  plaintext. Nothing calls the R pair outside this repository, and nothing is tagged, so the
+  rename is free now and never again. The ordinary names go to the openssl-shaped pair.
+- The comparison with other packages (item 1, §1) no longer claims uniqueness, and the survey
+  behind the tranche order is reported as detected usage, not migrations (roadmap Stage 13).
 
 ## Revision 3 (2026-09-25)
 
@@ -184,12 +205,16 @@ installed OpenSSL, Java or Python at install or run time.
   upstream release (§10). It consumes nothing in 0.x.
 
 **What exists elsewhere, and what does not.**
-- `openssl` is broad and needs system libssl; `sodium` is modern and needs libsodium on Linux;
-  `digest` vendors its own hashes and stops there. Encrypted Excel can be read through Java or
-  Python integrations.
-- No CRAN package offers a broad, vendored, security-tracked backend with no system library,
-  and neither `openssl` nor `sodium` publishes a C ABI for other packages. Both of those are
-  what this package is for.
+- `openssl` is broad and needs system libssl; `sodium` is modern and needs libsodium on Linux.
+  `rmonocypher` bundles Monocypher and offers authenticated encryption, Argon2 and random
+  bytes with no system library. `digest` vendors its own hashes and also has `hmac()` and an
+  `AES()` interface, though its DESCRIPTION discourages cryptographic deployment. Encrypted
+  Excel can be read through Java or Python integrations.
+- So self-contained cryptography already has a place in R, and this package does not claim
+  otherwise. What it offers is the combination: standard algorithms that interoperate with
+  `openssl` and everything else, `openssl`'s calls where it mirrors them, a bundled backend
+  tracked against upstream's LTS line, and a C interface for other packages, which neither
+  `openssl` nor `sodium` publishes.
 
 See the [openssl manual](https://jeroen.r-universe.dev/openssl/doc/manual.html),
 [sodium documentation](https://docs.ropensci.org/sodium/),
@@ -207,7 +232,7 @@ See the [openssl manual](https://jeroen.r-universe.dev/openssl/doc/manual.html),
 | **The static archive is the primary C shape. The registered table is experimental** | `zuxlsx` links archives and has no `Imports:`. No package uses a table, in this repository or in any sibling (#14, §8.6) |
 | **Freeze a surface when a consumer links it** | A freeze with no consumer protects nothing and blocks the fixes a first consumer finds (#28) |
 | **A primitive enters on the admission rule, not on a consumer** | A standard, published vectors, an outside oracle and a composition contract (§6). Revision 3's named-consumer rule described every provider in the family and distinguished none. ECB is admissible under the new rule and in no tranche: `openssl` exposes none |
-| **An openssl-shaped R layer under `crypt_`** | Migration by prefix change, no collision when `openssl` is attached, and one R prefix per package (§7.1) |
+| **An openssl-shaped R layer under `crypt_`** | Migration by prefix change for the operations it covers, no collision when `openssl` is attached, and one R prefix per package (§7.1) |
 | **The archive contains the adapter, never raw upstream** | PSA headers depend on the configuration and expose key identifiers. With only `zucrypt.h` visible, there is no define for a consumer to match |
 | **C ABI prefix `zuc_`/`ZUC_`, never `zu_`** | `zu_` is `zukomp`'s public namespace and `zuhttp`'s internal one |
 | **Dynamic PSA key store** | A static store turns "too many live handles" into a false out-of-memory error (#30) |
@@ -452,7 +477,7 @@ SHA-1 is a compatibility facility, never a default. Its availability for documen
 must not weaken `zuhttp`'s TLS policy. AES-ECB was removed before release (#29) and is in no
 tranche: `openssl` exposes no ECB function and no construction here needs it.
 
-**The admission rule** (revision 4, item 2). A primitive or construction enters when all four
+**The admission rule** (revision 4, item 2). A primitive or construction enters when all five
 hold:
 
 1. **A standard with a number.** NIST, RFC or FIPS. Nothing is specified by this package.
@@ -463,12 +488,19 @@ hold:
    trip never counts (§12).
 4. **A composition contract.** The documentation says what the primitive does not do: CBC does
    not authenticate, GCM does not tolerate a repeated nonce, PBKDF2 is not a file format.
+5. **A demonstrated workflow benefit** that justifies the implementation and its maintenance
+   (#56). Not a named consumer: a verified migration, a missing workflow shown to be useful,
+   or repeated user demand will do. The first four say a primitive *can* enter; this one says
+   whether it *should*, so that an available standard never becomes a commitment by itself.
 
 Each addition is one define in `src/zuc_crypto_config.h`, a re-derived trim
 ([stage-1-spike.md](stage-1-spike.md) §3, §11), a `zuc_*` addition to the archive and a
 `crypt_*` wrapper, plus its `zuc_alg` value from the range §8.1 reserves.
 
-**The tranches.** Each is one roadmap stage and one minor release. What the pinned release
+**The tranches.** Each is one roadmap stage and one minor release. Tranches 1 and 2 are the
+plan. Tranches 3–5 are candidates: each opens with a decision against criterion 5, taken once
+the tranche before it has shipped and its adoption can be seen, and none is a release
+commitment until then (#56). What the pinned release
 can and cannot do was checked against the 1.1.1 archive on 2026-09-29. No tranche vendors a
 whole upstream: TF-PSA-Crypto 1.1.1 has 77 buildable sources, of which 20 are vendored today,
 and each tranche's keep list is re-derived from its define set by the spike's method, so the
@@ -505,11 +537,20 @@ one. About fifty of the 78 are covered by the end of tranche 5; these are not:
   move RSA parameters between JWK and PEM.
 - Anything the `openssl` package adds after the version the gate was last run against.
 
+**The AEAD contract** (#56). AEAD here is RFC 5116's: encryption takes a key, a nonce,
+associated data and plaintext, and returns the ciphertext *and* a tag; decryption verifies the
+tag over ciphertext and associated data before releasing anything, and on failure returns no
+plaintext and signals `zucrypt_auth_error`. This holds in C and R, one-shot and incremental;
+an incremental decrypt buffers or withholds output until the tag has verified. `openssl`
+2.3.4's GCM pair does not meet it (checked 2026-09-29: `aes_gcm_encrypt()` returns no tag,
+and `aes_gcm_decrypt()` returns tampered plaintext without error), so `crypt_aes_gcm_*` is a
+documented difference, not a mirror, and its independent oracle is NIST SP 800-38D and
+RFC 8439 vectors plus an implementation that exposes the tag, not the `openssl` R package.
+
 **Nonce policy for AEAD** (revising revision 3's note on #10): the nonce is generated by
-default with the tranche 1 randomness, a caller-supplied one is accepted because `openssl`
-accepts one, and the documentation says that reusing a nonce under a key discloses the
-plaintext and forges tags. That is a contract, not a guard; the guard would be refusing the
-argument, which would make migration impossible.
+default with the tranche 1 randomness, a caller-supplied one is accepted, and the
+documentation says that reusing a nonce under a key discloses the plaintext and forges tags.
+That is a contract, not a guard; the guard would be refusing the argument.
 
 **What stays out.** There is no `encrypt_file(password = ...)`, and there will not be one
 here. The tranches give a caller PBKDF2, randomness and GCM to compose, and a format is a
@@ -527,12 +568,14 @@ crypt_hmac(data, key, algorithm = "sha256")
 crypt_equal(x, y)
 
 # Advanced interoperability functions; no padding or authentication is added.
-crypt_aes_cbc_encrypt(data, key, iv)
-crypt_aes_cbc_decrypt(data, key, iv)
+crypt_aes_cbc_encrypt_nopad(data, key, iv)
+crypt_aes_cbc_decrypt_nopad(data, key, iv)
 ```
 
 **These six are stable from v0.1.0 (§8.6).** The names follow the family's short package prefix:
-`komp_`, `xml_`, `json_`, `yaml_`, and `zu_` in `zuhttp`.
+`komp_`, `xml_`, `json_`, `yaml_`, and `zu_` in `zuhttp`. The CBC pair is on `main` as
+`crypt_aes_cbc_encrypt()`/`_decrypt()` until the rename that precedes the v0.1.0 tag (#56);
+the `_nopad` suffix names the difference that matters, and frees the ordinary names for §7.1.
 
 Contract:
 
@@ -575,10 +618,17 @@ with its own rules; the six core functions and the `zuc_*` archive underneath do
 to accommodate it.
 
 **Naming.** `crypt_` plus `openssl`'s name: `crypt_sha256()`, `crypt_rand_bytes()`,
-`crypt_aes_gcm_encrypt()`, `crypt_base64_encode()`, `crypt_read_key()`. Arguments keep
-`openssl`'s names, order and defaults. A migration is a prefix change and an `importFrom()`
-edit. Unprefixed names would collide the moment both packages are attached; `zu_` is taken
-twice in the family (revision 4, item 3).
+`crypt_base64_encode()`, `crypt_read_key()`. Arguments keep `openssl`'s names, order and
+defaults. For a covered function without a documented difference, a migration is a prefix
+change and an `importFrom()` edit; the promise is documented compatibility for selected
+operations, never universal substitution. Unprefixed names would collide the moment both
+packages are attached; `zu_` is taken twice in the family (revision 4, item 3).
+
+**Compatibility is subordinate to the security contract** (#56). Where `openssl`'s behaviour
+falls short of the contract the primitive's standard gives it, this layer keeps the name and
+the standard's contract, and the difference is documented. The case that set the rule is GCM
+(§6, the AEAD contract). A mirror never reproduces a failure to authenticate, to verify, or to
+reject malformed input.
 
 **Typing follows `openssl`, not §7.** In this layer:
 - raw in gives raw out;
@@ -592,23 +642,27 @@ never a byte sequence still holds for `crypt_hash()`, `crypt_hmac()` and the CBC
 any new function that has no `openssl` counterpart. Which layer a function belongs to is
 stated in its documentation, and the reference index groups them separately.
 
-**Where a mirrored name already exists with a different contract**, the existing function
-keeps its contract and gains arguments with defaults that preserve it. `crypt_aes_cbc_encrypt()`
-is the case: `openssl`'s pads with PKCS#7 and generates an IV; ours adds no padding and
-requires the IV. It gains `padding = "none"` and an `iv` default, and the padding difference
-is a documented one. Nothing stable changes meaning.
+**No core name may collide with a mirrored one.** The one case was the CBC pair: `openssl`'s
+`aes_cbc_encrypt()` pads with PKCS#7 and generates an IV; ours adds no padding and requires
+the IV. Keeping our contract under `openssl`'s name would make a prefix migration of
+`aes_cbc_decrypt()` return the padding bytes as plaintext, silently. The core pair is
+therefore renamed `_nopad` before v0.1.0 (§7), and `crypt_aes_cbc_encrypt()`/`_decrypt()`
+arrive in Stage 14 as the mirrored pair, padding and generating an IV as `openssl` does, over
+the same `zuc_aes` core. Nothing stable changes meaning.
 
 **The gate.** `test-openssl-compat.R` runs every function in this layer against `openssl` on
 the same inputs, under `skip_if_not_installed("openssl")`, and on at least one CI leg the
 `openssl` package is required to be present so that the gate cannot pass by being skipped.
 Three kinds of result are allowed:
 
-- **byte-identical**: the default, asserted with `expect_identical()` on the bytes and, for
-  character input, on the hex string and its class;
-- **cross-verified**: for randomised operations (ECDSA, key generation, GCM with a generated
-  nonce): what we produce, `openssl` accepts, and what `openssl` produces, we accept;
+- **byte-identical**: the default, asserted with `expect_identical()` on the bytes and on the
+  classes, attributes, defaults and error behaviour a caller can observe; for character input,
+  on the hex string and its class; for connections, on the bytes streamed;
+- **cross-verified**: for randomised operations (ECDSA, key generation): what we produce,
+  `openssl` accepts, and what `openssl` produces, we accept;
 - **a documented difference**: listed in the migration article with the reason and the
-  workaround.
+  workaround. GCM is one (the AEAD contract, §6). Key objects are another in kind: serialized
+  keys interoperate, but a `crypt_key` external pointer is never an `openssl` key object.
 
 A function exported from this layer that is in none of the three lists fails the suite, so a
 new mirrored function cannot ship without a decision. The `openssl` version the gate last ran
@@ -986,7 +1040,8 @@ authentication failure without inventing a precise diagnosis.
 | Platforms | Windows, macOS and Linux runners, the CRAN-like containers, and the weekly i386, musl and aarch64 legs. **These legs run the test suite, and fail on a WARNING** (#31) |
 | Allocation failure | The weekly sweep injects failures inside the `zuc_*` allocation window, and its log shows how many it injected there. Every one must yield `ZUC_ERR_MEMORY` or R's own allocation error, and never a wrong answer (#31) |
 | Office integration (`zuxlsx`) | Fixtures from Excel and msoffcrypto-tool with recorded provenance. Wrong password, altered ciphertext or HMAC, unsupported profiles, Unicode passwords, truncation, malformed CFB chains |
-| openssl compatibility (§7.1, from Stage 13) | Every mirrored function byte-identical to `openssl`, cross-verified, or a documented difference; an export in none of the three lists fails; one CI leg requires `openssl` present so the gate cannot pass by skipping; the `openssl` version recorded in NEWS |
+| openssl compatibility (§7.1, from Stage 13) | Every mirrored function byte-identical to `openssl` (bytes, classes, attributes, defaults, errors), cross-verified, or a documented difference; an export in none of the three lists fails; one CI leg requires `openssl` present so the gate cannot pass by skipping; the `openssl` version recorded in NEWS |
+| Authenticated encryption (§6, from Stage 14) | Tampered ciphertext, tag and associated data, a truncated tag and a wrong key each fail with `zucrypt_auth_error` and release no plaintext, one-shot and incremental, in C and R. A release gate, not a unit test among others |
 
 **A gate counts only when it has run against its target.** A green job whose log shows zero
 tests, or zero injected failures in the code it is named for, is recorded as not run. A stage

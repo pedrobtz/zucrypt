@@ -98,13 +98,14 @@ tranches <- list(
     c("read_cert", "read_cert_bundle", "cert_verify", "read_p7b"))
 
 cum <- character()
-cat("\nPackages fully served, cumulative:\n")
+cat("\nPackages whose detected usage falls within the subset, cumulative\n",
+    "(name matching only: not compatible arguments, key formats or a run):\n", sep = "")
 for (nm in names(tranches)) {
   cum <- c(cum, tranches[[nm]])
   served <- sum(vapply(use, function(h) length(h) > 0 && all(h %in% cum), logical(1)))
   cat(sprintf("  %-52s %3d of %d (%3.0f%%)\n", nm, served, n_call, 100 * served / n_call))
 }
-cat("\nNot fully served after Stage 17:\n")
+cat("\nDetected usage outside the subset after Stage 17:\n")
 for (p in names(use)) {
   miss <- setdiff(use[[p]], cum)
   if (length(use[[p]]) && length(miss)) cat(sprintf("  %-22s %s\n", p, paste(miss, collapse = ", ")))

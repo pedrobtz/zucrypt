@@ -8,16 +8,21 @@ The plan of record is [design.md](.agents/design.md) revision 4 (2026-09-29) and
 [roadmap.md](.agents/roadmap.md) (Stages 7–17). Revision 4 widened the goal: beyond being
 `zuxlsx`'s archive provider, `zucrypt` becomes an alternative to the `openssl` package with no
 system library, vendored Mbed TLS ecosystem underneath, through an openssl-shaped `crypt_` layer
-(design §7.1: `crypt_sha256(x, key = NULL)`, `crypt_rand_bytes(n)`, ...) added in five tranches
-after v0.2.0 (Stages 13–17, one CRAN minor release each). A primitive enters on the admission
-rule of design §6 (a numbered standard, published vectors, an outside oracle, a composition
-contract), no longer on a named consumer. Two backend facts fix the tranches: PK, PEM and
+(design §7.1: `crypt_sha256(x, key = NULL)`, `crypt_rand_bytes(n)`, ...) added in tranches
+after v0.2.0 (Stages 13–14 planned; 15–17 candidates, each decided when the one before has
+shipped; one CRAN minor release each). A primitive enters on the admission rule of design §6
+(a numbered standard, published vectors, an outside oracle, a composition contract, a
+demonstrated workflow benefit), no longer on a named consumer. The review in #56 amended the
+revision before it merged; design §"Revision 4" lists what it changed. Two backend facts fix the tranches: PK, PEM and
 ASN.1 are inside the pinned TF-PSA-Crypto tree, so key I/O needs no second vendored library,
 while X.509 does (Stage 17); and the release has X25519 but no Ed25519, the first documented
 gap against `openssl`. Stages 0–5 and 7–10 are complete (Stage 5 closed with
 Stage 8, once its weekly gates ran real tests; Stage 6 was superseded by Stages 7–9). **The
-v0.1.0 tag is still the maintainer's** ([#27](https://github.com/pedrobtz/zucrypt/issues/27)):
-tag it, publish the release, then move `DESCRIPTION` to `0.1.0.9000`. **Stage 11 — the first
+v0.1.0 tag is still the maintainer's** ([#27](https://github.com/pedrobtz/zucrypt/issues/27)),
+and one PR precedes it: renaming the CBC pair `crypt_aes_cbc_encrypt_nopad()` /
+`_decrypt_nopad()` (design §7, #56), which frees the ordinary names for Stage 14's
+openssl-compatible padded pair. Then tag it, publish the release, and move `DESCRIPTION` to
+`0.1.0.9000`. **Stage 11 — the first
 consumer and the freeze — is next** ([#43](https://github.com/pedrobtz/zucrypt/issues/43)), and
 it waits on [zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)'s C path.
 
@@ -266,6 +271,9 @@ to each other, and `tests/testthat/test-abi.R` asserts that the shared object ex
   as `openssl` types it; the core `crypt_hash()`, `crypt_hmac()` and CBC pair stay raw-only.
   Every mirrored function must be byte-identical to `openssl`, cross-verified, or a documented
   difference in the migration article; a function in none of the three lists fails the suite.
+  Compatibility is subordinate to the security contract: never mirror a failure to
+  authenticate or verify. `openssl` 2.3.4's GCM returns no tag and accepts tampered
+  ciphertext, so `crypt_aes_gcm_*` keeps RFC 5116's contract and is a documented difference.
 - Any future randomness uses platform entropy or a seeded backend RNG, **never R's RNG**.
 - Errors are R conditions `c(<specific>, "zucrypt_error", "error", "condition")` built in R from a
   `zuc_status`, mapped by enumerator *name*; never attach keys, passwords or plaintext -- in the

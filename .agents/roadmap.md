@@ -14,6 +14,10 @@ implements [design.md](design.md) revision 4.
   Stage 11 item, the `zuc_alg` ranges. Stages 13–17 are new: the openssl-shaped layer and its
   tranches, one CRAN minor release each. The goal they serve: an alternative to the `openssl`
   package, vendored Mbed TLS ecosystem underneath, for what `openssl` is used for.
+- **Amended the same day by the review in #56.** Before the v0.1.0 tag, the CBC pair is
+  renamed `_nopad` (design §7). Stage 14's GCM keeps RFC 5116's contract rather than
+  `openssl`'s. Stages 15–17 are candidates, each decided when the one before it has shipped.
+  Stage 13's survey counts detected usage, and real migrations are added before any claim.
 
 Date: 2026-09-20; reviewed 2026-09-22 (#37); re-planned 2026-09-25; updated 2026-09-26;
 re-planned 2026-09-29.
@@ -43,13 +47,24 @@ every surface change first.
 
 | Release | Where | What it promises | Gated by |
 | --- | --- | --- | --- |
-| **v0.1.0** | GitHub tag | The six R functions are stable. The archive ABI is *provisional*. The table is *experimental* (design §8.6) | Stages 7–9 |
+| **v0.1.0** | GitHub tag | The six R functions are stable. The archive ABI is *provisional*. The table is *experimental* (design §8.6) | Stages 7–9, and the CBC rename (#56) |
 | **v0.2.0** | CRAN | The archive is frozen as ABI 1. The table is still experimental | Stages 10–12, and `zuxlsx`'s agile C path ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) |
 | **v0.3.0** | CRAN | Tranche 1: randomness, the remaining digests, Base64, and the openssl-shaped layer with its gate and migration article (design §7.1) | Stage 13 |
 | **v0.4.0** | CRAN | Tranche 2: AES-GCM, ChaCha20-Poly1305, CTR, PKCS#7 padding, PBKDF2, HKDF | Stage 14 |
-| **v0.5.0** | CRAN | Tranche 3: key objects, PEM and DER, RSA, signatures, envelopes | Stage 15 |
-| **v0.6.0** | CRAN | Tranche 4: EC keys, ECDSA, ECDH, X25519 | Stage 16 |
-| **v0.7.0** | CRAN | Tranche 5: X.509 certificate data, on a second manifest row | Stage 17 |
+| **v0.5.0** | CRAN | *Candidate.* Tranche 3: key objects, PEM and DER, RSA, signatures, envelopes | Stage 15, if admitted |
+| **v0.6.0** | CRAN | *Candidate.* Tranche 4: EC keys, ECDSA, ECDH, X25519 | Stage 16, if admitted |
+| **v0.7.0** | CRAN | *Candidate.* Tranche 5: X.509 certificate data, on a second manifest row | Stage 17, if admitted |
+
+**v0.1.0 needs one more change before the tag** (#56, #27): `crypt_aes_cbc_encrypt()` and
+`_decrypt()` become `crypt_aes_cbc_encrypt_nopad()` and `_decrypt_nopad()` (design §7, §7.1),
+through the R code, `?crypt_aes_cbc`, the tests, the article, `tools/alloc-exercise.R`,
+`tools/check-linking.sh`, the `zucrypttest` fixture and NEWS. It is one PR, like any other,
+with a local check at 0/0/0 and green CI. The C archive (`zuc_aes_*`) does not change.
+
+**Stages 15–17 are candidates, not commitments** (design §6, criterion 5). Each opens with a
+recorded decision, taken once the stage before it has shipped: is there demonstrated demand
+(verified migrations, requests, the survey re-run against the adoption the earlier releases
+got)? If not, the stage waits, and the plan says so rather than slipping silently.
 
 **The family order fixes v0.2.0's deadline:**
 1. zucrypt reaches CRAN before whichever `zuxlsx` release first links the archive (0.2.0, or
@@ -378,10 +393,10 @@ Work items:
   *Done early, 2026-09-29:* `DESCRIPTION`'s Title is "Cryptography Without System
   Dependencies", the family's phrasing (`zuxlsx`: "Read 'xlsx' Workbooks Without System
   Dependencies"), true with six functions and true with sixty; the Description names the
-  backend, says the function set follows `openssl`'s, and lists categories with "including",
-  so additions do not falsify it. Still to do here: the README's first paragraph and
-  lifecycle statement, `?zucrypt`, and the getting-started article's closing paragraph, all
-  of which still say "narrow".
+  backend and lists categories with "including", so additions do not falsify it. It
+  describes what ships and promises no migration: that claim waits for Stage 13's layer
+  (#56). The README's opening and the getting-started article were aligned in the same PR.
+  Still to do here: the README's lifecycle statement, once the freeze is declared.
 - Set the version to 0.2.0.
 - **Submission** is for the maintainer: tag `v0.2.0` and submit.
 
@@ -393,7 +408,9 @@ Goal: put the design §7.1 layer, its gate and its migration article in place on
 primitives already exist, so that every later tranche adds to a working pattern rather than
 inventing one. Plus the one primitive every later tranche needs: randomness.
 
-Entry: v0.2.0 on CRAN. Nothing here changes the frozen archive; every C addition is appended.
+Entry: development can start on a branch once Stage 11 has frozen the archive, since every
+addition is compatible; the 0.3.0 release follows 0.2.0 on CRAN. Nothing here changes the
+frozen archive; every C addition is appended.
 
 **Why this subset first, measured 2026-09-29** with `tools/openssl-usage.R` over the R sources
 of the 104 CRAN packages that import or depend on `openssl` 2.3.4 (102 call at least one of its
@@ -401,9 +418,9 @@ functions). The most-called functions are `base64_encode()` (39 packages), `sha2
 `md5()` (23), `read_key()` (20), `rand_bytes()` (18), `base64_decode()` (17), then
 `aes_cbc_decrypt()` and `write_pem()` (12 each). Twenty-seven exports are called by no
 package, among them `sha224()`, `sha3()`, `ec_dh()`, the X25519 functions and `cert_verify()`.
-The tranches, cumulatively, fully serve:
+Cumulatively, the tranches cover the detected usage of:
 
-| After | Packages fully served |
+| After | Packages whose detected usage falls within the subset |
 | --- | --- |
 | Stage 13 | 63 of 102 (62%) |
 | Stage 14 | 72 (71%) |
@@ -415,6 +432,12 @@ The seven left need Ed25519, DSA, `read_p12()`, `bcrypt_pbkdf()` or `askpass()`:
 §6 gaps. This is also why Stage 15 is RSA and key I/O and Stage 16 is the curves, not the
 other way round: `read_key()` and RSA are what a fifth of the importers use, and nobody calls
 ECDH or X25519. Re-run the script before restating the count in the migration article.
+
+This is prioritization evidence, not a migration rate (#56). The script matches function names
+in `R/` and `NAMESPACE`; it does not establish compatible arguments, key formats, object
+methods or that anything runs, and it reuses a cached download when one exists. Removing
+`openssl` from a package also does not always remove a system requirement: `httr2` imports
+`curl` too, and libcurl stays.
 
 Work items:
 
@@ -446,6 +469,10 @@ Work items:
 - **The migration article**: `vignettes/articles/from-openssl.Rmd`, one table, and the gaps
   of design §6 listed under "missing" from this release on. It absorbs #16, the comparison
   article.
+- **Migration trials, before any public claim** (#56). Migrate two or three representative
+  importers locally, run their own test suites, and record for each whether dropping the
+  `openssl` import actually removes a system requirement. The survey run behind the README
+  count is saved with package versions, source hashes, scan failures and per-package results.
 - **Reference index** grouped into core, openssl-shaped, and C interface.
 - Close #9, #11 and #16. Record the `openssl` version the gate ran against in NEWS.
 
@@ -455,8 +482,10 @@ Exit:
   required leg shows a nonzero count for the gate.
 - `tools/vendor/verify` is clean, the manifest's `defines` match, and the trim was derived
   once for the stage.
-- The source tarball and the installed shared object are measured and recorded in NEWS; the
+- The source tarball, installed size, installed shared object, clean build time and a
+  representative throughput are measured and recorded in NEWS, so "small" is a number; the
   tarball is under 5 MB.
+- The migration trials are recorded, and the article's claims are no stronger than they are.
 - The alloc-failure sweep's `min-target-hits` is raised to cover the new adapter code, and its
   first real run shows it.
 - Accepted on CRAN as 0.3.0.
@@ -468,14 +497,19 @@ package specifying a format.
 
 Work items:
 
-- **AEAD** (#10): AES-GCM and ChaCha20-Poly1305. `zuc_aead_*` in the archive, one-shot and
-  incremental with associated data; `crypt_aes_gcm_encrypt()`/`_decrypt()` mirroring
-  `openssl`'s signatures and its tag and IV conventions exactly as the gate observes them.
-  Nonce policy per design §6. NIST GCM vectors and RFC 8439's.
+- **AEAD** (#10): AES-GCM and ChaCha20-Poly1305 under design §6's AEAD contract: nonce,
+  associated data and tag explicit, and decryption that fails with `zucrypt_auth_error` and
+  releases no plaintext. `zuc_aead_*` in the archive, one-shot first; incremental decryption
+  only if its buffering and verify-before-release semantics are justified and specified.
+  `crypt_aes_gcm_encrypt()`/`_decrypt()` keep `openssl`'s names and argument order but not its
+  behaviour: `openssl` 2.3.4 returns no tag and does not verify one (#56), which the migration
+  article lists as a documented difference with the reason. Nonce policy per design §6. NIST
+  SP 800-38D and RFC 8439 vectors; the second oracle is an implementation that exposes the tag,
+  never `openssl`'s GCM.
 - **AES-CTR**: `crypt_aes_ctr_encrypt()`/`_decrypt()`; NIST SP 800-38A vectors.
-- **PKCS#7 padding**: `padding = "none"` added to the stable CBC pair with an `iv` default
-  (design §7.1); the padding difference documented; `openssl`'s padded output matched under
-  `padding = "pkcs7"`.
+- **The mirrored CBC pair**: `crypt_aes_cbc_encrypt(data, key, iv = crypt_rand_bytes(16))`
+  and `crypt_aes_cbc_decrypt()`, PKCS#7 padded and byte-identical to `openssl`'s, over the same
+  `zuc_aes` core as the stable `_nopad` pair, which does not change (design §7.1).
 - **KDFs** (#12): PBKDF2-HMAC (`crypt_pbkdf2()`, raw password, RFC 6070 and 8018 vectors) and
   HKDF (`crypt_hkdf()`, RFC 5869 vectors). Neither has an `openssl` R counterpart, so both
   follow the core typing rule; `bcrypt_pbkdf()` is listed as a gap.
@@ -485,11 +519,15 @@ Work items:
 - `zuc_alg` values from the cipher and KDF ranges; table entries appended; `ZUCRYPT_API_HAS`
   used in the fixture for one new field.
 
-Exit: vectors and the gate green on three operating systems; the sweep reaches the AEAD
-adapter; `tools/zucrypttest` calls every new table entry; the archive fixture links the new
-`zuc_*` functions; CRAN 0.4.0.
+Exit: vectors and the gate green on three operating systems; design §12's authenticated
+encryption gate green (tampered ciphertext, tag and associated data, truncated tag, wrong key:
+each an error, no plaintext); the sweep reaches the AEAD adapter; `tools/zucrypttest` calls
+every new table entry; the archive fixture links the new `zuc_*` functions; CRAN 0.4.0.
 
-## Stage 15 — Tranche 3: key objects, PEM and DER, RSA
+## Stage 15 — Tranche 3 (candidate): key objects, PEM and DER, RSA
+
+Entry: the admission decision (design §6, criterion 5), recorded once 0.4.0 has shipped. The
+same holds for Stages 16 and 17, each after the stage before it.
 
 Goal: the first public-key tranche, ordered by the measurement above: key reading and writing
 and RSA are what the importers use, and the key-object model introduced here is what every
@@ -526,7 +564,7 @@ Work items:
 Exit: cross-reading, cross-verification and the vectors green on three operating systems;
 constant-time claims are upstream's and are quoted, not restated; CRAN 0.5.0.
 
-## Stage 16 — Tranche 4: EC keys, ECDSA, ECDH and X25519
+## Stage 16 — Tranche 4 (candidate): EC keys, ECDSA, ECDH and X25519
 
 Work items:
 
@@ -544,7 +582,7 @@ Work items:
 
 Exit: CRAN 0.6.0.
 
-## Stage 17 — Tranche 5: certificates
+## Stage 17 — Tranche 5 (candidate): certificates
 
 Goal: X.509 *data*: parse, write, verify a chain against a caller-supplied bundle, and
 fingerprint. Not trust discovery and not fetching, which are `zuhttp`'s.
@@ -572,8 +610,11 @@ start from it.
 - **The `zuhttp` TLS provider** (design §10): another repository, on `zuhttp`'s trigger.
 - **Ed25519** when upstream ships it; **ML-DSA** on the admission rule (design §14).
 - **Threads** when a consumer asks (design §8.4).
-- **1.0.0** when the openssl-shaped layer has had two releases without a documented-difference
-  change.
+- **1.0.0** when the package has demonstrated external use (a CRAN package other than
+  `zuxlsx` depending on it), a security update has been rehearsed end to end (an upstream
+  advisory taken through vendoring, release and the note that archive consumers must
+  reinstall), and the openssl-shaped layer has had two releases without a
+  documented-difference change (#56).
 
 ## CI from Stage 7
 
@@ -598,10 +639,13 @@ Pins stay commits, with the tag in a trailing comment, and a bump is its own rev
 - **An r-actions release is on the critical path.** Stage 8 cannot close until the interposer is
   fixed upstream. CLAUDE.md forbids hand-rolled jobs, so the mitigation is to file the fix early,
   in Stage 7, not to work around it.
-- **v0.2.0 waits on another repository by design.** If `zuxlsx#22` stalls, so do the freeze and
-  CRAN. That is the correct outcome: a CRAN release of zucrypt before its only consumer has no
-  user, and freezing without that consumer is the mistake being corrected. Do not trade this away
-  for a date.
+- **v0.2.0 waits on another repository by design.** If `zuxlsx#22` stalls, so does the
+  freeze, and freezing without that consumer is the mistake being corrected: do not trade it
+  away for a date. Under revision 4 the R package has users of its own, so the *first CRAN
+  release* no longer has to wait on the archive (#56). If the stall is long, revisit
+  decoupling them: a CRAN release with the archive still provisional and said so, and the
+  freeze in whichever later release follows zuxlsx#22. That is a decision to record here
+  before acting on it, not a default.
 - **Re-deriving the trim twice.** ECB's removal and the dynamic store both change the define set.
   Do them in one commit, so the trim is derived and reviewed once.
 - **The dynamic key store allocates.** Its slices are heap memory, so it adds allocation sites in
