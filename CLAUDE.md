@@ -7,16 +7,40 @@ with code in this repository.
 
 The plan of record is
 [design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md)
-revision 3 and Part A of
+revision 4 (2026-09-29) and Part A of
 [roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
-(Stages 7–12), adopted 2026-09-25. Stages 0–5 and 7–10 are complete
-(Stage 5 closed with Stage 8, once its weekly gates ran real tests;
-Stage 6 was superseded by Stages 7–9). **The v0.1.0 tag is still the
-maintainer’s** ([\#27](https://github.com/pedrobtz/zucrypt/issues/27)):
-tag it, publish the release, then move `DESCRIPTION` to `0.1.0.9000`.
-**Stage 11 — the first consumer and the freeze — is next**
-([\#43](https://github.com/pedrobtz/zucrypt/issues/43)), and it waits on
-[zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)’s C path.
+(Stages 7–17). Revision 4 widened the goal: beyond being `zuxlsx`’s
+archive provider, `zucrypt` becomes an alternative to the `openssl`
+package with no system library, vendored Mbed TLS ecosystem underneath,
+through an openssl-shaped `crypt_` layer (design §7.1:
+`crypt_sha256(x, key = NULL)`, `crypt_rand_bytes(n)`, …) added in
+tranches after v0.1.0 (Stages 13–14 planned; 15–17 candidates, each
+decided when the one before has shipped; one CRAN minor release each),
+and Stage 18, a TLS client engine for `zuhttp` inside this package but
+never in the archive (design §10), a candidate on `zuhttp`’s trigger. A
+primitive enters on the admission rule of design §6 (a numbered
+standard, published vectors, an outside oracle, a composition contract,
+a demonstrated workflow benefit), no longer on a named consumer. The
+review in \#56 amended the revision before it merged; design §“Revision
+4” lists what it changed. Two backend facts fix the tranches: PK, PEM
+and ASN.1 are inside the pinned TF-PSA-Crypto tree, so key I/O needs no
+second vendored library, while X.509 does (Stage 17); and the release
+has X25519 but no Ed25519, the first documented gap against `openssl`.
+Stages 0–5 and 7–10 are complete (Stage 5 closed with Stage 8, once its
+weekly gates ran real tests; Stage 6 was superseded by Stages 7–9).
+**v0.1.0 is the first CRAN release and carries the freeze** (decided
+2026-09-29; the GitHub-only tag of \#27 and the separate v0.2.0 are
+gone). `zuxlsx` 0.1.0, with password-protected workbooks, follows it
+onto CRAN. **Next is one PR:** renaming the CBC pair
+`crypt_aes_cbc_encrypt_nopad()` / `_decrypt_nopad()` (design §7, \#56),
+which frees the ordinary names for Stage 14’s openssl-compatible padded
+pair. **Then Stage 11 — the first consumer and the freeze**
+([\#43](https://github.com/pedrobtz/zucrypt/issues/43)), which waits
+only on `zuxlsx`’s decryption core in C
+([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) on a
+branch, not on its CFB reader or the rest of \#22. Stage 12 then submits
+0.1.0; on acceptance, tag `v0.1.0` and move `DESCRIPTION` to
+`0.1.0.9000`.
 
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`);
 `readme.yaml` re-renders it in CI and fails on any difference, so never
@@ -42,11 +66,12 @@ key store dynamic (#30), appended `ZUC_ERR_NOT_READY` and
 
 **Stability comes in tiers (design §8.6).** The six R functions are
 stable. The archive (`zucrypt.h`, `libzucrypt.a`,
-`ZUCRYPT_ABI_VERSION 1`) is *provisional* until `zuxlsx`’s agile C path
-([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) has merged
-against it, and is frozen in v0.2.0 (Stage 11). The table is
-*experimental*: no package uses it (#14). Until the freeze, an archive
-change is allowed but must be recorded in `NEWS.md`.
+`ZUCRYPT_ABI_VERSION 1`) is *provisional* until `zuxlsx`’s decryption
+core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)
+step 3) has linked it, and is frozen in v0.1.0 (Stage 11), the first
+CRAN release. The table is *experimental*: no package uses it (#14).
+Until the freeze, an archive change is allowed but must be recorded in
+`NEWS.md`.
 
 Both shapes have a consumer fixture package under `tools/`, zukomp’s
 layout, and neither is reachable from `R CMD check`; `consumer.yaml`
@@ -127,17 +152,19 @@ external-RNG choice, and the measurements. Read it before touching
 
 The real content of this repository is
 [.agents/design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md),
-now at revision 3. §3–§8 and §11–§12 describe `main` as amended by
-revision 3’s decisions, which Stages 7–12 implement; §9 and §13 steps
-3–5 are plans owned by `zuxlsx` and `zuhttp`. Read it before writing
-code; it is the authoritative spec for the API, boundaries and
+now at revision 4. §3–§8 and §11–§12 describe `main` as amended by
+revision 3’s decisions, which Stages 7–12 implement; §6, §7.1 and §10
+describe where revision 4 takes it, which Stages 13–17 implement; §9 and
+§13 steps 3–5 are plans owned by `zuxlsx` and `zuhttp`. Read it before
+writing code; it is the authoritative spec for the API, boundaries and
 constraints summarised below, and it is where design changes belong.
 [.agents/roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
-Part A is the plan from here (Stages 7–12, v0.1.0 then v0.2.0 on CRAN);
-Part B is the executed v0.1.0 roadmap, kept as the record. Check which
-stage is current before starting work. One rule added by the re-plan: a
-stage that adds or changes a scheduled job closes only after that job’s
-first real run, dispatched by hand.
+Part A is the plan from here (Stages 7–12, v0.1.0 on CRAN; Stages 13–17,
+one tranche and one CRAN minor release each); Part B is the executed
+v0.1.0 roadmap, kept as the record. Check which stage is current before
+starting work. One rule added by the re-plan: a stage that adds or
+changes a scheduled job closes only after that job’s first real run,
+dispatched by hand.
 
 ## Working rhythm: one pull request per roadmap stage
 
@@ -257,9 +284,14 @@ be a green job that proved nothing.
 alongside it: `zuxlsx`, `zuxml`, `zukomp`, `zuhttp`, …). The boundary is
 strict and is the main thing to preserve:
 
-- **`zucrypt` owns cryptographic primitives only** — hashes, HMAC,
-  AES-CBC, constant-time compare, secure cleanup. It must never acquire
-  XML, ZIP, Office, socket or TLS dependencies.
+- **`zucrypt` owns cryptography** — today hashes, HMAC, AES-CBC,
+  constant-time compare and secure cleanup; from Stage 13 the tranches
+  of design §6 (randomness, AEAD, KDFs, keys, signatures, certificate
+  data); and, if Stage 18 is taken, a TLS client *engine* for `zuhttp`
+  (design §10). It must never acquire XML, ZIP, Office, socket,
+  name-resolution, proxy or trust-store dependencies, and never reaches
+  the user’s environment (no key files, passphrase prompts or
+  certificate downloads: design §5).
 - **Family conventions are binding** (design §3): C ABI prefix
   `zuc_`/`ZUC_` (never `zu_`, which is `zukomp`’s public namespace and
   `zuhttp`’s internal one, so a `zucrypt.h` using it could not be
@@ -271,9 +303,15 @@ strict and is the main thing to preserve:
   The Office adapter owns iteration counts, salts, block keys, password
   verifiers and segment IVs; it may depend on `zucrypt` and `zuxml`,
   never the reverse.
-- **`zuhttp` owns TLS and trust**, and keeps its native OS TLS backend.
-  Mbed TLS there is a separate, optional backend, not something
-  `zucrypt` provides.
+- **`zuhttp` owns connections, trust and TLS policy**, and keeps its
+  native OS TLS backends. A bundled Mbed TLS backend, if ever taken, is
+  `zucrypt`’s TLS engine (roadmap Stage 18, a candidate on `zuhttp`’s
+  trigger): compiled into `zucrypt.so` from the same vendored rows,
+  published through a separate table (`zucrypt-tls.h`) that `zuhttp`
+  resolves at run time from `Suggests:`, driven over I/O callbacks
+  `zuhttp` supplies, and verifying only against the CA bundle, host name
+  and pins `zuhttp` passes. It is **never in `libzucrypt.a`**, so no
+  archive consumer compiles it and ABI 1 never sees it.
 
 Three surfaces are exposed:
 
@@ -331,7 +369,8 @@ shared object exports `R_init_zucrypt` and nothing else.
 - SHA-1 exists for Office compatibility and is never a default for new
   formats. AES-ECB was removed in Stage 7 (#29): its only use was Office
   Standard encryption, which `zuxlsx` put out of scope (design-zuxlsx
-  §21c). A primitive enters only with a named consumer (design §6).
+  §21c). A primitive enters on the admission rule of design §6; ECB is
+  admissible and in no tranche.
 - The PSA key store is dynamic (`MBEDTLS_PSA_KEY_STORE_DYNAMIC`, Stage
   7, \#30): each `zuc_aes` and `zuc_hmac` holds one volatile key, and
   live handles are bounded only by memory. The static 32-slot store it
@@ -339,8 +378,21 @@ shared object exports `R_init_zucrypt` and nothing else.
   `ZUC_ERR_MEMORY`. Tearing the backend down (`zuc_shutdown()` to zero)
   destroys every key, so a test that does it must run with nothing else
   live.
-- No `encrypt_file(password = )`, no PBKDF2/HKDF/AEAD/RNG in the initial
-  scope — each needs a concrete consumer first.
+- No `encrypt_file(password = )`, ever: the package specifies no format.
+  PBKDF2, HKDF, AEAD and randomness are Stages 13–14 (design §6
+  tranches), not yet on `main`.
+- The openssl-shaped layer (design §7.1) is the one place character
+  input is accepted, typed as `openssl` types it; the core
+  [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
+  [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
+  and CBC pair stay raw-only. Every mirrored function must be
+  byte-identical to `openssl`, cross-verified, or a documented
+  difference in the migration article; a function in none of the three
+  lists fails the suite. Compatibility is subordinate to the security
+  contract: never mirror a failure to authenticate or verify. `openssl`
+  2.3.4’s GCM returns no tag and accepts tampered ciphertext, so
+  `crypt_aes_gcm_*` keeps RFC 5116’s contract and is a documented
+  difference.
 - Any future randomness uses platform entropy or a seeded backend RNG,
   **never R’s RNG**.
 - Errors are R conditions

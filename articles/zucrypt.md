@@ -421,12 +421,12 @@ library, with no R involved at run time. See
 
 ## Is this the right package?
 
-zucrypt is deliberately narrow. For most R work another package is the
-better choice:
+zucrypt is small today. For most R work another package is the better
+choice:
 
 | You want | Reach for |
 |----|----|
 | Keys, certificates, signatures, broad algorithm coverage | [openssl](https://cran.r-project.org/package=openssl) |
-| Modern authenticated encryption that is hard to misuse | [sodium](https://cran.r-project.org/package=sodium) |
+| Modern authenticated encryption that is hard to misuse | [sodium](https://cran.r-project.org/package=sodium), or [rmonocypher](https://cran.r-project.org/package=rmonocypher) with no system library |
 | A cache key for an R object, or a fast non-cryptographic hash | [digest](https://cran.r-project.org/package=digest) |
 | SHA-2 and HMAC with no system library, a constant-time compare, or cryptography callable from your package’s C code | zucrypt |

@@ -111,10 +111,10 @@ The three surfaces are at different stages:
 - **The six `crypt_*()` R functions** are stable.
 
 - **The static archive** – `zucrypt.h`, `libzucrypt.a` and where it is
-  installed – is *provisional* in 0.1.0 and becomes frozen ABI 1 in
-  0.2.0, once its first consumer (`zuxlsx`'s decryption of password
-  protected workbooks) has linked it. Until then a change is possible,
-  and every one is recorded in `NEWS.md`.
+  installed – is *provisional* until 0.1.0 is released on CRAN, where it
+  becomes frozen ABI 1, once its first consumer (`zuxlsx`'s decryption
+  of password protected workbooks) has linked it. Until then a change is
+  possible, and every one is recorded in `NEWS.md`.
 
 - **The registered table** (`zucrypt-r.h`) is *experimental*: no package
   uses it yet. It may change in any release until one does, again with

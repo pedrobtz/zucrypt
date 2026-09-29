@@ -1,7 +1,7 @@
 # zucrypt
 
-zucrypt is a narrow native cryptographic foundation for the `zu*`
-package family: message digests, HMAC, unauthenticated AES-CBC,
+zucrypt provides a focused set of cryptographic functions for R, backed
+by a bundled library: message digests, HMAC, unauthenticated AES-CBC,
 constant-time comparison and secure erasure, over raw vectors. The
 backend is a vendored, pinned subset of
 [TF-PSA-Crypto](https://github.com/Mbed-TLS/TF-PSA-Crypto), the Mbed TLS
@@ -10,25 +10,21 @@ algorithms above and nothing else. Installing the package needs a C99
 compiler and nothing else: no system cryptographic library, no Java, no
 Python, and no network access during installation.
 
-The same primitives are published to other packages twice, because the
-family consumes siblings in two different ways: as a registered C
-function table for consumers that can carry an `Imports:`, and as a
-static archive (`libzucrypt.a`) for consumers that cannot.
+The same primitives are published to other packages’ compiled code
+twice: as a registered C function table for consumers that can carry an
+`Imports:`, and as a static archive (`libzucrypt.a`) for consumers that
+cannot.
 
-It is **not** a replacement for
-[openssl](https://cran.r-project.org/package=openssl) or
-[sodium](https://cran.r-project.org/package=sodium). Those cover far
-more ground, and a package that wants broad cryptographic functionality
-should use them. zucrypt exists because the `zu*` packages need a small,
-fixed set of primitives with a stable C ABI and an installation that
-depends on nothing.
-
-Deliberately out of scope for now: authenticated encryption,
-password-based key derivation, random number generation, signatures and
-key serialization. Each needs a concrete consumer before it is added.
-Office/Excel decryption lives in
-[zuxlsx](https://github.com/pedrobtz/zuxlsx), which is the first
-consumer of this package, not here.
+Today that is the whole surface.
+[openssl](https://cran.r-project.org/package=openssl) and
+[sodium](https://cran.r-project.org/package=sodium) cover far more
+ground, and a package that needs keys, signatures, certificates or
+authenticated encryption should use them. Later releases are planned to
+add randomness, Base64 and familiar `openssl`-style interfaces for
+hashing and HMAC, then authenticated encryption and key derivation.
+Those are plans, not features of this version. Office/Excel decryption
+lives in [zuxlsx](https://github.com/pedrobtz/zuxlsx), which is the
+first consumer of the archive, not here.
 
 ## Usage
 
@@ -99,7 +95,8 @@ either of the two ways the `zu*` family links siblings:
   (`lib/x64/` on Windows), beside the licence of the backend compiled
   into it. This is the primary shape. It is *provisional* until its
   first consumer — `zuxlsx`’s decryption of password-protected workbooks
-  — has linked it, and is frozen as ABI 1 in 0.2.0.
+  — has linked it, and is frozen as ABI 1 when 0.1.0, the first CRAN
+  release, is published.
 - **A registered function table**, for a package that can carry an
   `Imports:`. *Experimental* until a package other than a test fixture
   uses it.

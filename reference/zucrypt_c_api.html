@@ -143,9 +143,9 @@ demand, so the number of live handles is bounded only by memory.</p></li>
 
 <p>The three surfaces are at different stages:</p><ul><li><p><strong>The six <code>crypt_*()</code> R functions</strong> are stable.</p></li>
 <li><p><strong>The static archive</strong> – <code>zucrypt.h</code>, <code>libzucrypt.a</code> and where it is
-installed – is <em>provisional</em> in 0.1.0 and becomes frozen ABI 1 in
-0.2.0, once its first consumer (<code>zuxlsx</code>'s decryption of password
-protected workbooks) has linked it. Until then a change is possible, and
+installed – is <em>provisional</em> until 0.1.0 is released on CRAN, where it
+becomes frozen ABI 1, once its first consumer (<code>zuxlsx</code>'s decryption of
+password protected workbooks) has linked it. Until then a change is possible, and
 every one is recorded in <code>NEWS.md</code>.</p></li>
 <li><p><strong>The registered table</strong> (<code>zucrypt-r.h</code>) is <em>experimental</em>: no package
 uses it yet. It may change in any release until one does, again with

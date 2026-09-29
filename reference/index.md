@@ -48,4 +48,4 @@ function table or the static archive.
 
 - [`zucrypt`](https://pedrobtz.github.io/zucrypt/reference/zucrypt-package.md)
   [`zucrypt-package`](https://pedrobtz.github.io/zucrypt/reference/zucrypt-package.md)
-  : zucrypt: Narrow Cryptographic Primitives with a Vendored Backend
+  : zucrypt: Cryptography Without System Dependencies

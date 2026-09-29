@@ -22,7 +22,7 @@ A list with elements:
 
   the C ABI version published to `LinkingTo` consumers, as an integer:
   `1`. The archive's ABI is provisional until its first consumer links
-  it, and frozen from v0.2.0; see
+  it, and frozen from the CRAN release of 0.1.0; see
   [zucrypt_c_api](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md).
 
 - `algorithms`:

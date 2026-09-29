@@ -2,12 +2,13 @@
 
 ## zucrypt 0.1.0
 
-First release, as a GitHub tag. A narrow set of cryptographic primitives
-over raw vectors, backed by a vendored, pinned crypto library, published
-to R and to C. The six R functions are stable. The C interface is not
-yet: the static archive is provisional until its first consumer has
-linked it, and the registered table is experimental (see “C interface”
-below). CRAN is planned for 0.2.0, after that freeze.
+First release, and the first on CRAN. A focused set of cryptographic
+primitives over raw vectors, backed by a vendored, pinned crypto
+library, published to R and to C. The six R functions are stable. The C
+interface is not yet: the static archive is provisional until its first
+consumer has linked it, and the registered table is experimental (see “C
+interface” below). The archive is frozen before this version is
+submitted (roadmap Stages 11 and 12).
 
 ### R interface
 
@@ -70,8 +71,8 @@ Both shapes the `zu*` family consumes siblings by, at
   carry an `Imports:` — `LinkingTo:` only, no runtime dependency, and
   the consumer owns the backend’s lifetime through
   `zuc_init()`/`zuc_shutdown()`. This is the primary shape. It is
-  **provisional** in 0.1.0 and is frozen in 0.2.0, once its first
-  consumer has linked it.
+  **provisional** until this version is submitted, and frozen as ABI 1
+  in it, once its first consumer has linked it.
 - A registered function table, `inst/include/zucrypt-r.h`, for a package
   that can carry an `Imports:`. Resolved lazily through `zucrypt_api()`;
   test an appended field with `ZUCRYPT_API_HAS()`. **Experimental**
