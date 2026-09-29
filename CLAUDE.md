@@ -140,8 +140,9 @@ state gets stale.
 CI is adopted from [`pedrobtz/r-actions`](https://github.com/pedrobtz/r-actions), the family's
 shared reusable workflows — never hand-rolled jobs. Two conventions:
 
-- **Pin calls to a commit**, with the tag in a trailing comment (`@8ac2b8a... # v1.13.0`). A tag
-  is mutable; `@v1` means "whatever it points at when the job starts". Bump deliberately.
+- **Calls track `@v1`, except `coverage.yml`**, which is pinned to a commit with the tag in a
+  trailing comment (`@59c917d... # v1.18.0`): it is the one call holding a repository write
+  token, and a tag is mutable. Bump that pin deliberately, reading the diff.
 - **Add a workflow at the stage where it has something to check.** The roadmap's CI table says
   which workflow lands in which stage and why. A job that is green because it inspected nothing
   is worse than no job.

@@ -8,8 +8,11 @@
 # under src/vendor/ come with a manifest change, which is the only way the
 # tree can be reproduced from the upstream archive.
 #
-# Every r-actions call in this repo is pinned to a commit with the tag in a
-# trailing comment; a tag is mutable. Bump deliberately, reading the diff.
+# r-actions calls track `@v1`, except coverage.yml: it is the one call that
+# holds a repository write token, and a tag is mutable, so it stays pinned to a
+# commit with the tag in a trailing comment and is bumped deliberately, reading
+# the diff. The read-only calls follow v1 so that its fixes reach every family
+# repo without a pull request in each.
 on:
   push:
     branches: [main, master]
@@ -40,4 +43,4 @@ jobs:
   # against the 100-byte tarball limit, and inst/COPYRIGHTS against both the
   # licence and the (currently empty) patch set. See .agents/stage-1-spike.md.
   vendor:
-    uses: pedrobtz/r-actions/.github/workflows/vendor.yml@68c22c173f9ddbb7e51284fe230053174e941afc # v1.15.0
+    uses: pedrobtz/r-actions/.github/workflows/vendor.yml@v1
