@@ -428,13 +428,21 @@ Work items:
   `vignettes/articles/zucrypt.Rmd`, pkgdown's "Get started" page, excluded from the
   tarball by `.Rbuildignore`. It covers all six functions, including an encrypt-then-MAC
   example that argues for not building your own.*
-- **Run the CRAN preparation:**
-  - the `cran-extrachecks` and `review-cran-submission` passes;
-  - `R CMD check --as-cran` on win-builder and macbuilder;
-  - `urlchecker`;
-  - the spelling check.
+- **Run the CRAN preparation** (*done 2026-09-29, except CI on the final commit*):
+  - the `cran-extrachecks` pass (*done: the README gains `install.packages("zucrypt")`, the
+    Description names file hashing and hex and moves secure erasure to the C sentence it
+    belongs to; everything else on its list already held*). There is no
+    `review-cran-submission` skill in this environment, so that pass is not run;
+  - `R CMD check --as-cran` on macOS and Windows: *by the `R-CMD-check.yaml` legs, not
+    win-builder or macbuilder* (maintainer decision, 2026-09-29), with the r-devel
+    containers for CRAN's Linux flavours;
+  - `urlchecker` (*clean; the new C-API article's URL answered 404 only until GitHub Pages
+    caught up with its deploy*);
+  - the spelling check (*no misspellings; `inst/WORDLIST` records the 78 technical terms,
+    package names and British spellings it flagged*).
 - **Rewrite `cran-comments.md`** as a first submission. It lists only checks that have run, and
   explains the vendored backend and the installed static archive in one paragraph each.
+  *Done 2026-09-29.*
 - **Reposition the package before it is first published** (design revision 4, item 1), so
   that the title CRAN shows from the first release is the one that still holds at 0.6.0.
   *Done early, 2026-09-29:* `DESCRIPTION`'s Title is "Cryptography Without System
