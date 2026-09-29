@@ -1,14 +1,78 @@
 # zucrypt: design
 
-Status: revision 3, adopted 2026-09-25 (#38). §3–§8 and §11–§12 describe the package on `main`.
-[roadmap.md](roadmap.md) Stages 7–10 have implemented revision 3's decisions, all except the
-two tied to the first consumer: the ABI 1 freeze (§8.6, Stage 11) and CRAN (Stage 12). §9,
+Status: revision 4, adopted 2026-09-29. §3–§8 and §11–§12 describe the package on `main`;
+§6, §7.1 and §10 describe where revision 4 takes it. [roadmap.md](roadmap.md) Stages 7–10
+have implemented revision 3's decisions, all except the two tied to the first consumer: the
+ABI 1 freeze (§8.6, Stage 11) and CRAN (Stage 12). Stages 13–17 implement revision 4. §9,
 and §13 steps 3–5, are plans owned by `zuxlsx` and `zuhttp`.
 Date: 2026-09-19. Revised 2026-09-20 against the `zu*` packages as shipped; reviewed
 2026-09-22 against the implementation (#37); revision 3 on 2026-09-25; implementation
-status updated 2026-09-26.
+status updated 2026-09-26; revision 4 on 2026-09-29.
 Initial application: cryptographic support for password-encrypted Excel input.
+Goal from revision 4: a no-system-library alternative to the `openssl` package.
 Related packages: `zuxlsx`, `zukomp`, `zuxml`, and `zuhttp`.
+
+## Revision 4 (2026-09-29)
+
+Revision 3 planned a package with one consumer, `zuxlsx`, and a rule that no primitive enters
+without a named consumer. The 2026-09-28 review of that plan, against the sibling packages as
+they stand, found that the rule described `zukomp` and `zuxml` as well: every provider in the
+family has one real consumer and `zuhttp` as a hoped-for second, so the rule did not
+distinguish a package worth keeping from one worth merging into `zuxlsx`. What does
+distinguish `zuxml` and `zukomp` is that each is useful on its own. This revision gives
+`zucrypt` the same property, with a target that already exists.
+
+1. **The goal is a no-system-library alternative to the `openssl` R package.** (§1, §2)
+   - `openssl` needs system libssl, `sodium` needs libsodium on Linux, and `digest` covers
+     digests only. A vendored, pinned backend with a broad surface and no system library is
+     not on CRAN.
+   - The audience is packages that import `openssl` for a handful of functions, and users on
+     machines where system OpenSSL is absent or unversioned.
+   - `zuxlsx` stays the archive consumer, unchanged. Nothing here moves the archive or its
+     freeze.
+2. **The admission rule replaces the named-consumer rule.** (§2, §6)
+   A primitive enters when it has: a standard with a number; a published vector set with
+   provenance; an oracle outside this package; and a composition contract stating what it does
+   not do. The consumer rule is withdrawn; #9, #10 and #12 already satisfy the new one.
+3. **An openssl-shaped layer, under the `crypt_` prefix.** (§7.1)
+   - Each mirrored function is `crypt_` plus `openssl`'s name, with `openssl`'s arguments,
+     order, dispatch and return types: `crypt_sha256(x, key = NULL)`, `crypt_rand_bytes(n)`,
+     `crypt_aes_gcm_encrypt(...)`. Migration is a prefix change.
+   - Unprefixed names, and `zu_`, are rejected: `zu_` is `zukomp`'s C namespace and `zuhttp`'s
+     R prefix, and the family has one R prefix per package.
+   - The gate: every mirrored function is byte-identical to `openssl` on the same inputs, or
+     is listed as a documented difference in the migration article. A function that is in
+     neither list fails the suite.
+4. **Raw-only stays for the core; the mirrored layer types as `openssl` does.** (§7)
+   `crypt_hash()`, `crypt_hmac()` and the CBC pair keep the raw-only rule. The mirrored layer
+   accepts character (hashed as UTF-8, returned as a hex string of class `hash`) and
+   connections, because that is what a caller moving from `openssl` has written. New functions
+   with no `openssl` counterpart follow the core rule.
+5. **`zuc_alg` gets ranges before the freeze.** (§8.1, roadmap Stage 11)
+   Enumerator values are permanent from ABI 1, so digests, MACs, ciphers, KDFs, key families
+   and signatures each get a reserved range now, not when the first of each arrives.
+6. **The table keeps its tier, and the option to remove it is withdrawn.** (§8.2, §14)
+   A package that imports `zucrypt` for its R functions is exactly the kind that can carry
+   `Imports:` + `LinkingTo:`, so the table's audience now exists. It stays experimental until
+   one uses it.
+7. **`zuhttp`'s route is a sibling provider, not a larger `libzucrypt.a`.** (§10)
+   `zuhttp`'s D-63 (2026-09-26) rejects a private Mbed TLS copy and names `zucrypt` as the
+   route, while §10 said the opposite. The two are reconciled: a TLS engine, if ever taken, is
+   a fourth provider package on the shared manifest row, built with this repository's
+   tooling. `LinkingTo:` cannot be optional, so an *optional* engine is a separate package
+   that `zuhttp` resolves at run time, which is the table shape pointed the other way.
+8. **The boundary is restated.** (§5)
+   Never sockets, trust stores or the user's environment: no `download_ssl_cert()`,
+   `ca_bundle()`, `my_key()` or `askpass()` equivalents. Certificate *data* work is in scope
+   (§6, tranche 5); fetching one is `zuhttp`'s.
+9. **Two facts about the backend, checked against the 1.1.1 archive.** (§4, §6)
+   - PK, PEM, ASN.1, OID and Base64 live in TF-PSA-Crypto (`extras/`, `utilities/`), so key
+     I/O needs no second manifest row. X.509 does: certificates need Mbed TLS proper.
+   - There is no EdDSA. X25519 exists (ECDH over Curve25519); Ed25519 does not. That is the
+     first documented gap against `openssl`, and it is recorded rather than worked around.
+10. **Release order.** (§13)
+    v0.2.0 precedes whichever `zuxlsx` release first links the archive, 0.1.0 if passwords are
+    pulled forward there. Every later release is additions only, one per tranche.
 
 ## Revision 3 (2026-09-25)
 
@@ -102,30 +166,32 @@ the siblings already consume each other.
 
 ## 1. Purpose
 
-`zucrypt` provides a small, predictable cryptographic foundation for R packages. It is backed by
-vendored code from the Mbed TLS ecosystem. It exposes a narrow R interface and a versioned C
-interface, and needs no installed OpenSSL, Java or Python at runtime.
+`zucrypt` is cryptography for R with no system library: a vendored, pinned backend from the
+Mbed TLS ecosystem, a versioned C interface, and an R surface shaped after the `openssl`
+package so that a caller can move from one to the other by changing a prefix. It needs no
+installed OpenSSL, Java or Python at install or run time.
 
-**The one planned consumer is `zuxlsx`**, reading password-encrypted `.xlsx` files (agile
-encryption only, `zuxlsx` §21c). It links the static archive.
+**Three audiences, in the order they arrived:**
 
-**`zuhttp` is not a consumer, and none is being sought (#14).**
-- `zuhttp` imports nothing by policy.
-- Its SPKI pin digests come from each TLS backend.
-- What blocks pins on Secure Transport and Schannel is extracting the SubjectPublicKeyInfo, not
-  hashing it (pedrobtz/zuhttp#4, #12).
-- The one point of contact left is §10: a future Mbed TLS engine in `zuhttp` would pin the same
-  upstream release.
+- **`zuxlsx`**, reading password-encrypted `.xlsx` files (agile encryption only, `zuxlsx`
+  §21c). It links the static archive (§8.3). This is the first consumer and the one the ABI
+  freeze waits for.
+- **Packages and users of `openssl`** who need a build that does not depend on system libssl:
+  a package importing `openssl` for `sha256()`, `rand_bytes()` and Base64; a user on a machine
+  where system OpenSSL is absent, old or unversioned. For them the product is the `crypt_`
+  layer of §7.1 and the migration article.
+- **`zuhttp`**, if it ever takes a bundled TLS engine, through a sibling provider on the same
+  upstream release (§10). It consumes nothing in 0.x.
 
-The package's value is straightforward installation, controlled algorithm support, and a C
-surface that other packages can link. It does not claim that R lacks cryptography:
-- `openssl` provides broad cryptographic functionality;
-- `sodium` provides modern encryption interfaces;
-- encrypted Excel can already be read through Java or Python integrations.
+**What exists elsewhere, and what does not.**
+- `openssl` is broad and needs system libssl; `sodium` is modern and needs libsodium on Linux;
+  `digest` vendors its own hashes and stops there. Encrypted Excel can be read through Java or
+  Python integrations.
+- No CRAN package offers a broad, vendored, security-tracked backend with no system library,
+  and neither `openssl` nor `sodium` publishes a C ABI for other packages. Both of those are
+  what this package is for.
 
-What does not exist elsewhere is a focused native foundation that fits the `zu*` family.
-Neither `openssl` nor `sodium` publishes a C ABI for other packages. See the
-[openssl manual](https://jeroen.r-universe.dev/openssl/doc/manual.html),
+See the [openssl manual](https://jeroen.r-universe.dev/openssl/doc/manual.html),
 [sodium documentation](https://docs.ropensci.org/sodium/),
 [xlsx manual](https://cran.r-project.org/web/packages/xlsx/refman/xlsx.html) and
 [rpxl](https://github.com/epicentre-msf/rpxl).
@@ -140,14 +206,15 @@ Neither `openssl` nor `sodium` publishes a C ABI for other packages. See the
 | Expose a small wrapper API, not upstream types | Isolate consumers from upstream configuration and ABI changes |
 | **The static archive is the primary C shape. The registered table is experimental** | `zuxlsx` links archives and has no `Imports:`. No package uses a table, in this repository or in any sibling (#14, §8.6) |
 | **Freeze a surface when a consumer links it** | A freeze with no consumer protects nothing and blocks the fixes a first consumer finds (#28) |
-| **Each primitive needs a named consumer** | ECB lost its consumer and is removed (#29). Later primitives enter on the same rule (§6) |
+| **A primitive enters on the admission rule, not on a consumer** | A standard, published vectors, an outside oracle and a composition contract (§6). Revision 3's named-consumer rule described every provider in the family and distinguished none. ECB is admissible under the new rule and in no tranche: `openssl` exposes none |
+| **An openssl-shaped R layer under `crypt_`** | Migration by prefix change, no collision when `openssl` is attached, and one R prefix per package (§7.1) |
 | **The archive contains the adapter, never raw upstream** | PSA headers depend on the configuration and expose key identifiers. With only `zucrypt.h` visible, there is no define for a consumer to match |
 | **C ABI prefix `zuc_`/`ZUC_`, never `zu_`** | `zu_` is `zukomp`'s public namespace and `zuhttp`'s internal one |
 | **Dynamic PSA key store** | A static store turns "too many live handles" into a false out-of-memory error (#30) |
 | **TF-PSA-Crypto 1.1 LTS** | Supported until 2029. 1.2 adds nothing this profile uses (#19) |
 | Support raw bytes explicitly | Avoid implicit text encoding, serialization or path interpretation |
 | Treat cipher operations as low-level interfaces | They do not by themselves define a secure encrypted-file format |
-| Share upstream provenance with `zuhttp` first | A single shared compiled backend is a separate, deferred decision (§10) |
+| Share upstream provenance with `zuhttp`; a TLS engine is a sibling provider | `LinkingTo:` cannot be optional, and a larger `libzucrypt.a` would be compiled by every `zuxlsx` install (§10) |
 
 If Office support later serves several readers, extract it from `zuxlsx` into a dedicated
 document package. Do not introduce that package before there is a second consumer.
@@ -267,7 +334,7 @@ of Mbed TLS 4.1 LTS, which upstream supports until March 2029
   See [stage-1-spike.md](stage-1-spike.md) §1 for the pin and §11 for the rehearsed update
   procedure.
 - **Line policy.** Take 1.1.x patch releases promptly. Move to a newer line only when the LTS line
-  moves, or when a named consumer needs a feature that exists only there.
+  moves, or when a tranche (§6) or a consumer needs a feature that exists only there.
 - `vendor-upstream.yaml` watches the latest release, whatever its line. Each non-LTS release
   therefore produces an issue that is closed with this policy as its reason, until the watcher
   can be restricted to a tag pattern. That restriction is a follow-up in `r-actions` (#19).
@@ -359,20 +426,20 @@ yet (§6).
 
 | Package | Owns | Does not acquire through `zucrypt` | How it consumes `zucrypt` |
 | --- | --- | --- | --- |
-| `zucrypt` | Crypto primitives, state and native API | XML, ZIP, Office, sockets, TLS or trust stores | — |
+| `zucrypt` | Cryptographic primitives and constructions, key and certificate data, state and the native API | XML, ZIP, Office, sockets, TLS sessions, trust stores, or the user's environment (key files, passphrase prompts, certificate downloads) | — |
 | `zuxlsx` | Workbook interpretation, the Office encryption adapter and the CFB reader | TLS | `LinkingTo` + `configure` + the installed `lib${R_ARCH}/libzucrypt.a`. No `Imports:` (its design §3) |
 | `zuxml` | XML parsing, reused for Agile encryption metadata | Cryptographic policy | does not |
 | `zukomp` | ZIP entry access and decompression after decryption | Office password handling | does not |
-| `zuhttp` | HTTP, sockets, TLS backend selection and certificate trust | Office processing | does not, and plans not to in 0.x. A future Mbed TLS engine would vendor its own build, aligned on the same manifest row (§10) |
+| `zuhttp` | HTTP, sockets, TLS backend selection and certificate trust | Office processing | does not in 0.x. A bundled TLS engine, if ever taken, is a sibling provider on the same manifest row, resolved at run time (§10) |
 
 The Office adapter may use `zuxml` and `zucrypt`. It must not create a reverse dependency from
 either package to `zuxlsx`.
 
 ## 6. Algorithm scope
 
-The enabled profile is exactly this:
+**The profile on `main`** is what v0.1.0 and v0.2.0 ship:
 
-| Capability | Consumer | Exposure |
+| Capability | First consumer | Exposure |
 | --- | --- | --- |
 | SHA-1 | Office agile profiles that declare it | R and C, as an explicit compatibility option |
 | SHA-256, SHA-384, SHA-512 | Office agile key derivation; general hashing | R and C |
@@ -381,24 +448,74 @@ The enabled profile is exactly this:
 | Constant-time comparison of equal-length byte strings | Verifiers and authentication tags | R and C |
 | Secure cleanup of native buffers | Keys and intermediate state | Internal |
 
-**Removed before release: AES-ECB** (#29). Its only use was Office Standard encryption, which
-`zuxlsx` does not implement (§9). SHA-1 is a compatibility facility, never a default. Its
-availability for document handling must not weaken `zuhttp`'s TLS policy.
+SHA-1 is a compatibility facility, never a default. Its availability for document handling
+must not weaken `zuhttp`'s TLS policy. AES-ECB was removed before release (#29) and is in no
+tranche: `openssl` exposes no ECB function and no construction here needs it.
 
-**Deferred primitives, and what would admit each one.** Every item needs one define and a trim
-re-derivation ([stage-1-spike.md](stage-1-spike.md) §3, §11). The table records what makes it
-worth that cost, so the question is not re-argued from scratch each time:
+**The admission rule** (revision 4, item 2). A primitive or construction enters when all four
+hold:
 
-| Primitive | Issue | Enters when |
-| --- | --- | --- |
-| `crypt_random()` over the existing OS entropy source | #9 | A named consumer needs IVs or nonces, or AES-GCM is admitted. It needs its own condition class for entropy failure, and it never touches R's RNG |
-| AES-GCM | #10 | A named consumer needs authenticated encryption, and the nonce policy is decided: generated internally with `crypt_random()`, never supplied by the caller |
-| PBKDF2, HKDF | #12 | A named consumer needs them. PBKDF2 is not Office's derivation. Shipping it together with GCM and randomness is the password-encryption construction this section rules out, so decide the format question first |
-| File and connection hashing | #11 | Not a primitive, so it needs no consumer rule. It is a convenience over the existing incremental path (§7) |
+1. **A standard with a number.** NIST, RFC or FIPS. Nothing is specified by this package.
+2. **Published vectors with provenance**, committed under `tests/testthat/fixtures/` with a
+   `MANIFEST.tsv` row, and recomputed by `tools/make-kat.R --check` against `openssl`.
+3. **An oracle outside this package.** The `openssl` R package where it has the function, the
+   `openssl` command line otherwise, `sodium` for the curve operations it shares. A self round
+   trip never counts (§12).
+4. **A composition contract.** The documentation says what the primitive does not do: CBC does
+   not authenticate, GCM does not tolerate a repeated nonce, PBKDF2 is not a file format.
 
-There is no general `encrypt_file(password = ...)`. Such an interface needs a separately
-specified authenticated format, a password KDF, a nonce policy and a reliable entropy source.
-Argon2 is not in the backend, and supporting it would mean vendoring something else.
+Each addition is one define in `src/zuc_crypto_config.h`, a re-derived trim
+([stage-1-spike.md](stage-1-spike.md) §3, §11), a `zuc_*` addition to the archive and a
+`crypt_*` wrapper, plus its `zuc_alg` value from the range §8.1 reserves.
+
+**The tranches.** Each is one roadmap stage and one minor release. What the pinned release
+can and cannot do was checked against the 1.1.1 archive on 2026-09-29. No tranche vendors a
+whole upstream: TF-PSA-Crypto 1.1.1 has 77 buildable sources, of which 20 are vendored today,
+and each tranche's keep list is re-derived from its define set by the spike's method, so the
+tree holds what the enabled algorithms compile and nothing else. Mbed TLS proper enters only
+at tranche 5, and only its X.509 files (9 of its 36 library sources in 4.1.0); its 19 TLS
+sources never enter this package (§10).
+
+| Tranche | Enters | Standard and oracle | Backend cost |
+| --- | --- | --- | --- |
+| 1 (Stage 13) | OS randomness (#9); MD5, SHA-224, RIPEMD-160, SHA-3; Base64; the openssl-shaped digest and HMAC functions, with character and connection input (#11) | RFC 1321, FIPS 180-4, FIPS 202, RFC 4648; `openssl` | small: `md5.c`, `ripemd160.c`, `sha3.c`, `base64.c` |
+| 2 (Stage 14) | AES-GCM (#10), ChaCha20-Poly1305, AES-CTR, PKCS#7 padding for CBC; PBKDF2-HMAC and HKDF (#12) | NIST SP 800-38A and 38D, RFC 8439, RFC 8018 and 6070, RFC 5869; `openssl` | moderate: `gcm.c`, `chacha20.c`, `poly1305.c`, `chachapoly.c`, the KDF core |
+| 3 (Stage 15) | Key objects; PEM and DER read and write; RSA key generation, PKCS#1 v1.5 and PSS signatures, OAEP and v1.5 encryption; `openssl`'s envelope format; SSH key formats; bignum conversion | RFC 8017, FIPS 186-5, RFC 5208 and 7468; `openssl` cross-reading and cross-verification | large: `bignum*.c`, `rsa.c`, `pk*.c`, `pem.c`, `asn1*.c`, `oid.c` |
+| 4 (Stage 16) | EC key generation, ECDSA (RFC 6979 as an option), NIST-curve ECDH, X25519 | FIPS 186-5, RFC 6979, RFC 7748, NIST CAVP; `openssl`, `sodium` for X25519 | moderate on top of 3: `ecp*.c`, `ecdsa.c` |
+| 5 (Stage 17) | X.509 certificates: read, write, verify against a caller-supplied bundle, fingerprints | RFC 5280; `openssl` | a second manifest row, Mbed TLS proper (X.509 is not in TF-PSA-Crypto) |
+
+**Documented gaps against `openssl`**, measured against `openssl` 2.3.4's 78 exports on
+2026-09-29 and listed in the migration article from Stage 13 so that nobody migrates into
+one. About fifty of the 78 are covered by the end of tranche 5; these are not:
+
+- **Not in the backend, by algorithm.** Ed25519 (`ed25519_keygen()`, `_sign()`, `_verify()`,
+  `read_ed25519_key()`, `read_ed25519_pubkey()`): the pinned release has no EdDSA, though
+  X25519 exists. It enters when upstream ships `PSA_WANT_ALG_PURE_EDDSA` on the LTS line, or
+  not at all. DSA (`dsa_keygen()`), MD4, BLAKE2 (`blake2b()`, `blake2s()`) and raw Keccak
+  (`keccak()`): removed or never present upstream.
+- **Not in the backend, by construction.** `bcrypt_pbkdf()`, OpenSSH's KDF, which is not a
+  standard with a number; PKCS#12 containers (`read_p12()`, `write_p12()`), for which Mbed TLS
+  has only the KDF; CMS enveloped data (`pkcs7_encrypt()`, `pkcs7_decrypt()`) and PKCS#7
+  writing (`write_p7b()`). `read_p7b()` is parse-only upstream and is a Stage 17 candidate.
+- **Outside the boundary (§5).** `download_ssl_cert()`, `ca_bundle()`, `my_key()`,
+  `my_pubkey()`, `askpass()`, the three `ssl_ctx_*()` curl hooks, and `fips_mode()`.
+  `openssl_config()` maps to `crypt_info()`.
+- **Bignum arithmetic** (`bignum_mod_exp()`, `bignum_mod_inv()`), called by no importer.
+  `bignum()` itself enters at tranche 3 as conversion only, because four importers use it to
+  move RSA parameters between JWK and PEM.
+- Anything the `openssl` package adds after the version the gate was last run against.
+
+**Nonce policy for AEAD** (revising revision 3's note on #10): the nonce is generated by
+default with the tranche 1 randomness, a caller-supplied one is accepted because `openssl`
+accepts one, and the documentation says that reusing a nonce under a key discloses the
+plaintext and forges tags. That is a contract, not a guard; the guard would be refusing the
+argument, which would make migration impossible.
+
+**What stays out.** There is no `encrypt_file(password = ...)`, and there will not be one
+here. The tranches give a caller PBKDF2, randomness and GCM to compose, and a format is a
+separate specification owned by whoever needs it. Argon2 and bcrypt are not in the backend.
+Post-quantum signatures (ML-DSA is in the 1.1.1 tree under `drivers/pqcp/`) are recorded in
+§14, not planned.
 
 ## 7. R interface
 
@@ -446,10 +563,61 @@ These functions operate on keys the caller supplies. They do not turn a password
 provides confidentiality only, and its documentation must make authentication the caller's
 explicit responsibility.
 
-**Later conveniences** follow the same contract. `crypt_hash_file(path, algorithm)` (#11) would:
-- chunk through the existing incremental path, checking for interrupts between chunks;
-- raise its own condition class for a missing or unreadable file;
-- refuse text-mode connections, whose encoding conversion would change the bytes.
+**File and connection hashing** (#11) is not a separate function. It is the connection input
+of the openssl-shaped layer (§7.1), which chunks through the incremental path, checks for
+interrupts between chunks, and refuses text-mode connections, whose encoding conversion would
+change the bytes.
+
+### 7.1 The openssl-shaped layer
+
+Revision 4's product for the second audience. It is a layer *over* the core functions, in R,
+with its own rules; the six core functions and the `zuc_*` archive underneath do not change
+to accommodate it.
+
+**Naming.** `crypt_` plus `openssl`'s name: `crypt_sha256()`, `crypt_rand_bytes()`,
+`crypt_aes_gcm_encrypt()`, `crypt_base64_encode()`, `crypt_read_key()`. Arguments keep
+`openssl`'s names, order and defaults. A migration is a prefix change and an `importFrom()`
+edit. Unprefixed names would collide the moment both packages are attached; `zu_` is taken
+twice in the family (revision 4, item 3).
+
+**Typing follows `openssl`, not §7.** In this layer:
+- raw in gives raw out;
+- a character vector is hashed element-wise as UTF-8 bytes and returns a hex string of class
+  `hash`, as `openssl` does;
+- a connection is streamed through the incremental path;
+- `key = ` on a digest function selects HMAC.
+
+Everything under this layer is still the raw-only core, so the rule that a character value is
+never a byte sequence still holds for `crypt_hash()`, `crypt_hmac()` and the CBC pair, and for
+any new function that has no `openssl` counterpart. Which layer a function belongs to is
+stated in its documentation, and the reference index groups them separately.
+
+**Where a mirrored name already exists with a different contract**, the existing function
+keeps its contract and gains arguments with defaults that preserve it. `crypt_aes_cbc_encrypt()`
+is the case: `openssl`'s pads with PKCS#7 and generates an IV; ours adds no padding and
+requires the IV. It gains `padding = "none"` and an `iv` default, and the padding difference
+is a documented one. Nothing stable changes meaning.
+
+**The gate.** `test-openssl-compat.R` runs every function in this layer against `openssl` on
+the same inputs, under `skip_if_not_installed("openssl")`, and on at least one CI leg the
+`openssl` package is required to be present so that the gate cannot pass by being skipped.
+Three kinds of result are allowed:
+
+- **byte-identical**: the default, asserted with `expect_identical()` on the bytes and, for
+  character input, on the hex string and its class;
+- **cross-verified**: for randomised operations (ECDSA, key generation, GCM with a generated
+  nonce): what we produce, `openssl` accepts, and what `openssl` produces, we accept;
+- **a documented difference**: listed in the migration article with the reason and the
+  workaround.
+
+A function exported from this layer that is in none of the three lists fails the suite, so a
+new mirrored function cannot ship without a decision. The `openssl` version the gate last ran
+against is recorded in NEWS, because a semantic change upstream is a change to what "identical"
+means.
+
+**The migration article** (`vignettes/articles/from-openssl.Rmd`) is the layer's contract for
+a reader: one table, `openssl` name against `crypt_` name, with identical, cross-verified,
+different or missing in the last column, and the §6 gaps listed under "missing".
 
 ## 8. Native interface and R package integration
 
@@ -469,6 +637,11 @@ Two consumer shapes exist in the family. They are not equally supported; §8.6 r
   - Values are permanent. An algorithm compiled out keeps its number and reports unavailable.
   - AES has no identifier: the key length selects AES-128/192/256, and CBC is the only mode.
     Removing ECB therefore renumbered nothing.
+  - **Ranges are reserved before ABI 1 is declared** (revision 4, item 5), because the
+    tranches of §6 add identifiers after the freeze and the values are permanent: 1–15
+    digests, 16–31 MACs, 32–63 ciphers and AEAD modes, 64–95 key derivation, 96–127 key
+    families and agreements, 128–159 signatures. The header states the ranges; a value is
+    assigned when its primitive enters, never in advance.
 - **Opaque handles**: `zuc_hash`, `zuc_hmac` and `zuc_aes`. The provider allocates them, and only
   provider functions destroy them.
   - Each `zuc_aes` and `zuc_hmac` holds one volatile key in the dynamic key store. The number of
@@ -533,8 +706,11 @@ Two consumer shapes exist in the family. They are not equally supported; §8.6 r
 - The accessor is registered from `R_init_zucrypt` after the backend is initialised.
 
 **The table is experimental** (§8.6). No package uses it (#14), and the fixture
-`tools/zucrypttest` calls every entry on every push. That is why it survives: it proves itself
-at little cost, and a future consumer finds it working.
+`tools/zucrypttest` calls every entry on every push. Revision 4 gives it an audience it did
+not have: a package that imports `zucrypt` for the §7.1 layer already carries `Imports:`, and
+`LinkingTo:` is then one line away. The option of removing the table before 1.0 is withdrawn;
+it leaves the experimental tier when such a package uses it, and its entries grow with the
+archive's, appended only.
 
 ### 8.3 Shape two: the static archive (primary)
 
@@ -631,6 +807,7 @@ Windows:
 | The six `crypt_*` functions and their condition classes | stable | stable | Additions only; nothing removed or given a new meaning |
 | `zucrypt.h`, `libzucrypt.a`, install path | **provisional** | **frozen as ABI 1** | Before the freeze: any change, recorded in `NEWS.md` and applied to `zuxlsx` together. After: additions only |
 | `zucrypt-r.h`, the registered table | **experimental** | experimental | Any change, recorded in `NEWS.md`. Leaves the tier when a non-fixture package uses it |
+| The openssl-shaped layer (§7.1), from v0.3.0 | — | — | Each function is stable from the release that ships it. Its contract is `openssl`'s at the version NEWS records; a divergence upstream becomes a documented difference, never a changed `crypt_` function |
 
 **The freeze** is the event that moves the archive to "frozen". It happens when all of the
 following hold:
@@ -718,26 +895,34 @@ is the independent oracle.
 
 ## 10. Relationship with zuhttp
 
-`zuhttp` keeps its native OS TLS backends. It adds Mbed TLS only as a separately tested backend,
-and only where Mbed TLS solves a concrete portability problem. Its R-15 is the risk that Apple
-removes Secure Transport, and pedrobtz/zuhttp#16 is the corresponding spike. Backend selection
-must never happen as an automatic retry after certificate verification fails.
+`zuhttp` keeps its native OS TLS backends: Schannel, Network.framework and OpenSSL. Its D-63
+(2026-09-26) removed Secure Transport, rejected vendoring a private Mbed TLS copy on every
+platform, and named `zucrypt` as the route for a bundled engine if one is ever needed. Its
+trigger is narrow, proxied HTTPS on macOS 11–13, and it is not planned before `zuhttp` 1.0.
+Backend selection must never happen as an automatic retry after certificate verification fails.
 
-- **What `zuhttp` shares with this package is provenance, not code.** It shares the
-  `tf-psa-crypto` manifest row, the patch set and the update tooling, so one upstream advisory is
-  one change in each repository. Each package compiles its own private copy. This duplicates
-  some crypto code, but it avoids exposing a broad upstream ABI too early.
-- **The small `zucrypt` C interface cannot host a TLS engine.** TLS needs more operations, more
-  initialisation and a compatible configuration. Do not describe the architecture as a single
-  shared compiled crypto provider.
-- **A shared backend package waits for measurement.** If duplication becomes material, evaluate a
-  dedicated backend package with a deliberately designed interface and one initialisation owner.
-  Measure source size, binary size, update burden and loading behaviour first; the Stage 1 numbers
-  in [stage-1-spike.md](stage-1-spike.md) are the baseline. Keep upstream symbols private in
-  either design.
+Revision 4 reconciles that decision with this document, which had said the opposite:
+
+- **The engine is not `libzucrypt.a`.** A TLS client needs the SSL state machine, X.509, the
+  key exchange and AEAD suites, a DRBG and `mbedtls/ssl.h` with a matching configuration. That
+  is the raw-upstream archive shape §8.3 rejects for PSA, it would be compiled by every
+  `zuxlsx` install, and it would be proved only by `zuhttp`'s handshake matrix, not here.
+- **The engine is a sibling provider.** A fourth provider package vendors Mbed TLS proper and
+  its TF-PSA-Crypto on the manifest row this repository pins, using this repository's
+  `fetch`/`record`/`verify` tooling, keep-list trim and symbol hiding. `zuhttp` vendors
+  nothing, which is what D-63 requires; the crypto is compiled once more, which is what this
+  section always allowed.
+- **"Optional" means a run-time resolved package.** `LinkingTo:` is an install-time
+  requirement and cannot be optional. An optional engine is therefore a package that `zuhttp`
+  loads on request and resolves through a registered table, behind its pluggable stream
+  interface: the family's table shape, pointed from engine to client rather than from provider
+  to consumer.
+- **Stage 17's X.509 row is the shared step.** Certificates enter this package on a second
+  manifest row for Mbed TLS proper (§6, tranche 5). That row, its trim method and its patch
+  set are what the provider would start from.
 
 `zuhttp` owns CA discovery, trust configuration, hostname verification, client certificates,
-protocol policy, sockets and network errors.
+protocol policy, sockets and network errors. Nothing in the tranches touches any of those.
 
 ## 11. Errors and resource handling
 
@@ -801,6 +986,7 @@ authentication failure without inventing a precise diagnosis.
 | Platforms | Windows, macOS and Linux runners, the CRAN-like containers, and the weekly i386, musl and aarch64 legs. **These legs run the test suite, and fail on a WARNING** (#31) |
 | Allocation failure | The weekly sweep injects failures inside the `zuc_*` allocation window, and its log shows how many it injected there. Every one must yield `ZUC_ERR_MEMORY` or R's own allocation error, and never a wrong answer (#31) |
 | Office integration (`zuxlsx`) | Fixtures from Excel and msoffcrypto-tool with recorded provenance. Wrong password, altered ciphertext or HMAC, unsupported profiles, Unicode passwords, truncation, malformed CFB chains |
+| openssl compatibility (§7.1, from Stage 13) | Every mirrored function byte-identical to `openssl`, cross-verified, or a documented difference; an export in none of the three lists fails; one CI leg requires `openssl` present so the gate cannot pass by skipping; the `openssl` version recorded in NEWS |
 
 **A gate counts only when it has run against its target.** A green job whose log shows zero
 tests, or zero injected failures in the code it is named for, is recorded as not run. A stage
@@ -823,12 +1009,22 @@ fixtures with known passwords and redistribution permission.
    - the ABI 1 freeze.
 
    The family's first end-to-end success criterion is reading a password-encrypted workbook
-   without Java, Python or a system OpenSSL. It is met in `zuxlsx` 0.2.0, which follows
+   without Java, Python or a system OpenSSL. It is met in the first `zuxlsx` release that
+   links the archive (0.2.0, or 0.1.0 if passwords are pulled forward), which follows
    `zucrypt` 0.2.0 onto CRAN.
 5. **HTTP evaluation**, owned by `zuhttp`: its Mbed TLS spike, on the shared manifest row, with
    native OS TLS retained.
-6. **Measured expansion**: the §6 deferred primitives and a shared compiled backend. Each is
-   admitted only on its own entry criterion.
+6. **Tranche 1** (roadmap Stage 13, v0.3.0): randomness, the remaining digests, Base64, and
+   the openssl-shaped layer with its gate and migration article over what already exists.
+7. **Tranche 2** (Stage 14, v0.4.0): AEAD, CTR, padding, PBKDF2 and HKDF.
+8. **Tranches 3 and 4** (Stages 15–16, v0.5.0 and v0.6.0): key objects, PEM and DER and RSA,
+   then the curves. Ordered by measured use among `openssl`'s importers
+   (`tools/openssl-usage.R`, roadmap Stage 13).
+9. **Tranche 5** (Stage 17, v0.7.0): X.509 certificate data on a second manifest row.
+
+Each release after v0.2.0 is additions only, to the R surface and to the archive, and each is
+a CRAN release. The `zuhttp` provider, if taken, is a separate repository and starts from
+step 9's manifest row.
 
 Office Standard encryption, step 4 in revision 2, is dropped (§9).
 
@@ -902,15 +1098,20 @@ above, until the next five-repository change. The corrected cells:*
 
 ## 14. Decisions left open
 
-- **Whether the table leaves the experimental tier or leaves the package.** This is decided by
-  the first non-fixture consumer, or by the lack of one at 1.0.
-- **Whether ECB returns.** Only a named consumer can bring it back, and it would return as an
-  addition.
-- **Whether a shared compiled backend with `zuhttp` is worth its coupling.** This is measured
-  after `zuhttp`'s Mbed TLS spike (§10).
+- **When the table leaves the experimental tier.** When a non-fixture package uses it.
+  Removal is no longer an option (revision 4, item 6).
+- **Whether ECB returns.** It is admissible under §6 and in no tranche; it returns as an
+  addition when a mirrored function or a consumer needs it.
+- **Whether `zuhttp` ever takes the sibling TLS provider** (§10), and who builds it. Not
+  before `zuhttp` 1.0, and not in this repository.
 - **When calls may leave the main thread.** Only when a consumer asks, and only after locking and
-  shutdown are verified (§8.4).
-- **The deferred primitives**, each on its own entry criterion (§6).
+  shutdown are verified (§8.4). A long-lived `openssl` replacement in a server process is the
+  likeliest asker.
+- **Ed25519**, when upstream ships EdDSA on the LTS line (§6, gaps).
+- **Post-quantum signatures.** ML-DSA is in the pinned tree; it enters, if at all, on the
+  admission rule and with a named standard (FIPS 204), after tranche 4.
+- **Bignum arithmetic**, if an importer ever calls it (§6).
+- **Which `openssl` version the gate tracks** when the two packages' semantics diverge.
 - **In `zuxlsx`:** default Office resource limits, and CFB parser reuse versus a narrow
   implementation.
 

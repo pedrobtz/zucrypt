@@ -1,6 +1,7 @@
 # zucrypt: roadmap
 
-Status: adopted 2026-09-25 (#38). This plan implements [design.md](design.md) revision 3.
+Status: adopted 2026-09-25 (#38); re-planned 2026-09-29 for design revision 4. This plan
+implements [design.md](design.md) revision 4.
 - Stages 0–4 are done.
 - Stage 5 was reopened (#26) and closed with Stage 8, once its weekly gates ran real tests.
 - Stage 6 was prepared and never tagged. Its remaining items became Stages 7–9, and the
@@ -9,8 +10,13 @@ Status: adopted 2026-09-25 (#38). This plan implements [design.md](design.md) re
   v0.1.0 tag waits on the maintainer (#27).
 - **Stage 11 is next.** It waits on zuxlsx's agile C path, and Stage 12 follows it to v0.2.0,
   the first CRAN release.
+- **Re-planned 2026-09-29 for design revision 4.** Stages 11 and 12 are unchanged except one
+  Stage 11 item, the `zuc_alg` ranges. Stages 13–17 are new: the openssl-shaped layer and its
+  tranches, one CRAN minor release each. The goal they serve: an alternative to the `openssl`
+  package, vendored Mbed TLS ecosystem underneath, for what `openssl` is used for.
 
-Date: 2026-09-20; reviewed 2026-09-22 (#37); re-planned 2026-09-25; updated 2026-09-26.
+Date: 2026-09-20; reviewed 2026-09-22 (#37); re-planned 2026-09-25; updated 2026-09-26;
+re-planned 2026-09-29.
 
 The file has two parts:
 - **Part A** is the plan from here.
@@ -39,16 +45,22 @@ every surface change first.
 | --- | --- | --- | --- |
 | **v0.1.0** | GitHub tag | The six R functions are stable. The archive ABI is *provisional*. The table is *experimental* (design §8.6) | Stages 7–9 |
 | **v0.2.0** | CRAN | The archive is frozen as ABI 1. The table is still experimental | Stages 10–12, and `zuxlsx`'s agile C path ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)) |
-| later | — | Deferred primitives and conveniences, each on its entry criterion (design §6) | A named consumer |
+| **v0.3.0** | CRAN | Tranche 1: randomness, the remaining digests, Base64, and the openssl-shaped layer with its gate and migration article (design §7.1) | Stage 13 |
+| **v0.4.0** | CRAN | Tranche 2: AES-GCM, ChaCha20-Poly1305, CTR, PKCS#7 padding, PBKDF2, HKDF | Stage 14 |
+| **v0.5.0** | CRAN | Tranche 3: key objects, PEM and DER, RSA, signatures, envelopes | Stage 15 |
+| **v0.6.0** | CRAN | Tranche 4: EC keys, ECDSA, ECDH, X25519 | Stage 16 |
+| **v0.7.0** | CRAN | Tranche 5: X.509 certificate data, on a second manifest row | Stage 17 |
 
 **The family order fixes v0.2.0's deadline:**
-1. zucrypt reaches CRAN before `zuxlsx` 0.2.0, since `zuxlsx` cannot pass CRAN's checks with a
-   `LinkingTo:` on a package that is not there.
+1. zucrypt reaches CRAN before whichever `zuxlsx` release first links the archive (0.2.0, or
+   0.1.0 if passwords are pulled forward there), since `zuxlsx` cannot pass CRAN's checks with
+   a `LinkingTo:` on a package that is not there.
 2. zucrypt reaches CRAN after `zuxlsx`'s C path has shown that the archive suits it, since
    freezing first is the mistake this plan corrects.
 
-zucrypt 0.2.0 and `zuxlsx` 0.2.0 are therefore one sequence: C path merged, then zucrypt frozen
-and submitted, then `zuxlsx` submitted.
+zucrypt 0.2.0 and that `zuxlsx` release are therefore one sequence: C path merged, then zucrypt
+frozen and submitted, then `zuxlsx` submitted. Every zucrypt release after 0.2.0 is additions
+only, so none of them puts `zuxlsx` in the sequence again.
 
 ## Stage map
 
@@ -58,9 +70,13 @@ and submitted, then `zuxlsx` submitted.
 | 8 — Evidence that has run | v0.1.0 | #31, #34, #35; closes #26 | Stage 7. A fix in `r-actions` for the allocation interposer | **done**, #46 (r-actions v1.12.2–v1.15.0) |
 | 9 — Documentation that matches the code, and the tag | v0.1.0 | #36 (the rest), #27 | Stage 8 | **done**, #47 and #48; the tag waits on the maintainer (#27) |
 | 10 — The archive proved the way a consumer uses it | v0.2.0 | #32, #33 (fixture location) | Stage 9 | **done**, #49 |
-| 11 — The first consumer, and the freeze | v0.2.0 | #28 (the freeze itself) | Stage 10. `zuxlsx`'s agile C path merged | next; waiting on zuxlsx#22 |
+| 11 — The first consumer, and the freeze | v0.2.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | Stage 10. `zuxlsx`'s agile C path merged | next; waiting on zuxlsx#22 |
 | 12 — v0.2.0 and CRAN | v0.2.0 | #17, #13, #15 | Stage 11 | |
-| after | 0.3+ | #9, #10, #11, #12, #16 | A named consumer each | |
+| 13 — Tranche 1: the openssl-shaped layer over what exists | v0.3.0 | #9, #11, #16 | Stage 12 | |
+| 14 — Tranche 2: authenticated encryption and key derivation | v0.4.0 | #10, #12 | Stage 13 | |
+| 15 — Tranche 3: key objects, PEM and DER, RSA | v0.5.0 | new | Stage 14 | |
+| 16 — Tranche 4: EC keys, ECDSA, ECDH, X25519 | v0.6.0 | new | Stage 15 | |
+| 17 — Tranche 5: certificates | v0.7.0 | new | Stage 16 | |
 
 Issue #14 is closed as *not planned* when this plan merges (design revision 3, item 9).
 
@@ -310,6 +326,11 @@ Work items:
   [zukomp#35](https://github.com/pedrobtz/zukomp/issues/35) tracks for `zukomp`. Write it so that
   `zukomp` and `zuxml` can adopt it unchanged, or propose it to `r-actions` as a reusable
   workflow.
+- **Reserve the `zuc_alg` ranges** (design §8.1, revision 4 item 5) in `zucrypt.h`, as
+  comments and as `ZUC_ALG_*_FIRST`/`_LAST` bounds: digests, MACs, ciphers and AEAD modes,
+  key derivation, key families, signatures. No value is assigned in advance. This is the one
+  revision 4 item inside the frozen window: a tranche that arrives after the freeze and finds
+  no range would have to renumber, which ABI 1 forbids.
 - **Declare the freeze.**
   - `?zucrypt_c_api`, the README and NEWS say the archive is ABI 1 and frozen.
   - The lifecycle badge becomes "stable" for the archive.
@@ -332,8 +353,8 @@ Work items:
 - **Write the vendored-backend vignette** (#17), the document a CRAN reviewer or a security
   reviewer will read. It covers:
   - the trim;
-  - the eleven defines, and what is not enabled;
-  - hardware acceleration off everywhere;
+  - the fourteen defines, and what is not enabled;
+  - hardware AES where the CPU has it, the software fallback and its timing caveat (#51);
   - provenance and reproduction;
   - the patch;
   - how a security fix reaches an archive consumer, which is only when that consumer is
@@ -352,26 +373,207 @@ Work items:
   - the spelling check.
 - **Rewrite `cran-comments.md`** as a first submission. It lists only checks that have run, and
   explains the vendored backend and the installed static archive in one paragraph each.
+- **Reposition the package before it is first published** (design revision 4, item 1), so
+  that the title CRAN shows from the first release is the one that still holds at 0.7.0.
+  *Done early, 2026-09-29:* `DESCRIPTION`'s Title is "Cryptography Without System
+  Dependencies", the family's phrasing (`zuxlsx`: "Read 'xlsx' Workbooks Without System
+  Dependencies"), true with six functions and true with sixty; the Description names the
+  backend, says the function set follows `openssl`'s, and lists categories with "including",
+  so additions do not falsify it. Still to do here: the README's first paragraph and
+  lifecycle statement, `?zucrypt`, and the getting-started article's closing paragraph, all
+  of which still say "narrow".
 - Set the version to 0.2.0.
 - **Submission** is for the maintainer: tag `v0.2.0` and submit.
 
 Exit: accepted on CRAN, `main` at `0.2.0.9000`, and `zuxlsx` notified that it can submit.
 
-## After v0.2.0
+## Stage 13 — Tranche 1: the openssl-shaped layer over what exists
 
-None of these is scheduled. Each enters on the criterion design §6 records, and each follows
-the stage rhythm when it does.
+Goal: put the design §7.1 layer, its gate and its migration article in place on functions whose
+primitives already exist, so that every later tranche adds to a working pattern rather than
+inventing one. Plus the one primitive every later tranche needs: randomness.
 
-- **#9 `crypt_random()`**: when a named consumer needs IVs or nonces, or together with #10.
-- **#10 AES-GCM**: when a named consumer needs authenticated encryption, and the nonce policy is
-  decided. It depends on #9.
-- **#12 PBKDF2 and HKDF**: when a named consumer needs them. Decide the password-format question
-  first, together with #9 and #10.
-- **#11 File hashing**: a convenience with no consumer rule. It can be taken any time after
-  v0.2.0.
-- **#16 The comparison article**: documentation. It can be taken any time.
-- **A shared backend with `zuhttp`** (design §10): only after `zuhttp`'s Mbed TLS spike has
-  measured it.
+Entry: v0.2.0 on CRAN. Nothing here changes the frozen archive; every C addition is appended.
+
+**Why this subset first, measured 2026-09-29** with `tools/openssl-usage.R` over the R sources
+of the 104 CRAN packages that import or depend on `openssl` 2.3.4 (102 call at least one of its
+functions). The most-called functions are `base64_encode()` (39 packages), `sha256()` (34),
+`md5()` (23), `read_key()` (20), `rand_bytes()` (18), `base64_decode()` (17), then
+`aes_cbc_decrypt()` and `write_pem()` (12 each). Twenty-seven exports are called by no
+package, among them `sha224()`, `sha3()`, `ec_dh()`, the X25519 functions and `cert_verify()`.
+The tranches, cumulatively, fully serve:
+
+| After | Packages fully served |
+| --- | --- |
+| Stage 13 | 63 of 102 (62%) |
+| Stage 14 | 72 (71%) |
+| Stage 15 | 89 (87%) |
+| Stage 16 | 91 (89%) |
+| Stage 17 | 95 (93%) |
+
+The seven left need Ed25519, DSA, `read_p12()`, `bcrypt_pbkdf()` or `askpass()`: the design
+§6 gaps. This is also why Stage 15 is RSA and key I/O and Stage 16 is the curves, not the
+other way round: `read_key()` and RSA are what a fifth of the importers use, and nobody calls
+ECDH or X25519. Re-run the script before restating the count in the migration article.
+
+Work items:
+
+- **State the claim** (design revision 4, item 1). The title and Description were settled in
+  Stage 12; this stage adds the README's coverage count and the gaps of design §6 beside it,
+  now that there is a layer to count.
+- **Randomness** (#9): `zuc_random_bytes()` in the archive over the existing
+  `src/zuc_random.c` source, `crypt_rand_bytes(n)` mirroring `openssl::rand_bytes()`, and a
+  `zucrypt_entropy_error` condition class. Never R's RNG: a test sets a seed, draws twice, and
+  expects a difference. The harness injects an entropy failure and expects the class.
+- **The remaining digests**: MD5, SHA-224, RIPEMD-160, SHA-3 (224/256/384/512). One define
+  each, the trim re-derived once, `zuc_alg` values from the digest range, vectors with
+  provenance (RFC 1321, FIPS 180-4, the RIPEMD-160 reference vectors, FIPS 202). MD5 and
+  RIPEMD-160 are documented as legacy, not for security, in the same words as SHA-1.
+- **Base64**: `crypt_base64_encode()` and `crypt_base64_decode()` over the backend's
+  `base64.c`, with `openssl`'s `linebreaks` argument; RFC 4648 vectors.
+- **The mirrored digest and HMAC functions**: `crypt_md5()`, `crypt_sha1()`, `crypt_sha224()`,
+  `crypt_sha256()`, `crypt_sha384()`, `crypt_sha512()`, `crypt_sha2(x, size)`,
+  `crypt_sha3(x, size)`, `crypt_ripemd160()`, `crypt_multihash()`, each with `key = NULL` for
+  HMAC, and raw, character and connection input by the §7.1 typing rules. Connection input
+  closes #11; `crypt_hash_file()` is withdrawn. `crypt_rand_num()` beside `crypt_rand_bytes()`.
+- **Measure the claim.** The migration article's table is generated from
+  `getNamespaceExports("openssl")` at the pinned version (78 at 2.3.4), so every export is in
+  exactly one of: covered, planned (with its stage), or a gap with its reason. A README line
+  states the count covered, never "all".
+- **The gate**: `tests/testthat/test-openssl-compat.R`, the three result kinds of design §7.1,
+  and the export audit that fails on a mirrored function in no list. One CI leg sets
+  `ZUCRYPT_REQUIRE_OPENSSL=1` so the gate cannot pass by being skipped.
+- **The migration article**: `vignettes/articles/from-openssl.Rmd`, one table, and the gaps
+  of design §6 listed under "missing" from this release on. It absorbs #16, the comparison
+  article.
+- **Reference index** grouped into core, openssl-shaped, and C interface.
+- Close #9, #11 and #16. Record the `openssl` version the gate ran against in NEWS.
+
+Exit:
+
+- Every mirrored function is byte-identical to `openssl` on Linux, macOS and Windows, and the
+  required leg shows a nonzero count for the gate.
+- `tools/vendor/verify` is clean, the manifest's `defines` match, and the trim was derived
+  once for the stage.
+- The source tarball and the installed shared object are measured and recorded in NEWS; the
+  tarball is under 5 MB.
+- The alloc-failure sweep's `min-target-hits` is raised to cover the new adapter code, and its
+  first real run shows it.
+- Accepted on CRAN as 0.3.0.
+
+## Stage 14 — Tranche 2: authenticated encryption and key derivation
+
+Goal: the constructions a caller composes into password-based encryption, without this
+package specifying a format.
+
+Work items:
+
+- **AEAD** (#10): AES-GCM and ChaCha20-Poly1305. `zuc_aead_*` in the archive, one-shot and
+  incremental with associated data; `crypt_aes_gcm_encrypt()`/`_decrypt()` mirroring
+  `openssl`'s signatures and its tag and IV conventions exactly as the gate observes them.
+  Nonce policy per design §6. NIST GCM vectors and RFC 8439's.
+- **AES-CTR**: `crypt_aes_ctr_encrypt()`/`_decrypt()`; NIST SP 800-38A vectors.
+- **PKCS#7 padding**: `padding = "none"` added to the stable CBC pair with an `iv` default
+  (design §7.1); the padding difference documented; `openssl`'s padded output matched under
+  `padding = "pkcs7"`.
+- **KDFs** (#12): PBKDF2-HMAC (`crypt_pbkdf2()`, raw password, RFC 6070 and 8018 vectors) and
+  HKDF (`crypt_hkdf()`, RFC 5869 vectors). Neither has an `openssl` R counterpart, so both
+  follow the core typing rule; `bcrypt_pbkdf()` is listed as a gap.
+- **Hardware paths**: `aes-paths.yaml` asserts GCM and CTR on each path, including the
+  software-only build, and the side-channel note in `?crypt_aes_gcm_encrypt` and `zucrypt.h`
+  covers them.
+- `zuc_alg` values from the cipher and KDF ranges; table entries appended; `ZUCRYPT_API_HAS`
+  used in the fixture for one new field.
+
+Exit: vectors and the gate green on three operating systems; the sweep reaches the AEAD
+adapter; `tools/zucrypttest` calls every new table entry; the archive fixture links the new
+`zuc_*` functions; CRAN 0.4.0.
+
+## Stage 15 — Tranche 3: key objects, PEM and DER, RSA
+
+Goal: the first public-key tranche, ordered by the measurement above: key reading and writing
+and RSA are what the importers use, and the key-object model introduced here is what every
+later tranche builds on.
+
+Work items:
+
+- **Key objects**: `crypt_key` and `crypt_pubkey` S3 classes over finalized external
+  pointers to backend keys; `print()`, `as.list()` and the accessors `openssl` has; wiped on
+  finalization.
+- **PEM and DER**: `crypt_read_key()`, `crypt_read_pubkey()`, `crypt_read_pem()`,
+  `crypt_write_pem()`, `crypt_write_der()`, `crypt_write_pkcs1()`, with `password` for
+  encrypted PEM where the backend supports the cipher. PK, PEM and ASN.1 are in the pinned
+  TF-PSA-Crypto tree (`extras/`, `utilities/`), so no new manifest row. The gate here is
+  cross-reading: `openssl` reads what we write, and we read what it writes, for every key
+  type this tranche and the next can produce.
+- **RSA**: `crypt_rsa_keygen()`, PKCS#1 v1.5 and PSS signatures through
+  `crypt_signature_create()`/`_verify()`, OAEP encryption (`crypt_rsa_encrypt()`/`_decrypt()`),
+  PKCS#1 v1.5 encryption present and documented as legacy. RFC 8017 and FIPS 186-5 vectors;
+  cross-verification with `openssl` for everything randomised.
+- **Fingerprints**: `crypt_fingerprint()` over public keys.
+- **Envelopes**: `crypt_encrypt_envelope()` and `crypt_decrypt_envelope()`, `openssl`'s
+  RSA-plus-AES-CBC hybrid, reproduced field for field and cross-verified. A construction,
+  admitted because it is `openssl`'s documented format, not one of ours.
+- **SSH key formats**: `crypt_write_ssh()` and `crypt_write_openssh_pem()` for the key types
+  this package can produce, cross-read by `openssl` and by `ssh-keygen` where CI has it.
+- **Bignum, conversion only**: `crypt_bignum()` from raw, integer or a decimal or hex string,
+  with `as.raw()`, `as.character()` and `print()`. Four importers, `jose` among them, need it
+  to move RSA parameters between JWK and PEM. Arithmetic (`bignum_mod_exp()`,
+  `bignum_mod_inv()`) is called by no importer and stays out.
+- **Size**: bignum and RSA are a large addition. The trim is derived and measured before
+  anything else in the stage, and the numbers go in the PR.
+
+Exit: cross-reading, cross-verification and the vectors green on three operating systems;
+constant-time claims are upstream's and are quoted, not restated; CRAN 0.5.0.
+
+## Stage 16 — Tranche 4: EC keys, ECDSA, ECDH and X25519
+
+Work items:
+
+- **Curves**: P-256, P-384 and P-521 through `crypt_ec_keygen(curve)`, and `crypt_ec_dh()`;
+  X25519 through `crypt_x25519_keygen()`, `crypt_x25519_diffie_hellman()`,
+  `crypt_read_x25519_key()` and `crypt_read_x25519_pubkey()`. RFC 7748 vectors, NIST CAVP
+  ECDH vectors, `sodium` as the second oracle for X25519.
+- **ECDSA**: `crypt_signature_create()`/`_verify()` extended to EC keys, RFC 6979 deterministic
+  signatures as an option, DER-encoded signatures as `openssl` emits them. The backend
+  produces raw `r || s`; `crypt_ecdsa_parse()` and `crypt_ecdsa_write()` are that conversion,
+  exported as `openssl` exports them and tested in both directions.
+- **Ed25519 is a documented gap**, stated in the article and in `?crypt_x25519_keygen`, with
+  the reason: the pinned release has no EdDSA. Two importers need it (`jose`, `shinyOAuth`).
+- The gate is cross-verification throughout, since signing and key generation are randomised.
+
+Exit: CRAN 0.6.0.
+
+## Stage 17 — Tranche 5: certificates
+
+Goal: X.509 *data*: parse, write, verify a chain against a caller-supplied bundle, and
+fingerprint. Not trust discovery and not fetching, which are `zuhttp`'s.
+
+Work items:
+
+- **A second manifest row**, `mbedtls`, on the Mbed TLS 4.1 LTS line paired with the pinned
+  TF-PSA-Crypto, trimmed by the same method to the X.509 files. Never the whole library:
+  Mbed TLS 4.1.0's `library/` has 36 sources, of which 9 are X.509, 19 are TLS and 8 are
+  support (measured 2026-09-29). The row keeps the 9 and their header closure; the 19 never
+  enter this package and are the sibling provider's. `inst/COPYRIGHTS`, the installed licence
+  and `tools/vendor/verify` extend to two rows. This is the step design §10 shares with a
+  future `zuhttp` provider.
+- `crypt_read_cert()`, `crypt_read_cert_bundle()`, `crypt_write_pem()` for certificates,
+  `crypt_cert_verify(cert, root)`, `crypt_fingerprint()` for certificates, and `crypt_read_p7b()`
+  over upstream's parse-only `pkcs7.c`. PKCS#12 and PKCS#7 writing are gaps.
+- Test fixtures: a synthetic CA, intermediate and leaf generated by a `tools/` script with
+  `openssl`, committed with provenance.
+
+Exit: CRAN 0.7.0, and the manifest row documented well enough that a sibling provider could
+start from it.
+
+## After Stage 17
+
+- **The `zuhttp` TLS provider** (design §10): another repository, on `zuhttp`'s trigger.
+- **Ed25519** when upstream ships it; **ML-DSA** on the admission rule (design §14).
+- **Threads** when a consumer asks (design §8.4).
+- **1.0.0** when the openssl-shaped layer has had two releases without a documented-difference
+  change.
 
 ## CI from Stage 7
 
@@ -385,6 +587,11 @@ Pins stay commits, with the tag in a trailing comment, and a bump is its own rev
 | `vendor-upstream.yaml` | Stage 7, if r-actions supports it | Follow the 1.1 LTS tags only |
 | `consumer.yaml` | Stage 10 | Two fixture packages under `tools/`, three operating systems |
 | reverse dependency (new, bespoke or r-actions) | Stage 11 | Build `zuxlsx@main` against this checkout |
+| `R-CMD-check.yaml` | Stage 13 | One leg sets `ZUCRYPT_REQUIRE_OPENSSL=1`, so the compatibility gate must run there |
+| `vendor.yaml` | Stage 13 | Tarball-size gate (5 MB) and the object and file counts printed per run |
+| `aes-paths.yaml` | Stage 14 | GCM and CTR on each path |
+| `alloc-failure.yaml` | Stages 13–16 | `min-target-hits` raised as the adapter grows; each first real run dispatched by hand |
+| `vendor.yaml`, `vendor-upstream.yaml` | Stage 17 | Two manifest rows |
 
 ## Risks
 
@@ -402,6 +609,24 @@ Pins stay commits, with the tag in a trailing comment, and a bump is its own rev
   in R's startup.
 - **An upstream security release mid-plan.** Take it at once, as its own pull request, by the
   procedure in stage-1-spike §11. No stage waits for it and it waits for no stage.
+- **Every tranche is compiled by every `zuxlsx` install.** Static linking pulls only the
+  objects a consumer references, so `zuxlsx.so` does not grow with primitives it never calls,
+  but zucrypt's own install time and tarball do. Each stage measures before it merges, and the
+  5 MB tarball gate is the stop.
+- **Mirroring drifts.** The `openssl` package can change a default or a return type. The gate
+  pins the version it ran against in NEWS; a divergence becomes a documented difference, never
+  a silent change to a `crypt_` function.
+- **The gaps are where migration fails.** Ed25519, `bcrypt_pbkdf()`, PKCS#12 and `bignum` are
+  listed from Stage 13 so that no one moves a package that needs them and finds out at run
+  time.
+- **Public-key side channels are upstream's promise, not ours.** Bignum and curve code claim
+  constant time in upstream's terms; this package quotes that and adds no claim. The software
+  AES caveat extends to GCM and CTR.
+- **The enum ranges must land in Stage 11.** It is the one revision 4 item inside the frozen
+  window; missing it means a renumbering that ABI 1 forbids.
+- **One maintainer, a wider surface.** A broad crypto package attracts requests for
+  constructions. The admission rule and the no-format rule are the standing answers; a request
+  that fails them is closed with the rule as the reason.
 
 # Part B — The v0.1.0 roadmap as executed (2026-09-20)
 

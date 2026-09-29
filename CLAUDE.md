@@ -4,8 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-The plan of record is [design.md](.agents/design.md) revision 3 and Part A of
-[roadmap.md](.agents/roadmap.md) (Stages 7–12), adopted 2026-09-25. Stages 0–5 and 7–10 are complete (Stage 5 closed with
+The plan of record is [design.md](.agents/design.md) revision 4 (2026-09-29) and Part A of
+[roadmap.md](.agents/roadmap.md) (Stages 7–17). Revision 4 widened the goal: beyond being
+`zuxlsx`'s archive provider, `zucrypt` becomes an alternative to the `openssl` package with no
+system library, vendored Mbed TLS ecosystem underneath, through an openssl-shaped `crypt_` layer
+(design §7.1: `crypt_sha256(x, key = NULL)`, `crypt_rand_bytes(n)`, ...) added in five tranches
+after v0.2.0 (Stages 13–17, one CRAN minor release each). A primitive enters on the admission
+rule of design §6 (a numbered standard, published vectors, an outside oracle, a composition
+contract), no longer on a named consumer. Two backend facts fix the tranches: PK, PEM and
+ASN.1 are inside the pinned TF-PSA-Crypto tree, so key I/O needs no second vendored library,
+while X.509 does (Stage 17); and the release has X25519 but no Ed25519, the first documented
+gap against `openssl`. Stages 0–5 and 7–10 are complete (Stage 5 closed with
 Stage 8, once its weekly gates ran real tests; Stage 6 was superseded by Stages 7–9). **The
 v0.1.0 tag is still the maintainer's** ([#27](https://github.com/pedrobtz/zucrypt/issues/27)):
 tag it, publish the release, then move `DESCRIPTION` to `0.1.0.9000`. **Stage 11 — the first
@@ -91,11 +100,12 @@ has symbols only on Arm) and how to re-derive it, the external-RNG choice, and t
 `src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.
 
 The real content of this repository is [.agents/design.md](.agents/design.md), now at
-revision 3. §3–§8 and §11–§12 describe `main` as amended by revision 3's decisions, which Stages
-7–12 implement; §9 and §13 steps 3–5 are plans owned by `zuxlsx` and `zuhttp`. Read it before writing code; it is the authoritative spec for the API,
+revision 4. §3–§8 and §11–§12 describe `main` as amended by revision 3's decisions, which Stages
+7–12 implement; §6, §7.1 and §10 describe where revision 4 takes it, which Stages 13–17
+implement; §9 and §13 steps 3–5 are plans owned by `zuxlsx` and `zuhttp`. Read it before writing code; it is the authoritative spec for the API,
 boundaries and constraints summarised below, and it is where design changes belong.
 [.agents/roadmap.md](.agents/roadmap.md) Part A is the plan from here (Stages 7–12, v0.1.0 then
-v0.2.0 on CRAN); Part B is the executed v0.1.0 roadmap, kept as the record. Check which stage
+v0.2.0 on CRAN; Stages 13–17, one tranche and one CRAN minor release each); Part B is the executed v0.1.0 roadmap, kept as the record. Check which stage
 is current before starting work. One rule added by the re-plan: a stage that adds or changes a
 scheduled job closes only after that job's first real run, dispatched by hand.
 
@@ -187,8 +197,11 @@ a green job that proved nothing.
 `zucrypt` is one package in the `zu*` family (siblings are checked out alongside it:
 `zuxlsx`, `zuxml`, `zukomp`, `zuhttp`, …). The boundary is strict and is the main thing to preserve:
 
-- **`zucrypt` owns cryptographic primitives only** — hashes, HMAC, AES-CBC, constant-time
-  compare, secure cleanup. It must never acquire XML, ZIP, Office, socket or TLS dependencies.
+- **`zucrypt` owns cryptography only** — today hashes, HMAC, AES-CBC, constant-time compare
+  and secure cleanup; from Stage 13 the tranches of design §6 (randomness, AEAD, KDFs, keys,
+  signatures, certificate data). It must never acquire XML, ZIP, Office, socket or TLS-session
+  dependencies, and never reaches the user's environment (no key files, passphrase prompts or
+  certificate downloads: design §5).
 - **Family conventions are binding** (design §3): C ABI prefix `zuc_`/`ZUC_` (never `zu_`,
   which is `zukomp`'s public namespace and `zuhttp`'s internal one, so a `zucrypt.h` using it
   could not be included beside `zukomp.h`; `zuxlsx` itself includes `miniz.h`, not `zukomp.h`);
@@ -240,14 +253,19 @@ to each other, and `tests/testthat/test-abi.R` asserts that the shared object ex
   exactly 16, data a multiple of 16. Authentication is the caller's responsibility.
 - SHA-1 exists for Office compatibility and is never a default for new formats. AES-ECB was
   removed in Stage 7 (#29): its only use was Office Standard encryption, which `zuxlsx` put out
-  of scope (design-zuxlsx §21c). A primitive enters only with a named consumer (design §6).
+  of scope (design-zuxlsx §21c). A primitive enters on the admission rule of design §6; ECB
+  is admissible and in no tranche.
 - The PSA key store is dynamic (`MBEDTLS_PSA_KEY_STORE_DYNAMIC`, Stage 7, #30): each `zuc_aes`
   and `zuc_hmac` holds one volatile key, and live handles are bounded only by memory. The
   static 32-slot store it replaced failed at the 17th live AES handle and reported it as
   `ZUC_ERR_MEMORY`. Tearing the backend down (`zuc_shutdown()` to zero) destroys every key, so
   a test that does it must run with nothing else live.
-- No `encrypt_file(password = )`, no PBKDF2/HKDF/AEAD/RNG in the initial scope — each needs a
-  concrete consumer first.
+- No `encrypt_file(password = )`, ever: the package specifies no format. PBKDF2, HKDF, AEAD
+  and randomness are Stages 13–14 (design §6 tranches), not yet on `main`.
+- The openssl-shaped layer (design §7.1) is the one place character input is accepted, typed
+  as `openssl` types it; the core `crypt_hash()`, `crypt_hmac()` and CBC pair stay raw-only.
+  Every mirrored function must be byte-identical to `openssl`, cross-verified, or a documented
+  difference in the migration article; a function in none of the three lists fails the suite.
 - Any future randomness uses platform entropy or a seeded backend RNG, **never R's RNG**.
 - Errors are R conditions `c(<specific>, "zucrypt_error", "error", "condition")` built in R from a
   `zuc_status`, mapped by enumerator *name*; never attach keys, passwords or plaintext -- in the
