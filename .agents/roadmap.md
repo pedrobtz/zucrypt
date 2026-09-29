@@ -383,7 +383,10 @@ Goal: zucrypt on CRAN as 0.1.0, its first release, before `zuxlsx` 0.1.0 is subm
 Work items:
 
 - **Write the vendored-backend vignette** (#17), the document a CRAN reviewer or a security
-  reviewer will read. It covers:
+  reviewer will read. *Done early, 2026-09-29, as a pkgdown article
+  (`vignettes/articles/backend.Rmd`, "The vendored backend"), following CLAUDE.md's
+  articles-only layout rather than #17's shipped vignette; the version it describes is in
+  `crypt_info()`, and the site is versioned with the package.* It covers:
   - the trim;
   - the fourteen defines, and what is not enabled;
   - hardware AES where the CPU has it, the software fallback and its timing caveat (#51);
