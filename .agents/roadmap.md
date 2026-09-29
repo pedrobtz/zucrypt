@@ -9,10 +9,16 @@ implements [design.md](design.md) revision 4.
 - **v0.1.0 is the first CRAN release** (decided 2026-09-29, replacing the GitHub-only tag of
   #27 and the separate v0.2.0). It carries the freeze. `zuxlsx` 0.1.0, with password-protected
   workbooks, follows it onto CRAN.
-- **Two R-only additions join v0.1.0** (decided 2026-09-29, for `dastash`, which stores
-  SHA-256 as hex and hashes files): `crypt_hex()` (#59) and connection input to
-  `crypt_hash()`/`crypt_hmac()` (#11, moved here from Stage 13). Neither touches the archive,
-  so neither affects the freeze.
+- **Two R-only additions join v0.1.0** (decided 2026-09-29): `crypt_hex()` (#59) and connection
+  input to `crypt_hash()`/`crypt_hmac()` (#11, moved here from Stage 13). Neither touches the
+  archive, so neither affects the freeze. `dastash` asked for both, but on reflection is **not
+  a committed consumer**: it uses `tools::sha256sum()` (R >= 4.5), and zucrypt's only material
+  gain for it is the R floor (4.1), which is its maintainer's call. The additions stand on their
+  general value instead -- hashing a file is the commonest reason to reach for a hashing
+  package. Measured 2026-09-29 on a 512 MiB file: `crypt_hash(file())` 225 MB/s against base
+  R's 205 MB/s, but it allocates 513 MB in 1 MiB `readBin()` chunks where base R allocates
+  nothing; reading through `R_ReadConnection()` into one reused buffer would remove that, at
+  the price of R's connection API, which R documents as subject to change.
 - **The CBC rename is done, and so is Stage 11**: zuxlsx#22 step 3 (zuxlsx#64) decrypted the
   real fixture against `main` on three operating systems, its two pre-freeze findings are
   fixed, and ABI 1 is frozen (2026-09-29). **Next:** Stage 12 takes v0.1.0 to CRAN. The

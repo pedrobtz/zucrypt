@@ -23,7 +23,8 @@ first CRAN release and carries the freeze** (decided 2026-09-29; the GitHub-only
 the separate v0.2.0 are gone). `zuxlsx` 0.1.0, with password-protected workbooks, follows it
 onto CRAN. The CBC pair is renamed `crypt_aes_cbc_encrypt_nopad()` / `_decrypt_nopad()` (design §7,
 #56), freeing the ordinary names for Stage 14's openssl-compatible padded pair. `crypt_hex()`
-(#59) and connection input to `crypt_hash()`/`crypt_hmac()` (#11) joined 0.1.0 for `dastash`.
+(#59) and connection input to `crypt_hash()`/`crypt_hmac()` (#11) joined 0.1.0 on their general
+value; `dastash` asked for them but is not a committed consumer (its gain would be the R floor).
 **Stage 11 is done** ([#43](https://github.com/pedrobtz/zucrypt/issues/43)): zuxlsx's
 decryption core ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3, zuxlsx#64)
 passed against `main` on three operating systems and ABI 1 is frozen. **Next is Stage 12**

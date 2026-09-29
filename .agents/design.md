@@ -624,7 +624,7 @@ explicit responsibility.
 
 **File and connection hashing** (#11) is not a separate function, and never a path string:
 `crypt_hash()` and `crypt_hmac()` accept a connection as `data`, from v0.1.0 (moved forward
-from Stage 13 for `dastash`). `file(path)` hashes a file. R reads 1 MiB chunks with
+from Stage 13; `dastash` asked, but is not a committed consumer). `file(path)` hashes a file. R reads 1 MiB chunks with
 `readBin()` into an incremental context owned by a finalized external pointer
 (`zucrypt_*_stream_new/update/finish` in the R glue, over the archive's `zuc_hash_*` and
 `zuc_hmac_*`), with an interrupt check per chunk. An unopened connection is opened `"rb"` and
