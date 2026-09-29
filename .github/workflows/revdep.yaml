@@ -39,10 +39,10 @@ name: revdep.yaml
 permissions: read-all
 
 env:
-  # zuxlsx#64 carries the agile decryption core the freeze was made on. Switch
-  # to main when it merges there (the branch is deleted then, and this job
-  # fails loudly at checkout rather than building something else).
-  ZUXLSX_REF: feat/agile-decrypt-core
+  # zuxlsx's main, which has carried the agile decryption core the freeze was
+  # made on since zuxlsx#64 merged (4933c6e). Until then this was
+  # feat/agile-decrypt-core, the branch the core was written on.
+  ZUXLSX_REF: main
 
 jobs:
   zuxlsx:
