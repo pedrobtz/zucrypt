@@ -21,8 +21,7 @@ A list with elements:
 - `abi_version`:
 
   the C ABI version published to `LinkingTo` consumers, as an integer:
-  `1`. The archive's ABI is provisional until its first consumer links
-  it, and frozen from the CRAN release of 0.1.0; see
+  `1`. The archive's ABI is frozen as ABI 1 from 0.1.0; see
   [zucrypt_c_api](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md).
 
 - `algorithms`:

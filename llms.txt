@@ -93,10 +93,9 @@ either of the two ways the `zu*` family links siblings:
 - **The static archive** `libzucrypt.a`, for a package that cannot carry
   an `Imports:`. It is installed to `lib/` plus the R sub-architecture
   (`lib/x64/` on Windows), beside the licence of the backend compiled
-  into it. This is the primary shape. It is *provisional* until its
-  first consumer — `zuxlsx`’s decryption of password-protected workbooks
-  — has linked it, and is frozen as ABI 1 when 0.1.0, the first CRAN
-  release, is published.
+  into it. This is the primary shape, and it is *frozen* as ABI 1: its
+  first consumer, `zuxlsx`’s decryption of password-protected workbooks,
+  was built and tested against it before the freeze.
 - **A registered function table**, for a package that can carry an
   `Imports:`. *Experimental* until a package other than a test fixture
   uses it.
@@ -107,10 +106,11 @@ for both, and for what is and is not promised.
 
 ## Status
 
-Version 0.1.0. The seven R functions are stable; the C interface is
-provisional (the archive) or experimental (the table), as above. Every
-change to either is recorded in `NEWS.md`. What is compiled in, where it
-came from, and how a security fix reaches you are in [The vendored
+Version 0.1.0. The seven R functions are stable, the static archive is
+frozen as ABI 1, and the registered table is experimental, as above.
+Every change to either is recorded in `NEWS.md`. What is compiled in,
+where it came from, and how a security fix reaches you are in [The
+vendored
 backend](https://pedrobtz.github.io/zucrypt/articles/backend.html). The
 design is in `.agents/design.md`, and `.agents/roadmap.md` records how
 it was built, what was deliberately left out, and what comes next.

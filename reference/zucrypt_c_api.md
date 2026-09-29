@@ -111,21 +111,21 @@ The three surfaces are at different stages:
 - **The seven `crypt_*()` R functions** are stable.
 
 - **The static archive** – `zucrypt.h`, `libzucrypt.a` and where it is
-  installed – is *provisional* until 0.1.0 is released on CRAN, where it
-  becomes frozen ABI 1, once its first consumer (`zuxlsx`'s decryption
-  of password protected workbooks) has linked it. Until then a change is
-  possible, and every one is recorded in `NEWS.md`.
+  installed – is *frozen* as ABI 1 from 0.1.0. The freeze followed its
+  first consumer: `zuxlsx`'s decryption of password-protected workbooks
+  was written against it, linked it on Linux, macOS and Windows, and
+  decrypted a real encrypted workbook with it.
 
 - **The registered table** (`zucrypt-r.h`) is *experimental*: no package
   uses it yet. It may change in any release until one does, again with
   every change recorded in `NEWS.md`.
 
-`ZUCRYPT_ABI_VERSION` is `1`. Once frozen, within a major version:
-functions and table fields may be added; nothing is removed, reordered
-or given a new meaning; enumerator values are permanent, so an algorithm
-compiled out of a build keeps its number and reports itself unavailable;
-and a `ZUC_*_REQUIRED_SIZE` macro never grows, so a consumer built
-against an older header keeps working without being rebuilt.
+`ZUCRYPT_ABI_VERSION` is `1`. Within major version 1: functions and
+table fields may be added; nothing is removed, reordered or given a new
+meaning; enumerator values are permanent, so an algorithm compiled out
+of a build keeps its number and reports itself unavailable; and a
+`ZUC_*_REQUIRED_SIZE` macro never grows, so a consumer built against an
+older header keeps working without being rebuilt.
 
 A layout change to a type that `struct_size` cannot see renames the
 registered callable instead, so an old consumer fails at

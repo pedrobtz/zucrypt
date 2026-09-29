@@ -4,11 +4,11 @@
 
 First release, and the first on CRAN. A focused set of cryptographic
 primitives over raw vectors, backed by a vendored, pinned crypto
-library, published to R and to C. The seven R functions are stable. The
-C interface is not yet: the static archive is provisional until its
-first consumer has linked it, and the registered table is experimental
-(see “C interface” below). The archive is frozen before this version is
-submitted (roadmap Stages 11 and 12).
+library, published to R and to C. The seven R functions are stable, and
+the static archive is frozen as ABI 1, after its first consumer –
+`zuxlsx`’s decryption of password-protected workbooks – was built and
+tested against it. The registered table is experimental (see “C
+interface” below).
 
 ### R interface
 
@@ -88,13 +88,29 @@ Both shapes the `zu*` family consumes siblings by, at
   sub-architecture (`lib/x64/` on Windows), for a package that cannot
   carry an `Imports:` — `LinkingTo:` only, no runtime dependency, and
   the consumer owns the backend’s lifetime through
-  `zuc_init()`/`zuc_shutdown()`. This is the primary shape. It is
-  **provisional** until this version is submitted, and frozen as ABI 1
-  in it, once its first consumer has linked it.
+  `zuc_init()`/`zuc_shutdown()`. This is the primary shape, and it is
+  **frozen as ABI 1**: within major version 1, functions may be added,
+  nothing is removed or given a new meaning, and enumerator values are
+  permanent.
 - A registered function table, `inst/include/zucrypt-r.h`, for a package
   that can carry an `Imports:`. Resolved lazily through `zucrypt_api()`;
   test an appended field with `ZUCRYPT_API_HAS()`. **Experimental**
   until a package uses it.
+
+Settled before the freeze, from the first consumer’s report
+([\#43](https://github.com/pedrobtz/zucrypt/issues/43)):
+
+- `zuc_alg` values are grouped into reserved ranges, published as
+  `ZUC_ALG_*_FIRST`/`_LAST` (digests, other MACs, ciphers and AEAD, key
+  derivation, key families, signatures), so later families never
+  renumber.
+- A buffer pointer may be `NULL` exactly when its length is 0, for the
+  incremental digest and HMAC calls as for CBC – now stated, and tested.
+- The lifecycle note in `zucrypt.h` says what an R package needs for
+  `zuc_shutdown()` to run at all: an `.onUnload()` that calls
+  [`library.dynam.unload()`](https://rdrr.io/r/base/library.dynam.html).
+  The archive fixture now does, and its checks prove the DLL is
+  released.
 
 `inst/include/zucrypt.h` compiles standalone as C99 against `<stddef.h>`
 and `<stdint.h>`, and names no backend type: a consumer never has to

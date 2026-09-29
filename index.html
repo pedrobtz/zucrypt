@@ -100,7 +100,7 @@
 <p>Other packages can use these primitives without going through R, in either of the two ways the <code>zu*</code> family links siblings:</p>
 <ul>
 <li>
-<strong>The static archive</strong> <code>libzucrypt.a</code>, for a package that cannot carry an <code>Imports:</code>. It is installed to <code>lib/</code> plus the R sub-architecture (<code>lib/x64/</code> on Windows), beside the licence of the backend compiled into it. This is the primary shape. It is <em>provisional</em> until its first consumer — <code>zuxlsx</code>’s decryption of password-protected workbooks — has linked it, and is frozen as ABI 1 when 0.1.0, the first CRAN release, is published.</li>
+<strong>The static archive</strong> <code>libzucrypt.a</code>, for a package that cannot carry an <code>Imports:</code>. It is installed to <code>lib/</code> plus the R sub-architecture (<code>lib/x64/</code> on Windows), beside the licence of the backend compiled into it. This is the primary shape, and it is <em>frozen</em> as ABI 1: its first consumer, <code>zuxlsx</code>’s decryption of password-protected workbooks, was built and tested against it before the freeze.</li>
 <li>
 <strong>A registered function table</strong>, for a package that can carry an <code>Imports:</code>. <em>Experimental</em> until a package other than a test fixture uses it.</li>
 </ul>
@@ -109,7 +109,7 @@
 <div class="section level2">
 <h2 id="status">Status<a class="anchor" aria-label="anchor" href="#status"></a>
 </h2>
-<p>Version 0.1.0. The seven R functions are stable; the C interface is provisional (the archive) or experimental (the table), as above. Every change to either is recorded in <code>NEWS.md</code>. What is compiled in, where it came from, and how a security fix reaches you are in <a href="https://pedrobtz.github.io/zucrypt/articles/backend.html">The vendored backend</a>. The design is in <code>.agents/design.md</code>, and <code>.agents/roadmap.md</code> records how it was built, what was deliberately left out, and what comes next.</p>
+<p>Version 0.1.0. The seven R functions are stable, the static archive is frozen as ABI 1, and the registered table is experimental, as above. Every change to either is recorded in <code>NEWS.md</code>. What is compiled in, where it came from, and how a security fix reaches you are in <a href="https://pedrobtz.github.io/zucrypt/articles/backend.html">The vendored backend</a>. The design is in <code>.agents/design.md</code>, and <code>.agents/roadmap.md</code> records how it was built, what was deliberately left out, and what comes next.</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -154,7 +154,7 @@
 <div class="dev-status">
 <h2 data-toc-skip>Dev status</h2>
 <ul class="list-unstyled">
-<li><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
+<li><a href="https://lifecycle.r-lib.org/articles/stages.html#stable" class="external-link"><img src="https://img.shields.io/badge/lifecycle-stable-brightgreen.svg" alt="Lifecycle: stable"></a></li>
 <li><a href="https://github.com/pedrobtz/zucrypt/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/pedrobtz/zucrypt/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
 <li><a href="https://github.com/pedrobtz/zucrypt/actions/workflows/coverage.yaml" class="external-link"><img src="https://raw.githubusercontent.com/pedrobtz/zucrypt/main/.github/badges/coverage.svg" alt="coverage"></a></li>
 </ul>

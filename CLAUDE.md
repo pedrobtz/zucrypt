@@ -34,14 +34,20 @@ gone). `zuxlsx` 0.1.0, with password-protected workbooks, follows it
 onto CRAN. The CBC pair is renamed
 [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
 / `_decrypt_nopad()` (design §7, \#56), freeing the ordinary names for
-Stage 14’s openssl-compatible padded pair. **Next is Stage 11 — the
-first consumer and the freeze**
-([\#43](https://github.com/pedrobtz/zucrypt/issues/43)), which waits
-only on `zuxlsx`’s decryption core in C
-([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) on a
-branch, not on its CFB reader or the rest of \#22; Stage 12’s vignettes
-(#17, \#13) can be written meanwhile. Stage 12 then submits 0.1.0; on
-acceptance, tag `v0.1.0` and move `DESCRIPTION` to `0.1.0.9000`.
+Stage 14’s openssl-compatible padded pair.
+[`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
+(#59) and connection input to
+[`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md)/[`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
+(#11) joined 0.1.0 on their general value; `dastash` asked for them but
+is not a committed consumer (its gain would be the R floor). **Stage 11
+is done** ([\#43](https://github.com/pedrobtz/zucrypt/issues/43)):
+zuxlsx’s decryption core
+([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3,
+zuxlsx#64) passed against `main` on three operating systems and ABI 1 is
+frozen. **Next is Stage 12**
+([\#44](https://github.com/pedrobtz/zucrypt/issues/44)): the C-API
+vignette (#13), the CRAN preparation, and the submission; on acceptance,
+tag `v0.1.0` and move `DESCRIPTION` to `0.1.0.9000`.
 
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`);
 `readme.yaml` re-renders it in CI and fails on any difference, so never
@@ -73,12 +79,13 @@ install layout to zukomp’s (#33).
 
 **Stability comes in tiers (design §8.6).** The seven R functions are
 stable. The archive (`zucrypt.h`, `libzucrypt.a`,
-`ZUCRYPT_ABI_VERSION 1`) is *provisional* until `zuxlsx`’s decryption
-core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)
-step 3) has linked it, and is frozen in v0.1.0 (Stage 11), the first
-CRAN release. The table is *experimental*: no package uses it (#14).
-Until the freeze, an archive change is allowed but must be recorded in
-`NEWS.md`.
+`ZUCRYPT_ABI_VERSION 1`) is **frozen as ABI 1** (Stage 11, declared
+2026-09-29, shipping in v0.1.0): `zuxlsx`’s decryption core in C
+([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3,
+zuxlsx#64) was built against it and passed on three operating systems
+first. From here an archive change is an *addition* or it is ABI 2.
+`revdep.yaml` builds zuxlsx against every push and PR. The table is
+*experimental*: no package uses it (#14).
 
 Both shapes have a consumer fixture package under `tools/`, zukomp’s
 layout, and neither is reachable from `R CMD check`; `consumer.yaml`
@@ -238,10 +245,11 @@ conventions:
 Today: `R-CMD-check.yaml` (runners plus the `clang23`, `ubuntu-clang`
 and `ubuntu-gcc16` containers, `nosuggests` on), `native-checks.yaml`
 (LTO, rchk, gctorture, sanitizers, valgrind, analyzers, and the bespoke
-layering check), `abi.yaml` and `consumer.yaml` (both bespoke),
-`coverage.yaml` (with `native: true`), `arch.yaml` and
-`alloc-failure.yaml` (weekly), `vendor.yaml` (the vendored tree matches
-its manifest, and a PR touching it updates that manifest),
+layering check), `abi.yaml`, `consumer.yaml` and `revdep.yaml` (all
+bespoke; `revdep.yaml` builds zuxlsx against this checkout and runs its
+decryption tests), `coverage.yaml` (with `native: true`), `arch.yaml`
+and `alloc-failure.yaml` (weekly), `vendor.yaml` (the vendored tree
+matches its manifest, and a PR touching it updates that manifest),
 `vendor-upstream.yaml` (weekly; opens an issue when TF-PSA-Crypto
 releases) and `pkgdown.yaml` deploying to `gh-pages` on push to `main`.
 `pkgdown.yaml` is this repo’s own, not an r-actions call. The
