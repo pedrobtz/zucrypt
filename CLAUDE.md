@@ -10,7 +10,8 @@ The plan of record is [design.md](.agents/design.md) revision 4 (2026-09-29) and
 system library, vendored Mbed TLS ecosystem underneath, through an openssl-shaped `crypt_` layer
 (design §7.1: `crypt_sha256(x, key = NULL)`, `crypt_rand_bytes(n)`, ...) added in tranches
 after v0.1.0 (Stages 13–14 planned; 15–17 candidates, each decided when the one before has
-shipped; one CRAN minor release each). A primitive enters on the admission rule of design §6
+shipped; one CRAN minor release each), and Stage 18, a TLS client engine for `zuhttp`
+inside this package but never in the archive (design §10), a candidate on `zuhttp`'s trigger. A primitive enters on the admission rule of design §6
 (a numbered standard, published vectors, an outside oracle, a composition contract, a
 demonstrated workflow benefit), no longer on a named consumer. The review in #56 amended the
 revision before it merged; design §"Revision 4" lists what it changed. Two backend facts fix the tranches: PK, PEM and
@@ -204,11 +205,12 @@ a green job that proved nothing.
 `zucrypt` is one package in the `zu*` family (siblings are checked out alongside it:
 `zuxlsx`, `zuxml`, `zukomp`, `zuhttp`, …). The boundary is strict and is the main thing to preserve:
 
-- **`zucrypt` owns cryptography only** — today hashes, HMAC, AES-CBC, constant-time compare
+- **`zucrypt` owns cryptography** — today hashes, HMAC, AES-CBC, constant-time compare
   and secure cleanup; from Stage 13 the tranches of design §6 (randomness, AEAD, KDFs, keys,
-  signatures, certificate data). It must never acquire XML, ZIP, Office, socket or TLS-session
-  dependencies, and never reaches the user's environment (no key files, passphrase prompts or
-  certificate downloads: design §5).
+  signatures, certificate data); and, if Stage 18 is taken, a TLS client *engine* for
+  `zuhttp` (design §10). It must never acquire XML, ZIP, Office, socket, name-resolution,
+  proxy or trust-store dependencies, and never reaches the user's environment (no key files,
+  passphrase prompts or certificate downloads: design §5).
 - **Family conventions are binding** (design §3): C ABI prefix `zuc_`/`ZUC_` (never `zu_`,
   which is `zukomp`'s public namespace and `zuhttp`'s internal one, so a `zucrypt.h` using it
   could not be included beside `zukomp.h`; `zuxlsx` itself includes `miniz.h`, not `zukomp.h`);
@@ -217,8 +219,13 @@ a green job that proved nothing.
 - **Office/Excel decryption orchestration lives in `zuxlsx`**, not here. The Office adapter owns
   iteration counts, salts, block keys, password verifiers and segment IVs; it may depend on
   `zucrypt` and `zuxml`, never the reverse.
-- **`zuhttp` owns TLS and trust**, and keeps its native OS TLS backend. Mbed TLS there is a
-  separate, optional backend, not something `zucrypt` provides.
+- **`zuhttp` owns connections, trust and TLS policy**, and keeps its native OS TLS backends.
+  A bundled Mbed TLS backend, if ever taken, is `zucrypt`'s TLS engine (roadmap Stage 18, a
+  candidate on `zuhttp`'s trigger): compiled into `zucrypt.so` from the same vendored rows,
+  published through a separate table (`zucrypt-tls.h`) that `zuhttp` resolves at run time from
+  `Suggests:`, driven over I/O callbacks `zuhttp` supplies, and verifying only against the CA
+  bundle, host name and pins `zuhttp` passes. It is **never in `libzucrypt.a`**, so no archive
+  consumer compiles it and ABI 1 never sees it.
 
 Three surfaces are exposed:
 

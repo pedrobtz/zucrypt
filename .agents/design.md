@@ -61,12 +61,13 @@ distinguish `zuxml` and `zukomp` is that each is useful on its own. This revisio
    A package that imports `zucrypt` for its R functions is exactly the kind that can carry
    `Imports:` + `LinkingTo:`, so the table's audience now exists. It stays experimental until
    one uses it.
-7. **`zuhttp`'s route is a sibling provider, not a larger `libzucrypt.a`.** (§10)
+7. **`zuhttp`'s route is a TLS engine in this package, never in `libzucrypt.a`.** (§10)
    `zuhttp`'s D-63 (2026-09-26) rejects a private Mbed TLS copy and names `zucrypt` as the
-   route, while §10 said the opposite. The two are reconciled: a TLS engine, if ever taken, is
-   a fourth provider package on the shared manifest row, built with this repository's
-   tooling. `LinkingTo:` cannot be optional, so an *optional* engine is a separate package
-   that `zuhttp` resolves at run time, which is the table shape pointed the other way.
+   route, while §10 said the opposite. The two are reconciled: a TLS client engine, if taken,
+   is compiled into `zucrypt`'s shared object from the Stage 17 manifest row and published
+   through a separate registered table that `zuhttp` resolves at run time from `Suggests:`.
+   The archive never contains it. (First written as a fourth provider package; changed the
+   same day, see the amendments below.)
 8. **The boundary is restated.** (§5)
    Never sockets, trust stores or the user's environment: no `download_ssl_cert()`,
    `ca_bundle()`, `my_key()` or `askpass()` equivalents. Certificate *data* work is in scope
@@ -99,6 +100,12 @@ distinguish `zuxml` and `zukomp` is that each is useful on its own. This revisio
   rename is free now and never again. The ordinary names go to the openssl-shaped pair.
 - The comparison with other packages (item 1, §1) no longer claims uniqueness, and the survey
   behind the tranche order is reported as detected usage, not migrations (roadmap Stage 13).
+
+**Amended again on 2026-09-29, by maintainer decision:**
+- v0.1.0 is the first CRAN release and carries the freeze (item 10).
+- The `zuhttp` TLS engine lives in this package, not in a fourth one (item 7, §5, §10;
+  roadmap Stage 18, a candidate). The boundary moves by exactly that much: TLS *sessions* over
+  caller-supplied I/O enter; sockets, proxies, trust stores and trust policy stay out.
 
 ## Revision 3 (2026-09-25)
 
@@ -206,8 +213,8 @@ installed OpenSSL, Java or Python at install or run time.
   a package importing `openssl` for `sha256()`, `rand_bytes()` and Base64; a user on a machine
   where system OpenSSL is absent, old or unversioned. For them the product is the `crypt_`
   layer of §7.1 and the migration article.
-- **`zuhttp`**, if it ever takes a bundled TLS engine, through a sibling provider on the same
-  upstream release (§10). It consumes nothing in 0.x.
+- **`zuhttp`**, if it ever takes a bundled TLS engine, through a TLS table in this package,
+  resolved at run time (§10). It consumes nothing in 0.x.
 
 **What exists elsewhere, and what does not.**
 - `openssl` is broad and needs system libssl; `sodium` is modern and needs libsodium on Linux.
@@ -244,7 +251,7 @@ See the [openssl manual](https://jeroen.r-universe.dev/openssl/doc/manual.html),
 | **TF-PSA-Crypto 1.1 LTS** | Supported until 2029. 1.2 adds nothing this profile uses (#19) |
 | Support raw bytes explicitly | Avoid implicit text encoding, serialization or path interpretation |
 | Treat cipher operations as low-level interfaces | They do not by themselves define a secure encrypted-file format |
-| Share upstream provenance with `zuhttp`; a TLS engine is a sibling provider | `LinkingTo:` cannot be optional, and a larger `libzucrypt.a` would be compiled by every `zuxlsx` install (§10) |
+| A TLS engine for `zuhttp` lives here, in the shared object and a separate table, never in the archive | One vendored Mbed TLS copy; `Suggests:` plus a run-time lookup makes it optional; `zuxlsx` never compiles it (§10) |
 
 If Office support later serves several readers, extract it from `zuxlsx` into a dedicated
 document package. Do not introduce that package before there is a second consumer.
@@ -391,8 +398,8 @@ Nothing else is enabled:
 **Vendoring requirements:**
 
 - **One manifest row**, `tf-psa-crypto`, with release, source URL, checksum, licence, define set
-  and patch list, in the §3 layout. `zuhttp`'s eventual TLS spike should pin the *same* row, so
-  the two packages track one upstream release and one patch set.
+  and patch list, in the §3 layout. Stage 17 adds a second, `mbedtls`, and the TLS engine
+  (§10) builds from the same two rows, so one upstream release and one patch set serve both.
 - **Official release archives only.** Use archives that contain the generated files. Installation
   never downloads anything and never generates sources with Python or Perl.
 - **`tools/vendor/fetch` re-derives the tree from the archive.**
@@ -415,8 +422,8 @@ Nothing else is enabled:
     (`$(C_VISIBILITY)`). `mbedtls_*` and `psa_*` therefore never appear in a dynamic symbol
     table.
   - R loads packages with `RTLD_LOCAL`, and Windows DLLs have per-module namespaces. So two
-    independently vendored copies, `zucrypt` inside `zuxlsx.so` and a TLS build inside
-    `zuhttp.so`, cannot bind to one another.
+    independently vendored copies, `zucrypt`'s archive inside `zuxlsx.so` and the backend
+    inside `zucrypt.so`, cannot bind to one another.
 - **Keep the feature set and the output identical on every platform; use hardware AES where the
   CPU has it.** AES is deterministic, so AES-NI, the Arm Cryptography Extension and the software
   path produce the same bytes, and the published vectors check that on every platform CI reaches.
@@ -456,11 +463,11 @@ yet (§6).
 
 | Package | Owns | Does not acquire through `zucrypt` | How it consumes `zucrypt` |
 | --- | --- | --- | --- |
-| `zucrypt` | Cryptographic primitives and constructions, key and certificate data, state and the native API | XML, ZIP, Office, sockets, TLS sessions, trust stores, or the user's environment (key files, passphrase prompts, certificate downloads) | — |
+| `zucrypt` | Cryptographic primitives and constructions, key and certificate data, state and the native API; from Stage 18, a TLS client engine over caller-supplied I/O (§10) | XML, ZIP, Office, sockets, name resolution, proxies, trust stores, trust policy, or the user's environment (key files, passphrase prompts, certificate downloads) | — |
 | `zuxlsx` | Workbook interpretation, the Office encryption adapter and the CFB reader | TLS | `LinkingTo` + `configure` + the installed `lib${R_ARCH}/libzucrypt.a`. No `Imports:` (its design §3) |
 | `zuxml` | XML parsing, reused for Agile encryption metadata | Cryptographic policy | does not |
 | `zukomp` | ZIP entry access and decompression after decryption | Office password handling | does not |
-| `zuhttp` | HTTP, sockets, TLS backend selection and certificate trust | Office processing | does not in 0.x. A bundled TLS engine, if ever taken, is a sibling provider on the same manifest row, resolved at run time (§10) |
+| `zuhttp` | HTTP, sockets, proxies, TLS backend selection, trust policy and CA discovery | Office processing | does not in 0.x. A bundled TLS engine, if ever taken: `Suggests:` + `R_GetCCallable()` on `zucrypt`'s TLS table (§10) |
 
 The Office adapter may use `zuxml` and `zucrypt`. It must not create a reverse dependency from
 either package to `zuxlsx`.
@@ -510,8 +517,9 @@ can and cannot do was checked against the 1.1.1 archive on 2026-09-29. No tranch
 whole upstream: TF-PSA-Crypto 1.1.1 has 77 buildable sources, of which 20 are vendored today,
 and each tranche's keep list is re-derived from its define set by the spike's method, so the
 tree holds what the enabled algorithms compile and nothing else. Mbed TLS proper enters only
-at tranche 5, and only its X.509 files (9 of its 36 library sources in 4.1.0); its 19 TLS
-sources never enter this package (§10).
+at tranche 5, and only its X.509 files (9 of its 36 library sources in 4.1.0). Its 19 TLS
+sources enter only with the TLS engine (§10, Stage 18), trimmed to the client configuration,
+and never enter the archive.
 
 | Tranche | Enters | Standard and oracle | Backend cost |
 | --- | --- | --- | --- |
@@ -953,7 +961,7 @@ is the independent oracle.
 - Iteration counts, metadata size and output size are limited before any expensive work.
 - ZIP decompression limits still apply after decryption.
 
-## 10. Relationship with zuhttp
+## 10. Relationship with zuhttp: the TLS engine
 
 `zuhttp` keeps its native OS TLS backends: Schannel, Network.framework and OpenSSL. Its D-63
 (2026-09-26) removed Secure Transport, rejected vendoring a private Mbed TLS copy on every
@@ -961,28 +969,50 @@ platform, and named `zucrypt` as the route for a bundled engine if one is ever n
 trigger is narrow, proxied HTTPS on macOS 11–13, and it is not planned before `zuhttp` 1.0.
 Backend selection must never happen as an automatic retry after certificate verification fails.
 
-Revision 4 reconciles that decision with this document, which had said the opposite:
+**The engine lives in this package** (decided 2026-09-29, replacing revision 4's first answer,
+a fourth provider package). It is a candidate stage (roadmap Stage 18), taken on `zuhttp`'s
+trigger and after tranche 5, whose X.509 row it builds on. The reasons a separate package was
+proposed do not require one:
 
-- **The engine is not `libzucrypt.a`.** A TLS client needs the SSL state machine, X.509, the
-  key exchange and AEAD suites, a DRBG and `mbedtls/ssl.h` with a matching configuration. That
-  is the raw-upstream archive shape §8.3 rejects for PSA, it would be compiled by every
-  `zuxlsx` install, and it would be proved only by `zuhttp`'s handshake matrix, not here.
-- **The engine is a sibling provider.** A fourth provider package vendors Mbed TLS proper and
-  its TF-PSA-Crypto on the manifest row this repository pins, using this repository's
-  `fetch`/`record`/`verify` tooling, keep-list trim and symbol hiding. `zuhttp` vendors
-  nothing, which is what D-63 requires; the crypto is compiled once more, which is what this
-  section always allowed.
-- **"Optional" means a run-time resolved package.** `LinkingTo:` is an install-time
-  requirement and cannot be optional. An optional engine is therefore a package that `zuhttp`
-  loads on request and resolves through a registered table, behind its pluggable stream
-  interface: the family's table shape, pointed from engine to client rather than from provider
-  to consumer.
-- **Stage 17's X.509 row is the shared step.** Certificates enter this package on a second
-  manifest row for Mbed TLS proper (§6, tranche 5). That row, its trim method and its patch
-  set are what the provider would start from.
+- **It is not in `libzucrypt.a`.** A TLS client needs the SSL state machine, X.509, the key
+  exchange and AEAD suites, a DRBG and `mbedtls/ssl.h` with a matching configuration. None of
+  it enters the archive, so no `zuxlsx` install compiles or links it, and the archive's ABI 1
+  is untouched. The engine is compiled into `zucrypt`'s shared object only.
+- **"Optional" is met by the table.** `LinkingTo:` is an install-time requirement and cannot be
+  optional, but `R_GetCCallable()` is a run-time lookup. `zuhttp` lists `zucrypt` in
+  `Suggests:` and resolves a separate registered table, `zucrypt_tls_api_v1` in
+  `inst/include/zucrypt-tls.h`, only when the bundled backend is selected. That is §8.2's shape
+  pointed from engine to client, in this package.
+- **One vendored copy.** Stage 17's `mbedtls` manifest row, with its trim method and patch set,
+  gains the TLS sources the enabled configuration compiles. The engine and the X.509 functions
+  share one pinned release, one watcher and one advisory stream, instead of a second package
+  re-vendoring the same upstream.
 
-`zuhttp` owns CA discovery, trust configuration, hostname verification, client certificates,
-protocol policy, sockets and network errors. Nothing in the tranches touches any of those.
+**What the engine is, and is not.**
+- A TLS 1.2 and 1.3 **client** protocol engine. No server role, no DTLS, no renegotiation, no
+  session tickets stored on disk. Cipher suites and groups are a fixed, documented set chosen
+  by this package; `zuhttp` can narrow them, never widen them.
+- **I/O through callbacks.** The caller supplies send and receive functions over a stream it
+  owns. The engine opens no socket, resolves no name and knows nothing of proxies: that is how
+  it serves proxied HTTPS without this package touching the network (§5).
+- **Policy is `zuhttp`'s; enforcement is the engine's.** `zuhttp` passes the CA bundle, the
+  expected host name, the minimum version and any pins. The engine verifies the chain and the
+  host name against exactly those, fails closed, and reports why through a status code. It
+  never reads a system trust store, a key file or an environment variable.
+- **Randomness** is the tranche 1 entropy source feeding the backend's DRBG, never R's RNG.
+- **No R surface.** There is no `crypt_tls_*()` function. The table is C only, for `zuhttp`.
+
+**Stability.** The TLS table is *experimental* until `zuhttp` ships a release that uses it,
+then additions-only under §8.6's rules, with its own version field. It shares nothing with
+`zucrypt.h`, so its changes never touch ABI 1.
+
+**Security obligation.** TLS carries more upstream advisories than the crypto core. An advisory
+affecting the enabled TLS configuration is a patch release of this package, prepared from the
+existing `vendor-upstream.yaml` watcher, and the vendored-backend vignette says so. This is the
+cost of hosting the engine, accepted with it.
+
+`zuhttp` still owns CA discovery, trust configuration, protocol policy, client certificates,
+sockets, proxies and network errors. None of those move here.
 
 ## 11. Errors and resource handling
 
@@ -1086,8 +1116,8 @@ fixtures with known passwords and redistribution permission.
    row.
 
 Each release after v0.1.0 is additions only, to the R surface and to the archive, and each is
-a CRAN release. The `zuhttp` provider, if taken, is a separate repository and starts from
-step 9's manifest row.
+a CRAN release. The `zuhttp` TLS engine, if taken, is Stage 18 in this repository and
+starts from step 9's manifest row (§10).
 
 Office Standard encryption, step 4 in revision 2, is dropped (§9).
 
@@ -1165,8 +1195,8 @@ above, until the next five-repository change. The corrected cells:*
   Removal is no longer an option (revision 4, item 6).
 - **Whether ECB returns.** It is admissible under §6 and in no tranche; it returns as an
   addition when a mirrored function or a consumer needs it.
-- **Whether `zuhttp` ever takes the sibling TLS provider** (§10), and who builds it. Not
-  before `zuhttp` 1.0, and not in this repository.
+- **Whether `zuhttp` ever takes the bundled TLS engine** (§10). It is built here, as Stage 18,
+  on `zuhttp`'s trigger; not before `zuhttp` 1.0 unless that trigger comes first.
 - **When calls may leave the main thread.** Only when a consumer asks, and only after locking and
   shutdown are verified (§8.4). A long-lived `openssl` replacement in a server process is the
   likeliest asker.
@@ -1188,5 +1218,6 @@ above, until the next five-repository change. The corrected cells:*
 - the upstream line (§4);
 - CRAN timing (§13).
 
-These choices do not move the boundary. `zucrypt` owns reusable cryptography, document readers
-own document formats, and `zuhttp` owns TLS and trust.
+These choices do not move the boundary. `zucrypt` owns reusable cryptography and, from
+Stage 18, the TLS protocol engine; document readers own document formats; and `zuhttp` owns
+connections, trust and TLS policy.
