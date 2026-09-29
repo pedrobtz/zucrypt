@@ -224,6 +224,129 @@ SEXP zucrypt_hmac(SEXP data, SEXP key, SEXP algorithm)
 }
 
 /* ------------------------------------------------------------------ *
+ * Streaming digest and HMAC, for connection input (#11)
+ *
+ * R reads the connection in chunks and feeds them here, so the whole input
+ * is never in memory and the loop is interruptible in R. The context lives
+ * in an external pointer between calls, with the same ownership rules as
+ * above: the pointer exists, finalized, before the context; finish releases
+ * it eagerly; an interrupt leaves it to the finalizer. The pointer's tag is
+ * c(kind, alg), kind 0 for a digest and 1 for an HMAC.
+ * ------------------------------------------------------------------ */
+
+#define ZUCRYPT_STREAM_HASH 0
+#define ZUCRYPT_STREAM_HMAC 1
+
+static SEXP stream_ptr(int kind, zuc_alg alg)
+{
+    SEXP tag = PROTECT(Rf_allocVector(INTSXP, 2));
+    SEXP ptr;
+    INTEGER(tag)[0] = kind;
+    INTEGER(tag)[1] = (int) alg;
+    ptr = PROTECT(R_MakeExternalPtr(NULL, tag, R_NilValue));
+    R_RegisterCFinalizerEx(ptr, kind == ZUCRYPT_STREAM_HASH
+                                    ? hash_finalizer : hmac_finalizer, TRUE);
+    UNPROTECT(2);
+    return ptr;
+}
+
+/* The tag of a pointer this file made. Anything else arriving here is a bug
+ * in R/hash.R, not a user error, so it is an R error rather than a status. */
+static const int *stream_tag(SEXP ptr)
+{
+    SEXP tag;
+    if (TYPEOF(ptr) != EXTPTRSXP) {
+        Rf_error("internal error: not a zucrypt stream");
+    }
+    tag = R_ExternalPtrTag(ptr);
+    if (TYPEOF(tag) != INTSXP || XLENGTH(tag) != 2) {
+        Rf_error("internal error: not a zucrypt stream");
+    }
+    return INTEGER(tag);
+}
+
+SEXP zucrypt_hash_stream_new(SEXP algorithm)
+{
+    zuc_alg alg = zuc_alg_by_name(CHAR(STRING_ELT(algorithm, 0)));
+    SEXP ptr = PROTECT(stream_ptr(ZUCRYPT_STREAM_HASH, alg));
+    zuc_hash *h = NULL;
+    zuc_status st = zuc_hash_new(alg, &h);
+    SEXP res;
+
+    if (st == ZUC_OK) R_SetExternalPtrAddr(ptr, h);
+    res = result(st, st == ZUC_OK ? ptr : R_NilValue);
+    UNPROTECT(1);
+    return res;
+}
+
+SEXP zucrypt_hmac_stream_new(SEXP key, SEXP algorithm)
+{
+    zuc_alg alg = zuc_alg_by_name(CHAR(STRING_ELT(algorithm, 0)));
+    SEXP ptr = PROTECT(stream_ptr(ZUCRYPT_STREAM_HMAC, alg));
+    zuc_hmac *h = NULL;
+    zuc_status st = zuc_hmac_new(alg, (const uint8_t *) RAW(key),
+                                 (size_t) XLENGTH(key), &h);
+    SEXP res;
+
+    if (st == ZUC_OK) R_SetExternalPtrAddr(ptr, h);
+    res = result(st, st == ZUC_OK ? ptr : R_NilValue);
+    UNPROTECT(1);
+    return res;
+}
+
+/* Returns a bare status: nothing to hand back on success. A finished (or
+ * never-started) stream is ZUC_ERR_INVALID_ARGUMENT. */
+SEXP zucrypt_stream_update(SEXP ptr, SEXP data)
+{
+    const int *tag = stream_tag(ptr);
+    void *ctx = R_ExternalPtrAddr(ptr);
+    const uint8_t *bytes = (const uint8_t *) RAW(data);
+    size_t n = (size_t) XLENGTH(data);
+    zuc_status st;
+
+    if (ctx == NULL) {
+        return Rf_ScalarInteger((int) ZUC_ERR_INVALID_ARGUMENT);
+    }
+    st = tag[0] == ZUCRYPT_STREAM_HASH
+        ? zuc_hash_update((zuc_hash *) ctx, bytes, n)
+        : zuc_hmac_update((zuc_hmac *) ctx, bytes, n);
+    /* As in the one-shot loops: after the update, once per chunk. The R loop
+     * that calls this runs too few evaluations for R's own polling to answer
+     * Ctrl-C (or setTimeLimit()) promptly, and the context is owned by `ptr`,
+     * so the longjmp strands nothing. */
+    R_CheckUserInterrupt();
+    return Rf_ScalarInteger((int) st);
+}
+
+SEXP zucrypt_stream_finish(SEXP ptr)
+{
+    const int *tag = stream_tag(ptr);
+    int kind = tag[0];
+    size_t want = zuc_alg_size((zuc_alg) tag[1]);
+    void *ctx = R_ExternalPtrAddr(ptr);
+    size_t got = 0;
+    zuc_status st;
+    SEXP out, res;
+
+    if (ctx == NULL) {
+        return result(ZUC_ERR_INVALID_ARGUMENT, R_NilValue);
+    }
+    out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) want));
+    st = kind == ZUCRYPT_STREAM_HASH
+        ? zuc_hash_finish((zuc_hash *) ctx, (uint8_t *) RAW(out), want, &got)
+        : zuc_hmac_finish((zuc_hmac *) ctx, (uint8_t *) RAW(out), want, &got);
+    release_ptr(ptr, kind == ZUCRYPT_STREAM_HASH ? free_hash : free_hmac);
+    if (st == ZUC_OK && got != want) {
+        st = ZUC_ERR_INTERNAL;
+    }
+    /* result() allocates, so `out` stays protected across it; see
+     * zucrypt_hash(). */
+    res = result(st, st == ZUC_OK ? out : R_NilValue);
+    UNPROTECT(1);
+    return res;
+}
+
+/* ------------------------------------------------------------------ *
  * AES-CBC
  * ------------------------------------------------------------------ */
 
@@ -346,6 +469,10 @@ const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_aes_cbc",     (DL_FUNC) &zucrypt_aes_cbc,     4},
     {"zucrypt_equal",       (DL_FUNC) &zucrypt_equal,       2},
     {"zucrypt_hex",         (DL_FUNC) &zucrypt_hex,         1},
+    {"zucrypt_hash_stream_new", (DL_FUNC) &zucrypt_hash_stream_new, 1},
+    {"zucrypt_hmac_stream_new", (DL_FUNC) &zucrypt_hmac_stream_new, 2},
+    {"zucrypt_stream_update",   (DL_FUNC) &zucrypt_stream_update,   2},
+    {"zucrypt_stream_finish",   (DL_FUNC) &zucrypt_stream_finish,   1},
     {"zucrypt_algorithms",  (DL_FUNC) &zucrypt_algorithms,  0},
     {NULL, NULL, 0}
 };
