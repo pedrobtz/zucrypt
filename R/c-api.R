@@ -106,7 +106,7 @@
 #' @section Stability:
 #' The three surfaces are at different stages:
 #'
-#' * **The six `crypt_*()` R functions** are stable.
+#' * **The seven `crypt_*()` R functions** are stable.
 #' * **The static archive** -- `zucrypt.h`, `libzucrypt.a` and where it is
 #'   installed -- is *provisional* until 0.1.0 is released on CRAN, where it
 #'   becomes frozen ABI 1, once its first consumer (`zuxlsx`'s decryption of

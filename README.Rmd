@@ -58,7 +58,7 @@ digest <- crypt_hash(charToRaw("the quick brown fox"))
 digest
 
 # Hex is an explicit conversion at the call site, not a default.
-paste(format(digest), collapse = "")
+crypt_hex(digest)
 
 # A keyed digest, and the right way to check one.
 key <- as.raw(rep(0x0b, 32))
@@ -107,7 +107,7 @@ See `?zucrypt_c_api` for both, and for what is and is not promised.
 
 ## Status
 
-Version 0.1.0. The six R functions are stable; the C interface is
+Version 0.1.0. The seven R functions are stable; the C interface is
 provisional (the archive) or experimental (the table), as above. Every change
 to either is recorded in `NEWS.md`. What is compiled in, where it came from,
 and how a security fix reaches you are in

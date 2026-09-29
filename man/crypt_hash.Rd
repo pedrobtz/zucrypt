@@ -20,7 +20,7 @@ quietly different algorithm.}
 \value{
 A raw vector of the digest, 20 bytes for \code{"sha1"} and 32, 48 or 64
 for the SHA-2 family. Hex formatting is an explicit step at the call
-site; see the examples.
+site, with \code{\link[=crypt_hex]{crypt_hex()}}; see the examples.
 }
 \description{
 Hashes a raw vector with one of the digest algorithms this build provides.
@@ -39,7 +39,7 @@ digest <- crypt_hash(charToRaw("the quick brown fox"))
 digest
 
 # Hex, when you need it, is an explicit conversion.
-paste(format(digest), collapse = "")
+crypt_hex(digest)
 
 # The digest of empty input is well defined.
 crypt_hash(raw(0))

@@ -36,20 +36,20 @@ it in CI and fails on any difference, so never edit `README.md` by hand.
 Long-form documentation is pkgdown-only, in `vignettes/articles/` (zukomp's layout), which
 `.Rbuildignore` keeps out of the CRAN tarball; `Config/Needs/website` names knitr and rmarkdown
 for it. `vignettes/articles/zucrypt.Rmd` is the site's "Get started" page and walks through all
-six functions; `vignettes/articles/backend.Rmd` ("The vendored backend", #17) is the one a
+seven functions; `vignettes/articles/backend.Rmd` ("The vendored backend", #17) is the one a
 CRAN or security reviewer reads, and its facts (file counts, defines, sizes, patches) must be
 updated whenever the vendored tree or its configuration changes. Their examples are executed when the site builds, so they must stay runnable with
 no `Suggests` beyond the website needs — mention openssl or sodium in prose, never in a chunk.
 
 The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the
-six `crypt_*` functions of design §7, and publishes both consumer shapes: the registered function
+seven `crypt_*` functions of design §7 (`crypt_hex()` joined the original six in #59), and publishes both consumer shapes: the registered function
 table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the static archive (`libzucrypt.a`,
 which `src/install.libs.R` installs to the package's `lib${R_ARCH}/`, beside
 `licenses/tf-psa-crypto-LICENSE`; there is no `inst/lib/` in the sources). Stage 7 removed
 AES-ECB (#29), made the PSA key store dynamic (#30), appended `ZUC_ERR_NOT_READY` and
 `ZUCRYPT_API_HAS`, and moved the install layout to zukomp's (#33).
 
-**Stability comes in tiers (design §8.6).** The six R functions are stable. The archive
+**Stability comes in tiers (design §8.6).** The seven R functions are stable. The archive
 (`zucrypt.h`, `libzucrypt.a`, `ZUCRYPT_ABI_VERSION 1`) is *provisional* until `zuxlsx`'s decryption
 core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) has linked it, and is
 frozen in v0.1.0 (Stage 11), the first CRAN release. The table is *experimental*: no package uses it (#14). Until the
@@ -93,7 +93,7 @@ R-free, and what goes into the archive. `src/zucrypt_r.c`, `src/zucrypt_crypt.c`
 archive. `tools/check-layering.sh` enforces both directions in CI, because neither breaks loudly — including `R.h` in the adapter compiles fine here and
 fails much later in a consumer's build.
 
-`src/zucrypt_crypt.c` holds the entry points behind the six exports. Every context there is
+`src/zucrypt_crypt.c` holds the entry points behind the seven exports. Every context there is
 owned by an external pointer with a finalizer from the moment it exists, because the loop
 calls `R_CheckUserInterrupt()` between 1 MiB chunks and an interrupt longjmps past every
 `free()` beneath it — and the heap state here is exactly the state that must not leak.

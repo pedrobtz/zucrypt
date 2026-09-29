@@ -10,12 +10,13 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 library(zucrypt)
 ```
 
-zucrypt has six functions:
+zucrypt has seven functions:
 
 | Function | What it is for |
 |---|---|
 | `crypt_hash()` | A digest of some bytes: SHA-1, SHA-256, SHA-384 or SHA-512 |
 | `crypt_hmac()` | A keyed digest (HMAC) of some bytes |
+| `crypt_hex()` | Lower-case hex of some bytes, for printing or storing a digest |
 | `crypt_equal()` | Comparing a secret value in constant time |
 | `crypt_info()` | What the installed build contains |
 | `crypt_aes_cbc_encrypt_nopad()`, `crypt_aes_cbc_decrypt_nopad()` | Unauthenticated AES-CBC, for formats that specify it |
@@ -72,11 +73,11 @@ msg <- charToRaw("abc")
 crypt_hash(msg)
 ```
 
-Hex is an explicit step at the call site, not a default:
+Hex is an explicit step at the call site, not a default. `crypt_hex()` does
+it in C, so it costs little beside the hash:
 
 ```{r}
-hex <- function(x) paste(format(x), collapse = "")
-hex(crypt_hash(msg))
+crypt_hex(crypt_hash(msg))
 ```
 
 That is the FIPS 180-2 test vector for SHA-256("abc"). The other algorithms
@@ -86,7 +87,7 @@ are named exactly as `crypt_info()$algorithms` lists them:
 crypt_info()$algorithms
 
 for (a in crypt_info()$algorithms) {
-  cat(sprintf("%-6s %s\n", a, hex(crypt_hash(msg, a))))
+  cat(sprintf("%-6s %s\n", a, crypt_hex(crypt_hash(msg, a))))
 }
 ```
 
@@ -104,7 +105,7 @@ anything new.
 The digest of empty input is well defined, and you get it:
 
 ```{r}
-hex(crypt_hash(raw(0)))
+crypt_hex(crypt_hash(raw(0)))
 ```
 
 ## `crypt_hmac()`: keyed digests
@@ -116,14 +117,14 @@ does not hold the key. The key is raw too, of any length:
 ```{r}
 key <- charToRaw("Jefe")
 tag <- crypt_hmac(charToRaw("what do ya want for nothing?"), key)
-hex(tag)
+crypt_hex(tag)
 ```
 
 That is test case 2 of RFC 4231. The algorithm argument works as it does for
 `crypt_hash()`:
 
 ```{r}
-hex(crypt_hmac(charToRaw("what do ya want for nothing?"), key, "sha512"))
+crypt_hex(crypt_hmac(charToRaw("what do ya want for nothing?"), key, "sha512"))
 ```
 
 In real use the key should be random bytes from a cryptographic source, at
@@ -206,7 +207,7 @@ pt  <- unhex(paste0("6bc1bee22e409f96e93d7e117393172a",
                     "ae2d8a571e03ac9c9eb76fac45af8e51"))
 
 ct <- crypt_aes_cbc_encrypt_nopad(pt, key, iv)
-hex(ct)
+crypt_hex(ct)
 identical(crypt_aes_cbc_decrypt_nopad(ct, key, iv), pt)
 ```
 

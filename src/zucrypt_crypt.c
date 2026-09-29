@@ -282,7 +282,7 @@ SEXP zucrypt_aes_cbc(SEXP data, SEXP key, SEXP iv, SEXP encrypt)
 }
 
 /* ------------------------------------------------------------------ *
- * Comparison and introspection
+ * Comparison, encoding and introspection
  * ------------------------------------------------------------------ */
 
 SEXP zucrypt_equal(SEXP x, SEXP y)
@@ -292,6 +292,32 @@ SEXP zucrypt_equal(SEXP x, SEXP y)
     return Rf_ScalarLogical(zuc_equal((const uint8_t *) RAW(x),
                                       (const uint8_t *) RAW(y),
                                       (size_t) XLENGTH(x)));
+}
+
+/* Lower-case hexadecimal, two digits per byte and nothing else (#59). Here
+ * rather than in R because paste(format(x), collapse = "") costs several
+ * times what hashing a short input does. R has already checked the type and
+ * that 2 * length fits in a CHARSXP, whose length is an int. R_alloc'd, so
+ * an allocation failure longjmps with nothing to leak. */
+SEXP zucrypt_hex(SEXP data)
+{
+    static const char digits[] = "0123456789abcdef";
+    const uint8_t *in = (const uint8_t *) RAW(data);
+    size_t n = (size_t) XLENGTH(data), i;
+    char *buf = R_alloc(2 * n + 1, 1);
+    SEXP chr, out;
+
+    for (i = 0; i < n; i++) {
+        buf[2 * i]     = digits[in[i] >> 4];
+        buf[2 * i + 1] = digits[in[i] & 0x0f];
+    }
+    buf[2 * n] = '\0';
+
+    chr = PROTECT(Rf_mkCharLenCE(buf, (int) (2 * n), CE_NATIVE));
+    out = PROTECT(Rf_allocVector(STRSXP, 1));
+    SET_STRING_ELT(out, 0, chr);
+    UNPROTECT(2);
+    return out;
 }
 
 SEXP zucrypt_algorithms(void)
@@ -319,6 +345,7 @@ const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_hmac",        (DL_FUNC) &zucrypt_hmac,        3},
     {"zucrypt_aes_cbc",     (DL_FUNC) &zucrypt_aes_cbc,     4},
     {"zucrypt_equal",       (DL_FUNC) &zucrypt_equal,       2},
+    {"zucrypt_hex",         (DL_FUNC) &zucrypt_hex,         1},
     {"zucrypt_algorithms",  (DL_FUNC) &zucrypt_algorithms,  0},
     {NULL, NULL, 0}
 };

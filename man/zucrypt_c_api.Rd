@@ -115,7 +115,7 @@ demand, so the number of live handles is bounded only by memory.
 
 The three surfaces are at different stages:
 \itemize{
-\item \strong{The six \verb{crypt_*()} R functions} are stable.
+\item \strong{The seven \verb{crypt_*()} R functions} are stable.
 \item \strong{The static archive} -- \code{zucrypt.h}, \code{libzucrypt.a} and where it is
 installed -- is \emph{provisional} until 0.1.0 is released on CRAN, where it
 becomes frozen ABI 1, once its first consumer (\code{zuxlsx}'s decryption of

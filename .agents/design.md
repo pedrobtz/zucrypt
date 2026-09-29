@@ -578,6 +578,7 @@ crypt_info()
 
 crypt_hash(data, algorithm = "sha256")
 crypt_hmac(data, key, algorithm = "sha256")
+crypt_hex(x)
 crypt_equal(x, y)
 
 # Advanced interoperability functions; no padding or authentication is added.
@@ -585,7 +586,7 @@ crypt_aes_cbc_encrypt_nopad(data, key, iv)
 crypt_aes_cbc_decrypt_nopad(data, key, iv)
 ```
 
-**These six are stable from v0.1.0 (§8.6).** The names follow the family's short package prefix:
+**These seven are stable from v0.1.0 (§8.6).** `crypt_hex()` joined the original six before release (#59). The names follow the family's short package prefix:
 `komp_`, `xml_`, `json_`, `yaml_`, and `zu_` in `zuhttp`. The CBC pair was
 `crypt_aes_cbc_encrypt()`/`_decrypt()` until the rename before v0.1.0 (#56); the `_nopad`
 suffix names the difference that matters, and frees the ordinary names for §7.1.
@@ -597,7 +598,8 @@ Contract:
 - A scalar algorithm name selects one documented algorithm. There is no partial matching
   (`match.arg()` is not used), and no fallback to another algorithm.
 - Hashes and HMACs are returned as raw vectors. Hex formatting is an explicit conversion at the
-  call site.
+  call site, `crypt_hex()`: lower-case, two digits a byte, in C, because `format()` and
+  `paste()` cost several times what hashing a short input does (#59).
 - AES keys are exactly 16, 24 or 32 bytes, CBC IVs exactly 16 bytes, and data a multiple of 16
   bytes.
 - CBC returns raw data of the same length and never mutates R inputs. It neither adds nor strips
@@ -627,7 +629,7 @@ change the bytes.
 ### 7.1 The openssl-shaped layer
 
 Revision 4's product for the second audience. It is a layer *over* the core functions, in R,
-with its own rules; the six core functions and the `zuc_*` archive underneath do not change
+with its own rules; the core functions and the `zuc_*` archive underneath do not change
 to accommodate it.
 
 **Naming.** `crypt_` plus `openssl`'s name: `crypt_sha256()`, `crypt_rand_bytes()`,
@@ -871,7 +873,7 @@ Windows:
 
 | Surface | `main` before the freeze | v0.1.0 (CRAN) onward | Changes allowed |
 | --- | --- | --- | --- |
-| The six `crypt_*` functions and their condition classes | stable | stable | Additions only; nothing removed or given a new meaning |
+| The core `crypt_*` functions (§7) and their condition classes | stable | stable | Additions only; nothing removed or given a new meaning |
 | `zucrypt.h`, `libzucrypt.a`, install path | **provisional** | **frozen as ABI 1** | Before the freeze: any change, recorded in `NEWS.md` and applied to `zuxlsx` together. After: additions only |
 | `zucrypt-r.h`, the registered table | **experimental** | experimental | Any change, recorded in `NEWS.md`. Leaves the tier when a non-fixture package uses it |
 | The openssl-shaped layer (§7.1), from v0.2.0 | — | — | Each function is stable from the release that ships it. Its contract is `openssl`'s at the version NEWS records; a divergence upstream becomes a documented difference, never a changed `crypt_` function |
