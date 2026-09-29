@@ -722,7 +722,7 @@ Pins stay commits, with the tag in a trailing comment, and a bump is its own rev
 | `native-checks.yaml` (layering) | Stage 8 | The `UNPROTECT`/`return` lint and its canary |
 | `vendor-upstream.yaml` | Stage 7, if r-actions supports it | Follow the 1.1 LTS tags only |
 | `consumer.yaml` | Stage 10 | Two fixture packages under `tools/`, three operating systems |
-| `revdep.yaml` (new, bespoke) | Stage 11 | Build `zuxlsx` against this checkout on three operating systems and run its decryption tests; its ref is `feat/agile-decrypt-core` until zuxlsx#64 merges, then `main` |
+| `revdep.yaml` (new, bespoke) | Stage 11 | Build `zuxlsx` against this checkout on three operating systems and run its decryption tests; its ref is zuxlsx `main` since zuxlsx#64 merged (it was `feat/agile-decrypt-core` before) |
 | `R-CMD-check.yaml` | Stage 13 | One leg sets `ZUCRYPT_REQUIRE_OPENSSL=1`, so the compatibility gate must run there |
 | `vendor.yaml` | Stage 13 | Tarball-size gate (5 MB) and the object and file counts printed per run |
 | `aes-paths.yaml` | Stage 14 | GCM and CTR on each path |
