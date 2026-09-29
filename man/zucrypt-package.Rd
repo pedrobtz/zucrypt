@@ -4,9 +4,9 @@
 \name{zucrypt-package}
 \alias{zucrypt}
 \alias{zucrypt-package}
-\title{zucrypt: Narrow Cryptographic Primitives with a Vendored Backend}
+\title{zucrypt: Cryptography Without System Dependencies}
 \description{
-Provides a small, predictable set of cryptographic primitives over raw vectors: message digests, keyed-hash message authentication codes (HMAC), unauthenticated Advanced Encryption Standard (AES) encryption in cipher block chaining (CBC) mode, constant-time comparison and secure erasure. The backend is vendored and pinned, so no system cryptographic library, 'Java' or 'Python' is required at install or run time. Binary arguments are raw vectors only, algorithm names are matched exactly, and failures are reported as structured conditions. The same primitives are published to other packages as a registered C interface and as a static archive, so a consumer can drive them from C without going through R. This is a focused foundation for the 'zu*' package family rather than a general-purpose cryptography toolkit.
+Cryptographic functions over raw vectors, including message digests, keyed-hash message authentication codes (HMAC), Advanced Encryption Standard (AES) encryption, constant-time comparison and secure erasure, backed by a bundled and pinned copy of the 'Mbed TLS' project's cryptography library, 'TF-PSA-Crypto' (\url{https://github.com/Mbed-TLS/TF-PSA-Crypto}). No system cryptographic library, 'Java' or 'Python' is required at install or run time. Algorithm names are matched exactly, and failures are reported as structured conditions. The same primitives are published to other packages as a static archive and as a registered C interface, so that a package can call them from C without going through R.
 }
 \seealso{
 Useful links:

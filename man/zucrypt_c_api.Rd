@@ -117,9 +117,9 @@ The three surfaces are at different stages:
 \itemize{
 \item \strong{The six \verb{crypt_*()} R functions} are stable.
 \item \strong{The static archive} -- \code{zucrypt.h}, \code{libzucrypt.a} and where it is
-installed -- is \emph{provisional} in 0.1.0 and becomes frozen ABI 1 in
-0.2.0, once its first consumer (\code{zuxlsx}'s decryption of password
-protected workbooks) has linked it. Until then a change is possible, and
+installed -- is \emph{provisional} until 0.1.0 is released on CRAN, where it
+becomes frozen ABI 1, once its first consumer (\code{zuxlsx}'s decryption of
+password protected workbooks) has linked it. Until then a change is possible, and
 every one is recorded in \code{NEWS.md}.
 \item \strong{The registered table} (\code{zucrypt-r.h}) is \emph{experimental}: no package
 uses it yet. It may change in any release until one does, again with

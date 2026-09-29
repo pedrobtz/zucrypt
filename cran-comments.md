@@ -1,6 +1,6 @@
-<!-- DRAFT for 0.2.0, the first CRAN submission (roadmap Stage 12).
-     0.1.0 is a GitHub tag only and is not submitted. This file is rewritten
-     in Stage 12 against the checks that have actually run by then. -->
+<!-- DRAFT for 0.1.0, the first CRAN submission (roadmap Stage 12).
+     This file is rewritten in Stage 12 against the checks that have
+     actually run by then. -->
 
 ## Test environments
 

@@ -12,7 +12,7 @@ A list with elements:
 \item{\code{version}}{the \code{zucrypt} package version, as a \code{package_version}.}
 \item{\code{abi_version}}{the C ABI version published to \code{LinkingTo}
 consumers, as an integer: \code{1}. The archive's ABI is provisional until
-its first consumer links it, and frozen from v0.2.0; see
+its first consumer links it, and frozen from the CRAN release of 0.1.0; see
 \link{zucrypt_c_api}.}
 \item{\code{algorithms}}{the digest algorithms this build provides, which
 is exactly the set \code{crypt_hash()} and \code{crypt_hmac()} accept.}
