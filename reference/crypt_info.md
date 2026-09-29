@@ -45,7 +45,7 @@ A list with elements:
   `"aesni"` or `"aesce"` on a CPU with AES instructions, `"software"`
   otherwise, decided at run time; and `hardware_acceleration`, `TRUE`
   when that is a hardware path. See the "Side channels" section of
-  [crypt_aes_cbc](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+  [crypt_aes_cbc_nopad](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
   for why it matters.
 
 ## Details

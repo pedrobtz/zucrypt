@@ -31,16 +31,17 @@ weekly gates ran real tests; Stage 6 was superseded by Stages 7–9).
 **v0.1.0 is the first CRAN release and carries the freeze** (decided
 2026-09-29; the GitHub-only tag of \#27 and the separate v0.2.0 are
 gone). `zuxlsx` 0.1.0, with password-protected workbooks, follows it
-onto CRAN. **Next is one PR:** renaming the CBC pair
-`crypt_aes_cbc_encrypt_nopad()` / `_decrypt_nopad()` (design §7, \#56),
-which frees the ordinary names for Stage 14’s openssl-compatible padded
-pair. **Then Stage 11 — the first consumer and the freeze**
+onto CRAN. The CBC pair is renamed
+[`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
+/ `_decrypt_nopad()` (design §7, \#56), freeing the ordinary names for
+Stage 14’s openssl-compatible padded pair. **Next is Stage 11 — the
+first consumer and the freeze**
 ([\#43](https://github.com/pedrobtz/zucrypt/issues/43)), which waits
 only on `zuxlsx`’s decryption core in C
 ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) on a
-branch, not on its CFB reader or the rest of \#22. Stage 12 then submits
-0.1.0; on acceptance, tag `v0.1.0` and move `DESCRIPTION` to
-`0.1.0.9000`.
+branch, not on its CFB reader or the rest of \#22; Stage 12’s vignettes
+(#17, \#13) can be written meanwhile. Stage 12 then submits 0.1.0; on
+acceptance, tag `v0.1.0` and move `DESCRIPTION` to `0.1.0.9000`.
 
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`);
 `readme.yaml` re-renders it in CI and fails on any difference, so never
@@ -320,9 +321,9 @@ Three surfaces are exposed:
     [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
     [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md),
     [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md),
-    [`crypt_aes_cbc_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+    [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
     /
-    [`crypt_aes_cbc_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md).
+    [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md).
 2.  A registered function table (`inst/include/zucrypt-r.h`,
     `zucrypt_api_v1`, resolved lazily via `zucrypt_get_api`) for
     consumers that can carry `Imports:` + `LinkingTo:` + a real

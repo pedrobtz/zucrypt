@@ -24,9 +24,9 @@ Six functions, and deliberately no more:
 - [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md)
   — constant-time comparison. Unequal lengths return `FALSE` rather than
   pretending the length is secret.
-- [`crypt_aes_cbc_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+- [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
   and
-  [`crypt_aes_cbc_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+  [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
   — AES-128/192/256 in CBC mode, with no padding and **no
   authentication**. Interoperability tools for formats that specify
   unauthenticated CBC, not a way to encrypt something of your own.
@@ -55,10 +55,20 @@ Fixed before the tag, from the package review in
   because the backend caps an imported key there; a key longer than the
   hash’s block is now hashed first, as RFC 2104 specifies, which gives
   the same MAC.
-- [`?crypt_aes_cbc`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+- [`?crypt_aes_cbc_nopad`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
   now authenticates the IV as well as the ciphertext in its
   encrypt-then-MAC advice and example. A MAC over the ciphertext alone
   let the IV, and so the first plaintext block, be changed undetected.
+
+Renamed before release
+([\#56](https://github.com/pedrobtz/zucrypt/issues/56)): the CBC pair
+was `crypt_aes_cbc_encrypt()` and `crypt_aes_cbc_decrypt()` during
+development. The `_nopad` suffix names the difference from
+[`openssl::aes_cbc_encrypt()`](https://jeroen.r-universe.dev/openssl/reference/aes_cbc.html),
+which pads, so that code moved from `openssl` by changing a prefix can
+never silently get the padding back as plaintext. The unsuffixed names
+are reserved for an `openssl`-compatible padded pair. The C interface
+(`zuc_aes_*()`) is unchanged.
 
 ### C interface
 
@@ -124,7 +134,7 @@ where the CPU has neither. The backend’s own security policy warns that
 the software fallback leaks key material through cache timing;
 `crypt_info()$build_flags$aes_implementation` reports which path a
 machine uses, and
-[`?crypt_aes_cbc`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+[`?crypt_aes_cbc_nopad`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
 explains when that matters. Every path produces the same bytes. (Until
 the review in [\#51](https://github.com/pedrobtz/zucrypt/issues/51)
 hardware AES was off everywhere.)

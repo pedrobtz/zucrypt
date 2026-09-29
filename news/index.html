@@ -44,7 +44,7 @@
 <li>
 <code><a href="../reference/crypt_equal.html">crypt_equal()</a></code> — constant-time comparison. Unequal lengths return <code>FALSE</code> rather than pretending the length is secret.</li>
 <li>
-<code><a href="../reference/crypt_aes_cbc.html">crypt_aes_cbc_encrypt()</a></code> and <code><a href="../reference/crypt_aes_cbc.html">crypt_aes_cbc_decrypt()</a></code> — AES-128/192/256 in CBC mode, with no padding and <strong>no authentication</strong>. Interoperability tools for formats that specify unauthenticated CBC, not a way to encrypt something of your own.</li>
+<code><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_encrypt_nopad()</a></code> and <code><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_decrypt_nopad()</a></code> — AES-128/192/256 in CBC mode, with no padding and <strong>no authentication</strong>. Interoperability tools for formats that specify unauthenticated CBC, not a way to encrypt something of your own.</li>
 <li>
 <code><a href="../reference/crypt_info.html">crypt_info()</a></code> — what this build contains, read from the compiled library.</li>
 </ul><p>Failures are R conditions classed <code>c(&lt;specific&gt;, "zucrypt_error", "error", "condition")</code>, mapped from the C status by enumerator name rather than by number. Every condition carries <code>algorithm</code> and <code>native_status</code> fields; for AES, <code>algorithm</code> names the cipher (<code>"aes-256-cbc"</code>), or <code>"aes-cbc"</code> when the key is what is wrong. No message ever contains a key, an IV or plaintext.</p>
@@ -53,8 +53,9 @@
 <li>
 <code><a href="../reference/crypt_hmac.html">crypt_hmac()</a></code> (and <code>zuc_hmac_*()</code>) accept keys of any length, as documented. Keys of 8,192 bytes or more used to fail with <code>zucrypt_unsupported_algorithm</code>, because the backend caps an imported key there; a key longer than the hash’s block is now hashed first, as RFC 2104 specifies, which gives the same MAC.</li>
 <li>
-<code><a href="../reference/crypt_aes_cbc.html">?crypt_aes_cbc</a></code> now authenticates the IV as well as the ciphertext in its encrypt-then-MAC advice and example. A MAC over the ciphertext alone let the IV, and so the first plaintext block, be changed undetected.</li>
-</ul></div>
+<code><a href="../reference/crypt_aes_cbc_nopad.html">?crypt_aes_cbc_nopad</a></code> now authenticates the IV as well as the ciphertext in its encrypt-then-MAC advice and example. A MAC over the ciphertext alone let the IV, and so the first plaintext block, be changed undetected.</li>
+</ul><p>Renamed before release (<a href="https://github.com/pedrobtz/zucrypt/issues/56" class="external-link">#56</a>): the CBC pair was <code>crypt_aes_cbc_encrypt()</code> and <code>crypt_aes_cbc_decrypt()</code> during development. The <code>_nopad</code> suffix names the difference from <code><a href="https://jeroen.r-universe.dev/openssl/reference/aes_cbc.html" class="external-link">openssl::aes_cbc_encrypt()</a></code>, which pads, so that code moved from <code>openssl</code> by changing a prefix can never silently get the padding back as plaintext. The unsuffixed names are reserved for an <code>openssl</code>-compatible padded pair. The C interface (<code>zuc_aes_*()</code>) is unchanged.</p>
+</div>
 <div class="section level3">
 <h3 id="c-interface-0-1-0">C interface<a class="anchor" aria-label="anchor" href="#c-interface-0-1-0"></a></h3>
 <p>Both shapes the <code>zu*</code> family consumes siblings by, at <code>ZUCRYPT_ABI_VERSION 1</code>, with different stability (<code><a href="../reference/zucrypt_c_api.html">?zucrypt_c_api</a></code>):</p>
@@ -75,7 +76,7 @@
 <div class="section level3">
 <h3 id="backend-0-1-0">Backend<a class="anchor" aria-label="anchor" href="#backend-0-1-0"></a></h3>
 <p>Vendored TF-PSA-Crypto 1.1.1, an LTS release, trimmed to 113 files — the dependency closure of the sources that carry a symbol under this package’s configuration. Installation needs a C99 compiler and nothing else: no system cryptographic library, no CMake, no Python or Perl, and no network access.</p>
-<p>AES runs on the CPU’s AES instructions — AES-NI on x86, the Cryptography Extension on 64-bit Arm — chosen at run time, and on a software fallback where the CPU has neither. The backend’s own security policy warns that the software fallback leaks key material through cache timing; <code>crypt_info()$build_flags$aes_implementation</code> reports which path a machine uses, and <code><a href="../reference/crypt_aes_cbc.html">?crypt_aes_cbc</a></code> explains when that matters. Every path produces the same bytes. (Until the review in <a href="https://github.com/pedrobtz/zucrypt/issues/51" class="external-link">#51</a> hardware AES was off everywhere.)</p>
+<p>AES runs on the CPU’s AES instructions — AES-NI on x86, the Cryptography Extension on 64-bit Arm — chosen at run time, and on a software fallback where the CPU has neither. The backend’s own security policy warns that the software fallback leaks key material through cache timing; <code>crypt_info()$build_flags$aes_implementation</code> reports which path a machine uses, and <code><a href="../reference/crypt_aes_cbc_nopad.html">?crypt_aes_cbc_nopad</a></code> explains when that matters. Every path produces the same bytes. (Until the review in <a href="https://github.com/pedrobtz/zucrypt/issues/51" class="external-link">#51</a> hardware AES was off everywhere.)</p>
 <p>Upstream symbols are hidden. The installed shared object exports exactly one symbol, <code>R_init_zucrypt</code>, so an independently vendored copy of the same library in another package cannot bind to this one, and no OpenSSL-ABI name is exported beside the <code>libcrypto</code> other packages link.</p>
 </div>
 <div class="section level3">

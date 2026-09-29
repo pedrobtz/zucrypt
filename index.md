@@ -77,7 +77,7 @@ The AES-CBC functions exist too, and are deliberately not shown here:
 they add no padding and no authentication, and presenting them beside a
 hash would suggest they are a general-purpose way to encrypt something.
 See
-[`?crypt_aes_cbc`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+[`?crypt_aes_cbc_nopad`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
 before using them.
 
 [Getting

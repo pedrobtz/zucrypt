@@ -13,7 +13,7 @@ zucrypt has six functions:
 | [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md) | A keyed digest (HMAC) of some bytes |
 | [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md) | Comparing a secret value in constant time |
 | [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md) | What the installed build contains |
-| [`crypt_aes_cbc_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md), [`crypt_aes_cbc_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md) | Unauthenticated AES-CBC, for formats that specify it |
+| [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md), [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md) | Unauthenticated AES-CBC, for formats that specify it |
 
 This article walks through each of them. The short version is that there
 is not much to learn, on purpose: every function takes raw vectors and
@@ -226,9 +226,9 @@ the C interface that other packages link against (see
 
 ## AES-CBC: for formats that specify it
 
-[`crypt_aes_cbc_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+[`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
 and
-[`crypt_aes_cbc_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+[`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
 are **interoperability tools**, for reading and writing file formats
 that are defined in terms of AES-CBC. They are deliberately low-level:
 
@@ -262,10 +262,10 @@ iv  <- unhex("000102030405060708090a0b0c0d0e0f")
 pt  <- unhex(paste0("6bc1bee22e409f96e93d7e117393172a",
                     "ae2d8a571e03ac9c9eb76fac45af8e51"))
 
-ct <- crypt_aes_cbc_encrypt(pt, key, iv)
+ct <- crypt_aes_cbc_encrypt_nopad(pt, key, iv)
 hex(ct)
 #> [1] "7649abac8119b246cee98e9b12e9197d5086cb9b507219ee95db113a917678b2"
-identical(crypt_aes_cbc_decrypt(ct, key, iv), pt)
+identical(crypt_aes_cbc_decrypt_nopad(ct, key, iv), pt)
 #> [1] TRUE
 ```
 
@@ -279,7 +279,7 @@ Data that is not a multiple of 16 bytes is refused, not padded:
 
 ``` r
 
-e <- tryCatch(crypt_aes_cbc_encrypt(charToRaw("hello"), key, iv),
+e <- tryCatch(crypt_aes_cbc_encrypt_nopad(charToRaw("hello"), key, iv),
               error = function(e) e)
 class(e)
 #> [1] "zucrypt_bad_length" "zucrypt_error"      "error"             
@@ -303,8 +303,8 @@ unpad_pkcs7 <- function(x) {
 padded <- pad_pkcs7(charToRaw("hello"))
 length(padded)
 #> [1] 16
-rawToChar(unpad_pkcs7(crypt_aes_cbc_decrypt(
-  crypt_aes_cbc_encrypt(padded, key, iv), key, iv)))
+rawToChar(unpad_pkcs7(crypt_aes_cbc_decrypt_nopad(
+  crypt_aes_cbc_encrypt_nopad(padded, key, iv), key, iv)))
 #> [1] "hello"
 ```
 
@@ -319,7 +319,7 @@ format is one call per segment:
 
 # The NIST plaintext above as two 16-byte "segments", each from the same IV.
 segments <- split(pt, rep(1:2, each = 16))
-segmented <- unlist(lapply(segments, crypt_aes_cbc_encrypt, key = key, iv = iv),
+segmented <- unlist(lapply(segments, crypt_aes_cbc_encrypt_nopad, key = key, iv = iv),
                     use.names = FALSE)
 
 # The first segment is the first block of the stream, so it matches:
@@ -328,7 +328,7 @@ identical(segmented[1:16], ct[1:16])
 # The second does not continue the chain; it restarted from the IV:
 identical(segmented[17:32], ct[17:32])
 #> [1] FALSE
-identical(segmented[17:32], crypt_aes_cbc_encrypt(pt[17:32], key, iv))
+identical(segmented[17:32], crypt_aes_cbc_encrypt_nopad(pt[17:32], key, iv))
 #> [1] TRUE
 ```
 
@@ -349,13 +349,13 @@ enc_key <- unhex("603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914df
 mac_key <- as.raw(1:32)   # in real use: 32 random bytes, kept secret
 
 seal <- function(plaintext, iv) {
-  ct <- crypt_aes_cbc_encrypt(pad_pkcs7(plaintext), enc_key, iv)
+  ct <- crypt_aes_cbc_encrypt_nopad(pad_pkcs7(plaintext), enc_key, iv)
   list(iv = iv, ct = ct, tag = crypt_hmac(c(iv, ct), mac_key))
 }
 open_sealed <- function(box) {
   expected <- crypt_hmac(c(box$iv, box$ct), mac_key)
   if (!crypt_equal(box$tag, expected)) stop("authentication failed")
-  unpad_pkcs7(crypt_aes_cbc_decrypt(box$ct, enc_key, box$iv))
+  unpad_pkcs7(crypt_aes_cbc_decrypt_nopad(box$ct, enc_key, box$iv))
 }
 
 box <- seal(charToRaw("meet at noon"), iv)
@@ -381,7 +381,7 @@ reworded:
 
 ``` r
 
-e <- tryCatch(crypt_aes_cbc_encrypt(raw(32), raw(15), raw(16)),
+e <- tryCatch(crypt_aes_cbc_encrypt_nopad(raw(32), raw(15), raw(16)),
               error = function(e) e)
 class(e)
 #> [1] "zucrypt_bad_length" "zucrypt_error"      "error"             

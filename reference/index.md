@@ -31,8 +31,8 @@ ciphertext produced here can be altered undetectably, and detecting that
 is the caller’s job. These are interoperability tools, not a way to
 encrypt something of your own.
 
-- [`crypt_aes_cbc_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
-  [`crypt_aes_cbc_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc.md)
+- [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
+  [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
   : AES-CBC, without padding and without authentication
 
 ## C API
