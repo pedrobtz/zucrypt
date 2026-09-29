@@ -7,17 +7,17 @@ Authors@R: c(
     person("The Mbed TLS Contributors", role = "cph",
            comment = "TF-PSA-Crypto, bundled in src/vendor/tf-psa-crypto"))
 Description: Cryptographic functions over raw vectors, including message
-    digests, keyed-hash message authentication codes (HMAC), Advanced
-    Encryption Standard (AES) encryption, constant-time comparison and
-    secure erasure, backed by a bundled and pinned copy of the 'Mbed TLS'
-    project's cryptography library, 'TF-PSA-Crypto'
-    (<https://github.com/Mbed-TLS/TF-PSA-Crypto>). No system cryptographic
-    library, 'Java' or 'Python' is required at install or run time.
-    Algorithm names are matched exactly, and failures are reported as
-    structured conditions.
-    The same primitives are published to other packages as a static archive
-    and as a registered C interface, so that a package can call them from C
-    without going through R.
+    digests of in-memory data, files and connections, keyed-hash message
+    authentication codes (HMAC), Advanced Encryption Standard (AES)
+    encryption, constant-time comparison and hexadecimal encoding, backed
+    by a bundled and pinned copy of the 'Mbed TLS' project's cryptography
+    library, 'TF-PSA-Crypto' (<https://github.com/Mbed-TLS/TF-PSA-Crypto>).
+    No system cryptographic library, 'Java' or 'Python' is required at
+    install or run time. Algorithm names are matched exactly, and failures
+    are reported as structured conditions. The same primitives, and secure
+    erasure of native buffers, are published to other packages as a static
+    archive and as a registered C interface, so that a package can call
+    them from C without going through R.
 License: MIT + file LICENSE
 Copyright: See inst/COPYRIGHTS and tools/vendor/manifest.tsv.
 URL: https://github.com/pedrobtz/zucrypt,
