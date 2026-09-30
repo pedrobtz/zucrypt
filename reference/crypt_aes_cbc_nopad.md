@@ -1,4 +1,4 @@
-# AES-CBC, without padding and without authentication
+# AES-CBC Without Padding or Authentication
 
 **These functions provide confidentiality only. They do not authenticate
 anything.** Ciphertext produced here can be altered by anyone who can

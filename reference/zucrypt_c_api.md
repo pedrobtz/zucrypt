@@ -1,4 +1,4 @@
-# Using zucrypt from C
+# Using 'zucrypt' from C
 
 zucrypt publishes its primitives to other packages twice, because the
 `zu*` family consumes siblings in two different ways. Both deliver the

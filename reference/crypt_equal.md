@@ -1,4 +1,4 @@
-# Compare two raw vectors without leaking timing information
+# Compare Two Raw Vectors Without Leaking Timing Information
 
 Compares in time that does not depend on the contents of the buffers.
 Use it whenever one side is a secret: an authentication tag, a password

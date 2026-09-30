@@ -9,11 +9,11 @@ with its default is the right answer unless something external requires
 otherwise.
 
 - [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md)
-  : Compute a message digest
+  : Compute a Message Digest
 - [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
   : Compute an HMAC
 - [`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
-  : Encode bytes as hexadecimal
+  : Encode Bytes as Hexadecimal
 
 ## Comparison and information
 
@@ -21,9 +21,9 @@ Comparing a secret without leaking how much of it you guessed, and
 finding out what this build contains.
 
 - [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md)
-  : Compare two raw vectors without leaking timing information
+  : Compare Two Raw Vectors Without Leaking Timing Information
 - [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md)
-  : Report what this build of zucrypt contains
+  : Report What This Build of 'zucrypt' Contains
 
 ## Ciphers (advanced)
 
@@ -35,7 +35,7 @@ encrypt something of your own.
 
 - [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
   [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
-  : AES-CBC, without padding and without authentication
+  : AES-CBC Without Padding or Authentication
 
 ## C API
 
@@ -44,7 +44,7 @@ function table or the static archive.
 
 - [`zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
   [`zucrypt-c-api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
-  : Using zucrypt from C
+  : Using 'zucrypt' from C
 
 ## Package
 

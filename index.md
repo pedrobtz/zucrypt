@@ -59,6 +59,25 @@ whenever one side is a secret: an ordinary comparison stops at the first
 differing byte, so how long it takes measures how much of the expected
 value an attacker has guessed.
 
+A connection is hashed as it is read, 1 MiB at a time, so neither a
+large file nor a download has to fit in memory:
+
+``` r
+
+path <- tempfile()
+writeBin(charToRaw("the quick brown fox"), path)
+identical(crypt_hash(file(path)), digest)
+#> [1] TRUE
+```
+
+Any connection that yields bytes works the same way, so a remote file is
+checked against its published digest without being saved first:
+
+``` r
+
+crypt_hex(crypt_hash(url("https://example.org/release.tar.gz")))
+```
+
 [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md)
 reports what the installed build actually contains, read from the
 compiled library rather than from anything written down in R:
@@ -114,8 +133,11 @@ Every change to either is recorded in `NEWS.md`. What is compiled in,
 where it came from, and how a security fix reaches you are in [The
 vendored
 backend](https://pedrobtz.github.io/zucrypt/articles/backend.html). The
-design is in `.agents/design.md`, and `.agents/roadmap.md` records how
-it was built, what was deliberately left out, and what comes next.
+[design](https://github.com/pedrobtz/zucrypt/blob/main/.agents/design.md)
+is in the repository, and the
+[roadmap](https://github.com/pedrobtz/zucrypt/blob/main/.agents/roadmap.md)
+records how it was built, what was deliberately left out, and what comes
+next.
 
 ## Installation
 

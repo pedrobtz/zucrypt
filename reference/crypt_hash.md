@@ -1,4 +1,4 @@
-# Compute a message digest
+# Compute a Message Digest
 
 Hashes a raw vector, or everything a connection yields, with one of the
 digest algorithms this build provides.
@@ -64,7 +64,9 @@ An error while reading is R's own.
 What is hashed is what the connection yields:
 [`gzfile()`](https://rdrr.io/r/base/connections.html) gives the
 decompressed bytes, [`file()`](https://rdrr.io/r/base/connections.html)
-the bytes on disk.
+the bytes on disk, and
+[`url()`](https://rdrr.io/r/base/connections.html) the body as it
+downloads, so a remote file is hashed without being saved first.
 
 ## See also
 

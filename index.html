@@ -84,8 +84,17 @@
 <span><span class="fu"><a href="reference/crypt_equal.html">crypt_equal</a></span><span class="op">(</span><span class="va">tag</span>, <span class="fu"><a href="reference/crypt_hmac.html">crypt_hmac</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"Hi There"</span><span class="op">)</span>, <span class="va">key</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
 <p>Use <code><a href="reference/crypt_equal.html">crypt_equal()</a></code> rather than <code><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical()</a></code> whenever one side is a secret: an ordinary comparison stops at the first differing byte, so how long it takes measures how much of the expected value an attacker has guessed.</p>
-<p><code><a href="reference/crypt_info.html">crypt_info()</a></code> reports what the installed build actually contains, read from the compiled library rather than from anything written down in R:</p>
+<p>A connection is hashed as it is read, 1 MiB at a time, so neither a large file nor a download has to fit in memory:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempfile</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/readBin.html" class="external-link">writeBin</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"the quick brown fox"</span><span class="op">)</span>, <span class="va">path</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/connections.html" class="external-link">file</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span><span class="op">)</span>, <span class="va">digest</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p>Any connection that yields bytes works the same way, so a remote file is checked against its published digest without being saved first:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="reference/crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu"><a href="reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/connections.html" class="external-link">url</a></span><span class="op">(</span><span class="st">"https://example.org/release.tar.gz"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><code><a href="reference/crypt_info.html">crypt_info()</a></code> reports what the installed build actually contains, read from the compiled library rather than from anything written down in R:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">info</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/crypt_info.html">crypt_info</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">info</span><span class="op">$</span><span class="va">algorithms</span></span>
 <span><span class="co">#&gt; [1] "sha1"   "sha256" "sha384" "sha512"</span></span>
@@ -110,16 +119,16 @@
 <div class="section level2">
 <h2 id="status">Status<a class="anchor" aria-label="anchor" href="#status"></a>
 </h2>
-<p>Version 0.1.0. The seven R functions are stable, the static archive is frozen as ABI 1, and the registered table is experimental, as above. Every change to either is recorded in <code>NEWS.md</code>. What is compiled in, where it came from, and how a security fix reaches you are in <a href="https://pedrobtz.github.io/zucrypt/articles/backend.html">The vendored backend</a>. The design is in <code>.agents/design.md</code>, and <code>.agents/roadmap.md</code> records how it was built, what was deliberately left out, and what comes next.</p>
+<p>Version 0.1.0. The seven R functions are stable, the static archive is frozen as ABI 1, and the registered table is experimental, as above. Every change to either is recorded in <code>NEWS.md</code>. What is compiled in, where it came from, and how a security fix reaches you are in <a href="https://pedrobtz.github.io/zucrypt/articles/backend.html">The vendored backend</a>. The <a href="https://github.com/pedrobtz/zucrypt/blob/main/.agents/design.md" class="external-link">design</a> is in the repository, and the <a href="https://github.com/pedrobtz/zucrypt/blob/main/.agents/roadmap.md" class="external-link">roadmap</a> records how it was built, what was deliberately left out, and what comes next.</p>
 </div>
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
 <p>From CRAN:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"zucrypt"</span><span class="op">)</span></span></code></pre></div>
 <p>The development version, from GitHub:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("pak")</span></span>
 <span><span class="fu">pak</span><span class="fu">::</span><span class="fu"><a href="https://pak.r-lib.org/reference/pak.html" class="external-link">pak</a></span><span class="op">(</span><span class="st">"pedrobtz/zucrypt"</span><span class="op">)</span></span></code></pre></div>
 </div>
