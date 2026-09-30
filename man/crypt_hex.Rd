@@ -2,7 +2,7 @@
 % Please edit documentation in R/hex.R
 \name{crypt_hex}
 \alias{crypt_hex}
-\title{Encode bytes as hexadecimal}
+\title{Encode Bytes as Hexadecimal}
 \usage{
 crypt_hex(x)
 }

@@ -21,7 +21,7 @@ available_algorithms <- local({
   }
 })
 
-#' Report what this build of zucrypt contains
+#' Report What This Build of 'zucrypt' Contains
 #'
 #' Describes the installed package: its version, the C ABI it publishes, the
 #' algorithms it provides, and the vendored cryptographic backend it was

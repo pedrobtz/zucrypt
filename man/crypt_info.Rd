@@ -2,7 +2,7 @@
 % Please edit documentation in R/info.R
 \name{crypt_info}
 \alias{crypt_info}
-\title{Report what this build of zucrypt contains}
+\title{Report What This Build of 'zucrypt' Contains}
 \usage{
 crypt_info()
 }

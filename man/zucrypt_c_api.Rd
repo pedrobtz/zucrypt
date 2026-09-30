@@ -3,7 +3,7 @@
 \name{zucrypt_c_api}
 \alias{zucrypt_c_api}
 \alias{zucrypt-c-api}
-\title{Using zucrypt from C}
+\title{Using 'zucrypt' from C}
 \description{
 zucrypt publishes its primitives to other packages twice, because the
 \verb{zu*} family consumes siblings in two different ways. Both deliver the

@@ -4,7 +4,7 @@
 \alias{crypt_aes_cbc_nopad}
 \alias{crypt_aes_cbc_encrypt_nopad}
 \alias{crypt_aes_cbc_decrypt_nopad}
-\title{AES-CBC, without padding and without authentication}
+\title{AES-CBC Without Padding or Authentication}
 \usage{
 crypt_aes_cbc_encrypt_nopad(data, key, iv)
 

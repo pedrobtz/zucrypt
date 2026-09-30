@@ -1,4 +1,4 @@
-#' Compute a message digest
+#' Compute a Message Digest
 #'
 #' Hashes a raw vector, or everything a connection yields, with one of the
 #' digest algorithms this build provides.
@@ -41,7 +41,8 @@
 #' error while reading is R's own.
 #'
 #' What is hashed is what the connection yields: `gzfile()` gives the
-#' decompressed bytes, `file()` the bytes on disk.
+#' decompressed bytes, `file()` the bytes on disk, and `url()` the body as
+#' it downloads, so a remote file is hashed without being saved first.
 #'
 #' @seealso [crypt_hmac()] for a keyed digest, [crypt_equal()] for comparing
 #'   digests without leaking timing information, [crypt_hex()] for hex.
@@ -129,7 +130,7 @@ crypt_hmac <- function(data, key, algorithm = "sha256") {
   res$value
 }
 
-#' Compare two raw vectors without leaking timing information
+#' Compare Two Raw Vectors Without Leaking Timing Information
 #'
 #' Compares in time that does not depend on the contents of the buffers. Use
 #' it whenever one side is a secret: an authentication tag, a password
