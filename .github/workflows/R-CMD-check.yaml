@@ -49,9 +49,17 @@ jobs:
       # Roadmap Stage 5 asks for the minimum R version the build actually
       # needs to be recorded. This is that, kept honest by a job rather than
       # by a comment.
+      #
+      # Windows R-devel is CRAN's r-devel-windows-x86_64 flavor, the one
+      # win-builder's check_win_devel() exists to reach. As a leg it runs on
+      # every push, so that check is covered here rather than remembered by
+      # hand before each submission. The user agent is "release" as in the
+      # r-lib template: under R-devel the default one can resolve to binaries
+      # built for the wrong R.
       runners: >-
         [{"os": "macos-latest", "r": "release"},
          {"os": "windows-latest", "r": "release"},
+         {"os": "windows-latest", "r": "devel", "http-user-agent": "release"},
          {"os": "ubuntu-latest", "r": "release"},
          {"os": "ubuntu-latest", "r": "oldrel-1"},
          {"os": "ubuntu-latest", "r": "4.1"}]
