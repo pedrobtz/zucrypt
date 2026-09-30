@@ -12,7 +12,7 @@ this package.
 
 * local macOS 26.6.2 (arm64), R 4.6.1
 * GitHub Actions, R CMD check `--as-cran` on every push:
-  * macOS (arm64) and Windows (x86-64), R release
+  * macOS (arm64), R release; Windows (x86-64), R release and R-devel
   * Ubuntu, R release, oldrel-1, and 4.1 (the version `Depends` declares)
   * the r-devel containers matching CRAN's Linux flavours (`clang23`,
     `ubuntu-gcc16`, `ubuntu-clang`), and a leg with no `Suggests` installed
