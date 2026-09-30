@@ -65,6 +65,23 @@ Use `crypt_equal()` rather than `identical()` whenever one side is a secret:
 an ordinary comparison stops at the first differing byte, so how long it takes
 measures how much of the expected value an attacker has guessed.
 
+A connection is hashed as it is read, 1 MiB at a time, so neither a large
+file nor a download has to fit in memory:
+
+``` r
+path <- tempfile()
+writeBin(charToRaw("the quick brown fox"), path)
+identical(crypt_hash(file(path)), digest)
+#> [1] TRUE
+```
+
+Any connection that yields bytes works the same way, so a remote file is
+checked against its published digest without being saved first:
+
+``` r
+crypt_hex(crypt_hash(url("https://example.org/release.tar.gz")))
+```
+
 `crypt_info()` reports what the installed build actually contains, read from
 the compiled library rather than from anything written down in R:
 

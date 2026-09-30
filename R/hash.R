@@ -41,7 +41,8 @@
 #' error while reading is R's own.
 #'
 #' What is hashed is what the connection yields: `gzfile()` gives the
-#' decompressed bytes, `file()` the bytes on disk.
+#' decompressed bytes, `file()` the bytes on disk, and `url()` the body as
+#' it downloads, so a remote file is hashed without being saved first.
 #'
 #' @seealso [crypt_hmac()] for a keyed digest, [crypt_equal()] for comparing
 #'   digests without leaking timing information, [crypt_hex()] for hex.

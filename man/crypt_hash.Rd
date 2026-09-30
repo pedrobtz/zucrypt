@@ -54,7 +54,8 @@ of data before its end, which is refused rather than hashed short. An
 error while reading is R's own.
 
 What is hashed is what the connection yields: \code{gzfile()} gives the
-decompressed bytes, \code{file()} the bytes on disk.
+decompressed bytes, \code{file()} the bytes on disk, and \code{url()} the body as
+it downloads, so a remote file is hashed without being saved first.
 }
 
 \examples{
