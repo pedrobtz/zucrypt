@@ -2,7 +2,7 @@
 % Please edit documentation in R/hash.R
 \name{crypt_hash}
 \alias{crypt_hash}
-\title{Compute a message digest}
+\title{Compute a Message Digest}
 \usage{
 crypt_hash(data, algorithm = "sha256")
 }

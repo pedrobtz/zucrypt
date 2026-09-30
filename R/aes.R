@@ -1,4 +1,4 @@
-#' AES-CBC, without padding and without authentication
+#' AES-CBC Without Padding or Authentication
 #'
 #' @description
 #' **These functions provide confidentiality only. They do not authenticate

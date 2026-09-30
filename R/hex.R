@@ -1,4 +1,4 @@
-#' Encode bytes as hexadecimal
+#' Encode Bytes as Hexadecimal
 #'
 #' Converts a raw vector to one lower-case hexadecimal string, two digits per
 #' byte, with no separators and no prefix: the form `sha256sum` prints and

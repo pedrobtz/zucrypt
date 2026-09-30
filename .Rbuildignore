@@ -9,6 +9,11 @@
 # src/*.o and src/*.so, but not a static archive, so a local check otherwise
 # ships one and reports it as a WARNING.
 ^src/libzucrypt\.a$
+# The same for the vendored objects: R CMD build's cleanup is src/ only, not
+# its subdirectories, so a local install leaves objects under src/vendor/ to
+# be shipped and reported as "apparent object files/libraries". Comment lines
+# here are still compiled as regexes: keep brackets and globs out of them.
+^src/vendor/.*\.o$
 # The two consumer fixture packages and what drives them: built only by
 # consumer.yaml, never part of zucrypt's own tarball (zukomp's layout).
 ^tools/zucrypttest$
@@ -20,3 +25,7 @@
 ^README\.Rmd$
 ^vignettes/articles$
 ^tools/openssl-usage\.R$
+# testthat writes these when a run fails. .gitignore keeps them out of git,
+# and this keeps a stale local copy out of the tarball.
+^tests/testthat/_problems$
+^tests/testthat/testthat-problems\.rds$

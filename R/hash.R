@@ -1,4 +1,4 @@
-#' Compute a message digest
+#' Compute a Message Digest
 #'
 #' Hashes a raw vector, or everything a connection yields, with one of the
 #' digest algorithms this build provides.
@@ -129,7 +129,7 @@ crypt_hmac <- function(data, key, algorithm = "sha256") {
   res$value
 }
 
-#' Compare two raw vectors without leaking timing information
+#' Compare Two Raw Vectors Without Leaking Timing Information
 #'
 #' Compares in time that does not depend on the contents of the buffers. Use
 #' it whenever one side is a secret: an authentication tag, a password

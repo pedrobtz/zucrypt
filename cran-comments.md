@@ -10,7 +10,7 @@ this package.
 
 ## Test environments
 
-* local macOS 26.2 (x86-64), R 4.5.2
+* local macOS 26.6.2 (arm64), R 4.6.1
 * GitHub Actions, R CMD check `--as-cran` on every push:
   * macOS (arm64) and Windows (x86-64), R release
   * Ubuntu, R release, oldrel-1, and 4.1 (the version `Depends` declares)

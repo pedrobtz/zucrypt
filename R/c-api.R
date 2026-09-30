@@ -1,4 +1,4 @@
-#' Using zucrypt from C
+#' Using 'zucrypt' from C
 #'
 #' @description
 #' zucrypt publishes its primitives to other packages twice, because the

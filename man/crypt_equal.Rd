@@ -2,7 +2,7 @@
 % Please edit documentation in R/hash.R
 \name{crypt_equal}
 \alias{crypt_equal}
-\title{Compare two raw vectors without leaking timing information}
+\title{Compare Two Raw Vectors Without Leaking Timing Information}
 \usage{
 crypt_equal(x, y)
 }
