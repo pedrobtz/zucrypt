@@ -29,3 +29,5 @@
 # and this keeps a stale local copy out of the tarball.
 ^tests/testthat/_problems$
 ^tests/testthat/testthat-problems\.rds$
+# Written by devtools::submit_cran(); never part of the tarball.
+^CRAN-SUBMISSION$

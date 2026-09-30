@@ -13,3 +13,6 @@ tools/zucryptlink/src/Makevars.win
 # Written by testthat when a run fails; a record of one local run, not source.
 tests/testthat/_problems/
 tests/testthat/testthat-problems.rds
+
+# Written by devtools::submit_cran(): the version and commit of a submission.
+CRAN-SUBMISSION
