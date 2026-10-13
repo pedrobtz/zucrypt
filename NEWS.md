@@ -1,3 +1,5 @@
+# zucrypt (development version)
+
 # zucrypt 0.1.0
 
 First release, and the first on CRAN. A focused set of cryptographic primitives over
