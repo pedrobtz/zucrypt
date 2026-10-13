@@ -194,6 +194,34 @@ for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
     fi
 done
 
+# 7b. every individual a vendored file names as its author is credited in
+#     Authors@R and in inst/COPYRIGHTS. CRAN asks for them by name (2026-10-13
+#     review of 0.1.0); a re-vendor that brings in a new one must not pass.
+authors=$(
+    { grep -rhE '\\author ' src/vendor \
+          | sed -n 's/.*\\author  *\([^<]*[^< ]\) *<.*/\1/p'
+      grep -rhE 'originally written by ' src/vendor \
+          | sed -n 's/.*originally written by \(.*\) for .*/\1/p'
+    } | LC_ALL=C sort -u
+)
+if [ -z "$authors" ]; then
+    echo 'FAIL found no named authors in src/vendor; the extraction is broken' >&2
+    status=1
+fi
+printf '%s\n' "$authors" | while IFS= read -r who; do
+    [ -n "$who" ] || continue
+    given=${who%% *}
+    family=${who#* }
+    if ! grep -qF "\"$given\", \"$family\"" DESCRIPTION; then
+        printf 'FAIL vendored code names author %s, who is not in Authors@R\n' "$who" >&2
+        exit 1
+    fi
+    if ! grep -qF "$who" inst/COPYRIGHTS; then
+        printf 'FAIL vendored code names author %s, who is not in inst/COPYRIGHTS\n' "$who" >&2
+        exit 1
+    fi
+done || status=1
+
 # 8. the patch set agrees across the manifest, tools/patches/ and the shipped
 #    attribution -- checked in all three directions, because a one-way check
 #    passes happily while the other side rots. There are no patches today;

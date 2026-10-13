@@ -30,7 +30,10 @@ decryption core ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 
 passed against `main` on three operating systems and ABI 1 is frozen. **Next is Stage 12**
 ([#44](https://github.com/pedrobtz/zucrypt/issues/44)): the C-API vignette (#13), the CRAN
 preparation, and the submission; on acceptance, tag `v0.1.0` and move `DESCRIPTION` to
-`0.1.0.9000`.
+`0.1.0.9000`. Submitted 2026-09-30; CRAN returned it on 2026-10-13 asking for every
+individually named upstream author in `Authors@R`. Adriaan de Jong, Daniel King and Simon
+Tatham are now `ctb`/`cph`, and `tools/vendor/verify` fails if a vendored file names an author
+missing from `Authors@R` or `inst/COPYRIGHTS`. Resubmission is next.
 
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
 it in CI and fails on any difference, so never edit `README.md` by hand.

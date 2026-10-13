@@ -1,4 +1,23 @@
-## This is a first submission
+## Resubmission
+
+This is a resubmission. The review of 2026-10-13 asked that all authors,
+contributors and copyright holders be listed in `Authors@R`, naming Adriaan
+de Jong and Daniel King. In response:
+
+* I searched every bundled file for an individually named author. Three
+  people are named: Adriaan de Jong and Daniel King (each as `\author` of
+  several TF-PSA-Crypto files), and Simon Tatham, whose PuTTY code the
+  Arm-accelerated SHA-512 implementation derives from, relicensed with his
+  permission as the file states. All three are now in `Authors@R` with
+  roles `ctb` and `cph`, beside "The Mbed TLS Contributors" (`cph`), the
+  collective copyright holder that every bundled file's notice names.
+* `inst/COPYRIGHTS` lists each of them with the files that name them.
+* `tools/vendor/verify`, which runs in continuous integration, now fails if
+  a bundled file names an author who is missing from `Authors@R` or
+  `inst/COPYRIGHTS`, so a future update of the bundled library cannot drop
+  one silently.
+
+## First submission
 
 zucrypt is new; `Version` is 0.1.0. It provides message digests, HMAC,
 AES-CBC, constant-time comparison and hexadecimal encoding over raw vectors,
@@ -38,7 +57,7 @@ TF-PSA-Crypto 1.1.1, the Mbed TLS project's cryptography library, which is
 dual-licensed Apache-2.0 OR GPL-2.0-or-later and used here under Apache-2.0.
 
 * The Mbed TLS Contributors are listed as copyright holders in `Authors@R`,
-  and `DESCRIPTION` has a `Copyright:` field pointing to `inst/COPYRIGHTS`,
+  with the three individuals the bundled files name as authors, and `DESCRIPTION` has a `Copyright:` field pointing to `inst/COPYRIGHTS`,
   which gives the provenance and licence of every included file.
 * Upstream's `LICENSE` is vendored with the sources and installed with the
   package as `licenses/tf-psa-crypto-LICENSE`.

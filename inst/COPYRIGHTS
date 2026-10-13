@@ -40,6 +40,24 @@ Apache-2.0 and MIT are compatible: each file keeps its own terms, and a
 recipient of this package receives the vendored files under Apache-2.0 and
 everything else under MIT.
 
+Upstream holds copyright collectively as "The Mbed TLS Contributors", but some
+included files also name an individual author, and these are listed in
+DESCRIPTION's Authors@R as contributors and copyright holders:
+
+    Adriaan de Jong   named as \author in lib/cipher.c, lib/cipher_wrap.c,
+                      lib/cipher_wrap.h, inc/mbedtls/md.h and
+                      inc/mbedtls/private/cipher.h
+    Daniel King       named as \author in inc/mbedtls/private/chacha20.h,
+                      inc/mbedtls/private/chachapoly.h and
+                      inc/mbedtls/private/poly1305.h
+    Simon Tatham      lib/sha512.c's Arm-accelerated SHA-512 code was
+                      originally written by him for PuTTY under the MIT
+                      licence, and is dual-licensed as Apache-2.0 with his
+                      permission, as the file states
+
+tools/vendor/verify fails if a vendored file names an author who is missing
+from DESCRIPTION or from this list.
+
 Only part of the upstream release is included here. The vendored tree is the
 dependency closure of the sources that carry a symbol under
 src/zuc_crypto_config.h -- 113 files of an archive with several thousand. The

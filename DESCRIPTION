@@ -5,7 +5,13 @@ Authors@R: c(
     person("Pedro", "Baltazar", , "pedrobtz@gmail.com",
            role = c("aut", "cre", "cph")),
     person("The Mbed TLS Contributors", role = "cph",
-           comment = "TF-PSA-Crypto, bundled in src/vendor/tf-psa-crypto"))
+           comment = "TF-PSA-Crypto, bundled in src/vendor/tf-psa-crypto"),
+    person("Adriaan", "de Jong", role = c("ctb", "cph"),
+           comment = "author of TF-PSA-Crypto's cipher and message-digest layers"),
+    person("Daniel", "King", role = c("ctb", "cph"),
+           comment = "author of TF-PSA-Crypto's ChaCha20, Poly1305 and ChaCha20-Poly1305 headers"),
+    person("Simon", "Tatham", role = c("ctb", "cph"),
+           comment = "author of the Arm-accelerated SHA-512 code, from PuTTY"))
 Description: Cryptographic functions over raw vectors, including message
     digests of in-memory data, files and connections, keyed-hash message
     authentication codes (HMAC), Advanced Encryption Standard (AES)
@@ -41,4 +47,4 @@ Config/testthat/edition: 3
 Config/testthat/parallel: true
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-Config/roxygen2/version: 8.1.0
+Config/roxygen2/version: 8.1.1
