@@ -7,6 +7,16 @@
 - **The Mbed TLS Contributors**. Copyright holder.  
   TF-PSA-Crypto, bundled in src/vendor/tf-psa-crypto
 
+- **Adriaan de Jong**. Contributor, copyright holder.  
+  author of TF-PSA-Crypto's cipher and message-digest layers
+
+- **Daniel King**. Contributor, copyright holder.  
+  author of TF-PSA-Crypto's ChaCha20, Poly1305 and ChaCha20-Poly1305
+  headers
+
+- **Simon Tatham**. Contributor, copyright holder.  
+  author of the Arm-accelerated SHA-512 code, from PuTTY
+
 ## Citation
 
 Source:

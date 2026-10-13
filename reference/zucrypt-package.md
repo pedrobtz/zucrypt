@@ -35,3 +35,12 @@ Other contributors:
 
 - The Mbed TLS Contributors (TF-PSA-Crypto, bundled in
   src/vendor/tf-psa-crypto) \[copyright holder\]
+
+- Adriaan de Jong (author of TF-PSA-Crypto's cipher and message-digest
+  layers) \[contributor, copyright holder\]
+
+- Daniel King (author of TF-PSA-Crypto's ChaCha20, Poly1305 and
+  ChaCha20-Poly1305 headers) \[contributor, copyright holder\]
+
+- Simon Tatham (author of the Arm-accelerated SHA-512 code, from PuTTY)
+  \[contributor, copyright holder\]

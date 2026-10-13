@@ -210,5 +210,9 @@ TF-PSA-Crypto is distributed under Apache-2.0 (upstream offers
 Apache-2.0 or GPL-2.0-or-later; zucrypt takes it under Apache-2.0). Its
 licence text is vendored with the source and installed with the package,
 beside the static archive, as `licenses/tf-psa-crypto-LICENSE`.
-`inst/COPYRIGHTS` lists the copyright holders. zucrypt’s own code is
-MIT-licensed.
+`inst/COPYRIGHTS` lists the copyright holders: The Mbed TLS
+Contributors, and the three people some included files name as authors
+(Adriaan de Jong, Daniel King, and Simon Tatham, from whose PuTTY code
+the Arm SHA-512 path derives), who are also in `DESCRIPTION`.
+`tools/vendor/verify` fails if a vendored file names an author missing
+from either. zucrypt’s own code is MIT-licensed.
