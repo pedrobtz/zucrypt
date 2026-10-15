@@ -1,11 +1,12 @@
 docs
 
-# Compiled objects and shared libraries from a local build.
-src/*.o
-src/*.so
-src/*.dll
-src/vendor/**/*.o
-src/*.a
+# Compiled objects and shared libraries from a local build, at any depth:
+# anchored patterns (src/*.o) miss the next subfolder.
+*.o
+*.so
+*.dll
+*.dylib
+*.a
 .check-linking/
 tools/zucryptlink/src/Makevars
 tools/zucryptlink/src/Makevars.win
