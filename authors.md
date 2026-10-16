@@ -20,7 +20,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/pedrobtz/zucrypt/blob/v0.1.0/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/pedrobtz/zucrypt/blob/main/DESCRIPTION)
 
 Baltazar P (2026). *zucrypt: Cryptography Without System Dependencies*.
 R package version 0.1.0, <https://github.com/pedrobtz/zucrypt>.
