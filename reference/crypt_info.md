@@ -60,7 +60,7 @@ check.
 ``` r
 info <- crypt_info()
 info$version
-#> [1] ‘0.1.0’
+#> [1] ‘0.1.0.9000’
 info$algorithms
 #> [1] "sha1"   "sha256" "sha384" "sha512"
 info$vendored

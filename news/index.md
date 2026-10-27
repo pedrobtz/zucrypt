@@ -1,6 +1,10 @@
 # Changelog
 
+## zucrypt (development version)
+
 ## zucrypt 0.1.0
+
+CRAN release: 2026-10-23
 
 First release, and the first on CRAN. A focused set of cryptographic
 primitives over raw vectors, backed by a vendored, pinned crypto

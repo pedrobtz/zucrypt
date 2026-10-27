@@ -226,7 +226,7 @@ file that says what was meant to be compiled:
 str(crypt_info())
 #> List of 5
 #>  $ version    :Classes 'package_version', 'numeric_version'  hidden list of 1
-#>   ..$ : int [1:3] 0 1 0
+#>   ..$ : int [1:4] 0 1 0 9000
 #>  $ abi_version: int 1
 #>  $ algorithms : chr [1:4] "sha1" "sha256" "sha384" "sha512"
 #>  $ vendored   :'data.frame': 1 obs. of  2 variables:

@@ -23,12 +23,12 @@ Source:
 [`DESCRIPTION`](https://github.com/pedrobtz/zucrypt/blob/main/DESCRIPTION)
 
 Baltazar P (2026). *zucrypt: Cryptography Without System Dependencies*.
-R package version 0.1.0, <https://github.com/pedrobtz/zucrypt>.
+R package version 0.1.0.9000, <https://github.com/pedrobtz/zucrypt>.
 
     @Manual{,
       title = {zucrypt: Cryptography Without System Dependencies},
       author = {Pedro Baltazar},
       year = {2026},
-      note = {R package version 0.1.0},
+      note = {R package version 0.1.0.9000},
       url = {https://github.com/pedrobtz/zucrypt},
     }
