@@ -33,7 +33,10 @@ preparation, and the submission; on acceptance, tag `v0.1.0` and move `DESCRIPTI
 `0.1.0.9000`. Submitted 2026-09-30; CRAN returned it on 2026-10-13 asking for every
 individually named upstream author in `Authors@R`. Adriaan de Jong, Daniel King and Simon
 Tatham are now `ctb`/`cph`, and `tools/vendor/verify` fails if a vendored file names an author
-missing from `Authors@R` or `inst/COPYRIGHTS`. Resubmission is next.
+missing from `Authors@R` or `inst/COPYRIGHTS`. Resubmitted 2026-10-13 from `5a43275`, which
+is tagged `v0.1.0` with its GitHub release; `main` is now `0.1.0.9000`. Stage 12 closes on
+CRAN's acceptance, with `zuxlsx` told it can submit; if CRAN asks for changes, the fix ships
+as the resubmission and the tag moves to it.
 
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
 it in CI and fails on any difference, so never edit `README.md` by hand.
