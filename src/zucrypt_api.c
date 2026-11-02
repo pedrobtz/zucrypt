@@ -66,6 +66,8 @@ static void fill_api(void)
     api.equal       = zuc_equal;
     api.secure_zero = zuc_secure_zero;
 
+    api.random_bytes = zuc_random_bytes;
+
     api_ready = 1;
 }
 

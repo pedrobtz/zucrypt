@@ -85,7 +85,8 @@ SEXP zucrypt_status_codes(void)
     static const zuc_status all[] = {
         ZUC_OK, ZUC_ERR_INVALID_ARGUMENT, ZUC_ERR_UNSUPPORTED,
         ZUC_ERR_BAD_LENGTH, ZUC_ERR_OVERLAP, ZUC_ERR_MEMORY,
-        ZUC_ERR_BACKEND, ZUC_ERR_ABI, ZUC_ERR_INTERNAL, ZUC_ERR_NOT_READY
+        ZUC_ERR_BACKEND, ZUC_ERR_ABI, ZUC_ERR_INTERNAL, ZUC_ERR_NOT_READY,
+        ZUC_ERR_ENTROPY
     };
     int n = (int) (sizeof all / sizeof all[0]);
     SEXP out = PROTECT(Rf_allocVector(INTSXP, n));

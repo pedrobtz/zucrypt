@@ -485,9 +485,9 @@ SEXP zucrypt_test_not_ready(void)
 {
     static const char *names[] = {
         "hash_compute", "hash_new", "hmac_compute", "hmac_new", "aes_new",
-        "aes_cbc_encrypt", "shutdown", "init"
+        "aes_cbc_encrypt", "random_bytes", "shutdown", "init"
     };
-    enum { N = 8 };
+    enum { N = 9 };
     zuc_status st[N];
     uint8_t key[ZUC_AES_KEY_SIZE_128] = {0}, block[ZUC_AES_BLOCK_SIZE] = {0};
     uint8_t out[ZUC_MAX_DIGEST_SIZE];
@@ -502,7 +502,7 @@ SEXP zucrypt_test_not_ready(void)
         Rf_error("zucrypt: could not create the handle this test needs");
     }
 
-    st[6] = zuc_shutdown();
+    st[7] = zuc_shutdown();
     st[0] = zuc_hash_compute(ZUC_ALG_SHA256, block, sizeof block,
                              out, sizeof out, &out_len);
     st[1] = zuc_hash_new(ZUC_ALG_SHA256, &hash);
@@ -511,7 +511,8 @@ SEXP zucrypt_test_not_ready(void)
     st[3] = zuc_hmac_new(ZUC_ALG_SHA256, key, sizeof key, &hmac);
     st[4] = zuc_aes_new(key, sizeof key, &aes);
     st[5] = zuc_aes_cbc_encrypt(live, block, sizeof block, block);
-    st[7] = zuc_init();
+    st[6] = zuc_random_bytes(block, sizeof block);
+    st[8] = zuc_init();
 
     /* Anything the calls above wrongly created goes too. */
     zuc_aes_free(live);
@@ -681,6 +682,59 @@ SEXP zucrypt_test_live_contexts(void)
  * Registration
  * ------------------------------------------------------------------ */
 
+/* The contract zucrypt.h states for zuc_random_bytes(), by status name:
+ * NULL with length 0 and with length 16, and a draw while the source is
+ * made to fail. `wiped` says whether that failed draw left its buffer all
+ * zero, having been filled with a non-zero pattern first. The switch is
+ * turned off again before anything is allocated in R. */
+SEXP zucrypt_test_random_contract(void)
+{
+    static const char *names[] = {
+        "null_0", "null_16", "ok_16", "failing_16", "wiped", "after_failure"
+    };
+    enum { N = 6 };
+    const char *got[N];
+    uint8_t buf[16];
+    zuc_status st;
+    SEXP res, nms;
+    size_t i;
+    int wiped = 1;
+
+    got[0] = zuc_status_name(zuc_random_bytes(NULL, 0));
+    got[1] = zuc_status_name(zuc_random_bytes(NULL, sizeof buf));
+    got[2] = zuc_status_name(zuc_random_bytes(buf, sizeof buf));
+
+    memset(buf, 0xA5, sizeof buf);
+    zuc_int_random_fail(1);
+    st = zuc_random_bytes(buf, sizeof buf);
+    zuc_int_random_fail(0);
+    got[3] = zuc_status_name(st);
+    for (i = 0; i < sizeof buf; i++) {
+        if (buf[i] != 0) wiped = 0;
+    }
+    got[4] = wiped ? "TRUE" : "FALSE";
+    got[5] = zuc_status_name(zuc_random_bytes(buf, sizeof buf));
+
+    res = PROTECT(Rf_allocVector(STRSXP, N));
+    nms = PROTECT(Rf_allocVector(STRSXP, N));
+    for (i = 0; i < N; i++) {
+        SET_STRING_ELT(res, (R_xlen_t) i, Rf_mkChar(got[i]));
+        SET_STRING_ELT(nms, (R_xlen_t) i, Rf_mkChar(names[i]));
+    }
+    Rf_setAttrib(res, R_NamesSymbol, nms);
+    UNPROTECT(2);
+    return res;
+}
+
+/* Turn the random source's failure switch on or off, so the R suite can
+ * check the condition crypt_rand_bytes() raises. The caller must switch it
+ * off again; test-random.R does that with withr::defer(). */
+SEXP zucrypt_test_random_fail(SEXP on)
+{
+    zuc_int_random_fail(Rf_asLogical(on) == TRUE);
+    return R_NilValue;
+}
+
 const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_hash",           (DL_FUNC) &zucrypt_test_hash,           3},
     {"zucrypt_test_hmac",           (DL_FUNC) &zucrypt_test_hmac,           4},
@@ -698,5 +752,7 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_live_handles",   (DL_FUNC) &zucrypt_test_live_handles,   1},
     {"zucrypt_test_live_contexts",  (DL_FUNC) &zucrypt_test_live_contexts,  0},
     {"zucrypt_test_null_buffers",   (DL_FUNC) &zucrypt_test_null_buffers,   0},
+    {"zucrypt_test_random_contract", (DL_FUNC) &zucrypt_test_random_contract, 0},
+    {"zucrypt_test_random_fail",    (DL_FUNC) &zucrypt_test_random_fail,    1},
     {NULL, NULL, 0}
 };

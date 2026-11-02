@@ -1,15 +1,16 @@
-/* zucrypt: the one random source the backend asks for.
+/* zucrypt: the operating system's random source.
  *
- * MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG (src/zuc_crypto_config.h) makes the backend
- * call out for randomness instead of compiling in an entropy module, a DRBG
- * and NV-seed storage. This file is that call-out.
+ * Two callers draw from it. MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG
+ * (src/zuc_crypto_config.h) makes the backend call out for randomness
+ * instead of compiling in an entropy module, a DRBG and NV-seed storage;
+ * mbedtls_psa_external_get_random() below is that call-out. And
+ * zuc_random_bytes(), the public entry point behind crypt_rand_bytes()
+ * (#9), draws from the same source directly.
  *
- * Nothing in the v0.1 profile consumes randomness: hashes and HMAC take none,
- * and CBC takes its IV from the caller. The symbol is still referenced by
- * psa_cipher_encrypt() and psa_generate_key() inside psa_crypto.c, so it has
- * to link -- which is why this is a real operating-system source rather than
- * a stub returning an error. A stub would be a correct description of today
- * and a trap the first time anything here needs a random byte.
+ * Directly, not through psa_generate_random(): with an external RNG that
+ * function is this same call-out, wrapped in a heap copy of the output
+ * buffer. Going straight to the operating system skips an allocation and
+ * leaves no copy of the bytes in freed memory.
  *
  * Backend selection happens in the preprocessor, the way zuxml selects
  * Expat's (src/zux_expat_random.c): a portable Makevars has no conditional
@@ -33,6 +34,8 @@
 
 #include <psa/crypto.h>
 
+#include "zuc_internal.h"
+
 #if defined(_WIN32)
 #  include <stdlib.h>
 #  define ZUC_RANDOM_BACKEND "rand_s"
@@ -43,6 +46,7 @@
 #  define ZUC_RANDOM_BACKEND "arc4random_buf"
 #elif defined(__GLIBC__) && \
       (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 25))
+#  include <errno.h>
 #  include <sys/random.h>
 #  define ZUC_RANDOM_GETRANDOM 1
 #  define ZUC_RANDOM_BACKEND "getrandom"
@@ -57,44 +61,59 @@ const char *zuc_int_random_backend(void)
     return ZUC_RANDOM_BACKEND;
 }
 
-psa_status_t mbedtls_psa_external_get_random(
-    mbedtls_psa_external_random_context_t *context,
-    uint8_t *output, size_t output_size, size_t *output_length)
+/* The test harness's switch: while set, the source reports failure without
+ * reading anything, so the suite can prove that a failure becomes
+ * ZUC_ERR_ENTROPY and zucrypt_entropy_error rather than bytes. Not atomic,
+ * for the same reason as the refcount: the library is main-thread only. */
+static int zuc_random_failing = 0;
+
+void zuc_int_random_fail(int on)
 {
-    (void) context;
-    *output_length = 0;
+    zuc_random_failing = on != 0;
+}
+
+/* Fill all of `out`, or fail. Returns 0 on success. Never returns a short
+ * read as success: every branch below either loops until `len` bytes have
+ * arrived or reports failure. */
+static int os_random(uint8_t *out, size_t len)
+{
+    if (zuc_random_failing) {
+        return 1;
+    }
 
 #if defined(_WIN32)
-    while (output_size > 0) {
+    while (len > 0) {
         unsigned int v;
-        size_t n = output_size < sizeof v ? output_size : sizeof v;
+        size_t n = len < sizeof v ? len : sizeof v;
         if (rand_s(&v) != 0) {
-            return PSA_ERROR_INSUFFICIENT_ENTROPY;
+            return 1;
         }
-        memcpy(output, &v, n);
-        output += n;
-        output_size -= n;
-        *output_length += n;
+        memcpy(out, &v, n);
+        out += n;
+        len -= n;
     }
-    return PSA_SUCCESS;
+    return 0;
 
 #elif defined(ZUC_RANDOM_ARC4RANDOM)
-    arc4random_buf(output, output_size);
-    *output_length = output_size;
-    return PSA_SUCCESS;
+    arc4random_buf(out, len);
+    return 0;
 
 #elif defined(ZUC_RANDOM_GETRANDOM)
-    /* getrandom() may return short, and returns EINTR on a signal. */
-    while (output_size > 0) {
-        ssize_t n = getrandom(output, output_size, 0);
+    /* getrandom() may return short, and a request over 256 bytes may be
+     * interrupted by a signal, which R sessions receive routinely. Both
+     * mean "ask again", not "the source failed". */
+    while (len > 0) {
+        ssize_t n = getrandom(out, len, 0);
         if (n < 0) {
-            return PSA_ERROR_INSUFFICIENT_ENTROPY;
+            if (errno == EINTR) {
+                continue;
+            }
+            return 1;
         }
-        output += n;
-        output_size -= (size_t) n;
-        *output_length += (size_t) n;
+        out += n;
+        len -= (size_t) n;
     }
-    return PSA_SUCCESS;
+    return 0;
 
 #else
     {
@@ -102,15 +121,46 @@ psa_status_t mbedtls_psa_external_get_random(
         size_t n;
 
         if (f == NULL) {
-            return PSA_ERROR_INSUFFICIENT_ENTROPY;
+            return 1;
         }
-        n = fread(output, 1, output_size, f);
+        n = fread(out, 1, len, f);
         fclose(f);
-        if (n != output_size) {
-            return PSA_ERROR_INSUFFICIENT_ENTROPY;
-        }
-        *output_length = output_size;
-        return PSA_SUCCESS;
+        return n != len;
     }
 #endif
+}
+
+psa_status_t mbedtls_psa_external_get_random(
+    mbedtls_psa_external_random_context_t *context,
+    uint8_t *output, size_t output_size, size_t *output_length)
+{
+    (void) context;
+    *output_length = 0;
+    if (os_random(output, output_size) != 0) {
+        return PSA_ERROR_INSUFFICIENT_ENTROPY;
+    }
+    *output_length = output_size;
+    return PSA_SUCCESS;
+}
+
+zuc_status zuc_random_bytes(uint8_t *out, size_t len)
+{
+    if (len == 0) {
+        return ZUC_OK;
+    }
+    if (out == NULL) {
+        return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    /* Nothing below needs the backend, but the header promises that every
+     * function that would is refused outside an initialised window, and a
+     * consumer should not have to know which ones those are. */
+    if (!zuc_int_ready()) {
+        zuc_secure_zero(out, len);
+        return ZUC_ERR_NOT_READY;
+    }
+    if (os_random(out, len) != 0) {
+        zuc_secure_zero(out, len);
+        return ZUC_ERR_ENTROPY;
+    }
+    return ZUC_OK;
 }
