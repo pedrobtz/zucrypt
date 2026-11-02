@@ -110,7 +110,8 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | — Hex output and connection hashing | v0.1.0 | #59, #11 | — | in progress |
 | 11 — The first consumer, and the freeze | v0.1.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | The rename. `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) | **done**, 2026-09-29 |
 | 12 — v0.1.0 and CRAN | v0.1.0 | #17, #13, #15 | Stage 11 | |
-| 13 — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #9, #16 | Stage 12 | |
+| 13a — Randomness | v0.2.0 | #9 | Stage 12 | **done**, 2026-11-02 |
+| 13b — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #16 | Stage 13a | |
 | 14 — Tranche 2: authenticated encryption and key derivation | v0.3.0 | #10, #12 | Stage 13 | |
 | 15 — Tranche 3: key objects, PEM and DER, RSA | v0.4.0 | new | Stage 14 | |
 | 16 — Tranche 4: EC keys, ECDSA, ECDH, X25519 | v0.5.0 | new | Stage 15 | |
@@ -469,6 +470,17 @@ inventing one. Plus the one primitive every later tranche needs: randomness.
 Entry: development can start on a branch once Stage 11 has frozen the archive, since every
 addition is compatible; the 0.2.0 release follows 0.1.0 on CRAN. Nothing here changes the
 frozen archive; every C addition is appended.
+
+**Split 2026-11-02 into 13a and 13b.** `zujwt` (JOSE over zucrypt) is blocked on randomness
+alone: JWE needs a fresh content key, IV and salt for every token (#9). The randomness work
+item below ships first as Stage 13a, its own pull request; the rest of the stage is 13b and is
+unchanged. 13a delivered `zuc_random_bytes()`, `random_bytes` in the table, `ZUC_ERR_ENTROPY`,
+`crypt_rand_bytes()` and `zucrypt_entropy_error`, with the harness's injected failure, both
+fixtures calling the new function, and the article and NEWS. It reads the operating-system
+source directly rather than through `psa_generate_random()`, which with an external RNG is the
+same call-out behind a heap copy. `crypt_rand_num()` stays in 13b with the other mirrored
+functions, and so does the export audit that will hold `crypt_rand_bytes()` to "cross-verified".
+Nothing is released until 13b: 0.2.0 still carries the whole tranche.
 
 **Why this subset first, measured 2026-09-29** with `tools/openssl-usage.R` over the R sources
 of the 104 CRAN packages that import or depend on `openssl` 2.3.4 (102 call at least one of its

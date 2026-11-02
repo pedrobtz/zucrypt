@@ -456,8 +456,9 @@ a consumer's shared object.
 
 **Entropy uses external-RNG mode.** `src/zuc_random.c` selects the operating-system source at
 compile time: `rand_s`, `arc4random_buf`, `getrandom` or `/dev/urandom`. It works the way
-`zuxml`'s `src/zux_expat_random.c` selects Expat's (stage-1-spike §5). No randomness is exposed
-yet (§6).
+`zuxml`'s `src/zux_expat_random.c` selects Expat's (stage-1-spike §5). Since Stage 13a (#9) the
+same source is exposed directly, as `zuc_random_bytes()` in the archive and `crypt_rand_bytes()`
+in R, with no generator in between; a failure is `ZUC_ERR_ENTROPY` and `zucrypt_entropy_error`.
 
 ## 5. Dependency boundaries
 

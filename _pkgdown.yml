@@ -21,6 +21,13 @@ reference:
   - crypt_equal
   - crypt_info
 
+- title: Randomness
+  desc: >
+    Random bytes from the operating system, for keys, initialisation vectors,
+    nonces and salts. R's random number generator is never involved.
+  contents:
+  - crypt_rand_bytes
+
 - title: Ciphers (advanced)
   desc: >
     Unauthenticated AES-CBC, for reading and writing formats that specify it.
