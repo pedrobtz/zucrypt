@@ -98,8 +98,10 @@ typedef enum {
     ZUC_ERR_BACKEND          = 6,  /* the backend refused; details are not public */
     ZUC_ERR_ABI              = 7,  /* version or struct_size mismatch */
     ZUC_ERR_INTERNAL         = 8,  /* a broken invariant; report it */
-    ZUC_ERR_NOT_READY        = 9   /* called before zuc_init() or after the
+    ZUC_ERR_NOT_READY        = 9,  /* called before zuc_init() or after the
                                       last zuc_shutdown() */
+    ZUC_ERR_ENTROPY          = 10  /* the operating system's random source
+                                      failed; appended after ABI 1 */
 } zuc_status;
 
 /* A short, stable, English description. Never returns NULL, including for a
@@ -358,6 +360,28 @@ zuc_status zuc_aes_cbc_encrypt(zuc_aes *aes,
                                const uint8_t *in, size_t len, uint8_t *out);
 zuc_status zuc_aes_cbc_decrypt(zuc_aes *aes,
                                const uint8_t *in, size_t len, uint8_t *out);
+
+/* ------------------------------------------------------------------ *
+ * Randomness
+ * ------------------------------------------------------------------ */
+
+/* Fill `out` with `len` bytes from the operating system's cryptographic
+ * random source: rand_s on Windows, arc4random_buf on macOS and the BSDs,
+ * getrandom on glibc 2.25 and later, /dev/urandom otherwise.
+ * zuc_get_info() names the one compiled in, in `random_backend`.
+ *
+ * The bytes come straight from the operating system. There is no generator
+ * in between to seed or reseed, and no state is shared with anything else
+ * in the process.
+ *
+ * `out` may be NULL only when `len` is 0, which does nothing. A failure of
+ * the source is ZUC_ERR_ENTROPY, and on any failure all `len` bytes of `out`
+ * are zeroed, so a partial fill can never be mistaken for a random one.
+ *
+ * Added after ABI 1 was frozen, as the promise above allows. A table
+ * consumer tests for it with ZUCRYPT_API_HAS(api, random_bytes); an archive
+ * consumer gets it by linking a libzucrypt.a that has it. */
+zuc_status zuc_random_bytes(uint8_t *out, size_t len);
 
 /* ------------------------------------------------------------------ *
  * Utilities

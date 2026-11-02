@@ -86,3 +86,13 @@ test_that("zucrypt's namespace is never loaded by using the archive", {
   # tests with zucrypt removed from the library path entirely.
   expect_false("zucrypt" %in% loadedNamespaces())
 })
+
+test_that("the archive draws random bytes from its own source", {
+  # Added after ABI 1 (zucrypt#9). Randomness has no vector; the checks are
+  # the length and that two draws differ.
+  a <- archive_random(32)
+  b <- archive_random(32)
+  expect_length(a, 32L)
+  expect_false(identical(a, b))
+  expect_identical(archive_random(0), raw(0))
+})

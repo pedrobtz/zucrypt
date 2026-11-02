@@ -23,6 +23,8 @@ archive_segments <- function(data, key, iv, segment, encrypt = FALSE) {
   .Call(zl_segments, data, key, iv, as.integer(segment), isTRUE(encrypt))
 }
 
+archive_random <- function(n) .Call(zl_random, as.integer(n))
+
 # The half of the lifecycle `useDynLib` does not do. R calls
 # R_unload_zucryptlink() -- and so zuc_shutdown() -- only when the DLL is
 # unloaded, and with useDynLib nothing unloads it unless the namespace says

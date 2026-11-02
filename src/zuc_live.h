@@ -1,4 +1,5 @@
-/* zucrypt: the live-context count, for the test suite.
+/* zucrypt: the adapter's hooks for the test suite -- the live-context
+ * count, and a switch that makes the random source fail.
  *
  * Its own header, with no backend and no R vocabulary, because both halves
  * of src/ need it: the adapter counts, and the test harness in
@@ -19,5 +20,11 @@
  * this package means leaked key material. The pattern is zukomp's
  * zu_int_outbuf_live_count(). */
 long zuc_int_live_contexts(void);
+
+/* While `on` is non-zero, the operating-system random source reports
+ * failure without reading anything: zuc_random_bytes() returns
+ * ZUC_ERR_ENTROPY and the backend's call-out returns its own entropy error.
+ * Only the test harness calls it, and it always switches it back off. */
+void zuc_int_random_fail(int on);
 
 #endif /* ZUC_LIVE_H */

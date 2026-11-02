@@ -75,7 +75,11 @@ zuc_status_class <- c(
   ZUC_ERR_INTERNAL         = "zucrypt_internal_error",
   # R_init_zucrypt initialises the backend and never releases it, so from R
   # this can only be a bug -- hence internal, not a class of its own.
-  ZUC_ERR_NOT_READY        = "zucrypt_internal_error"
+  ZUC_ERR_NOT_READY        = "zucrypt_internal_error",
+  # The operating system's random source failed (#9). Its own class, not
+  # zucrypt_backend_error: the cause is the machine, not this package, and a
+  # caller may reasonably retry or report it differently.
+  ZUC_ERR_ENTROPY          = "zucrypt_entropy_error"
 )
 
 # Raise the condition a native status maps to. Called only with a failing

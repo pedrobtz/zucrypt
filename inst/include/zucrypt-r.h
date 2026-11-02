@@ -128,13 +128,19 @@ typedef struct {
     /* Utilities. */
     int         (*equal)(const uint8_t *a, const uint8_t *b, size_t len);
     void        (*secure_zero)(void *buffer, size_t len);
+
+    /* Appended after ABI 1 was frozen. Test with ZUCRYPT_API_HAS() before
+     * calling: an older zucrypt fills in a shorter table. */
+
+    /* Randomness from the operating system (#9). */
+    zuc_status  (*random_bytes)(uint8_t *out, size_t len);
 } zucrypt_api_v1;
 
 /* Does this table have `field`? Fields are appended over time, and a
  * consumer built against a newer header can meet an older zucrypt: test
  * before calling any field added after the one you first built against.
  *
- *     if (ZUCRYPT_API_HAS(api, secure_zero)) api->secure_zero(buf, n);
+ *     if (ZUCRYPT_API_HAS(api, random_bytes)) st = api->random_bytes(buf, n);
  *
  * The same idea as zuxml.h's ZUXML_API_HAS: the table's own struct_size
  * says how far the provider filled it in. */

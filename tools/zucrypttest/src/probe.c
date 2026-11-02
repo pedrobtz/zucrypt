@@ -257,10 +257,11 @@ SEXP zucrypttest_exercise(void)
     }
 
     /* Utilities. ZUCRYPT_API_HAS is how a consumer tests for a field before
-     * calling it; secure_zero is the table's last field, so the test covers
+     * calling it; random_bytes is the table's last field, so the test covers
      * the whole struct_size arithmetic. Every field this fixture calls is
      * present in the table it was built against, so it must say yes. */
-    check(&f, ZUCRYPT_API_HAS(api, equal) && ZUCRYPT_API_HAS(api, secure_zero),
+    check(&f, ZUCRYPT_API_HAS(api, equal) && ZUCRYPT_API_HAS(api, secure_zero) &&
+              ZUCRYPT_API_HAS(api, random_bytes),
           "ZUCRYPT_API_HAS denies a field the table has");
     check(&f, !ZUCRYPT_API_HAS((const zucrypt_api_v1 *) NULL, equal),
           "ZUCRYPT_API_HAS accepted a NULL table");
@@ -278,6 +279,19 @@ SEXP zucrypttest_exercise(void)
             fail(&f, "secure_zero left something behind");
             break;
         }
+    }
+
+    /* Randomness, appended after ABI 1. Two 32-byte draws that came back
+     * equal would mean the field is wired to something that is not random. */
+    {
+        uint8_t r1[32], r2[32];
+        check(&f, api->random_bytes(r1, sizeof r1) == ZUC_OK &&
+                  api->random_bytes(r2, sizeof r2) == ZUC_OK,
+              "random_bytes failed");
+        check(&f, memcmp(r1, r2, sizeof r1) != 0,
+              "random_bytes returned the same bytes twice");
+        check(&f, api->random_bytes(NULL, 16) == ZUC_ERR_INVALID_ARGUMENT,
+              "random_bytes accepted a NULL buffer");
     }
 
     result = PROTECT(Rf_allocVector(STRSXP, f.n));

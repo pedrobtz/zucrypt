@@ -463,6 +463,39 @@ SEXP zucrypt_algorithms(void)
     return out;
 }
 
+/* ------------------------------------------------------------------ *
+ * Randomness
+ * ------------------------------------------------------------------ */
+
+/* `n` arrives as a double that R has already checked is a whole number in
+ * [0, R_XLEN_T_MAX]. The output is allocated first and filled in 1 MiB
+ * chunks, with an interrupt check after each: there is no native state to
+ * strand, because zuc_random_bytes() holds none between calls. On a failure
+ * every byte already drawn is wiped before the vector is dropped. */
+SEXP zucrypt_rand_bytes(SEXP n)
+{
+    R_xlen_t total = (R_xlen_t) REAL(n)[0];
+    SEXP out = PROTECT(Rf_allocVector(RAWSXP, total));
+    uint8_t *bytes = (uint8_t *) RAW(out);
+    size_t len = (size_t) total, offset = 0;
+    zuc_status st = ZUC_OK;
+    SEXP res;
+
+    while (offset < len && st == ZUC_OK) {
+        size_t chunk = len - offset;
+        if (chunk > ZUCRYPT_CHUNK) chunk = ZUCRYPT_CHUNK;
+        st = zuc_random_bytes(bytes + offset, chunk);
+        offset += chunk;
+        R_CheckUserInterrupt();
+    }
+    if (st != ZUC_OK) {
+        zuc_secure_zero(bytes, len);
+    }
+    res = result(st, st == ZUC_OK ? out : R_NilValue);
+    UNPROTECT(1);
+    return res;
+}
+
 const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_hash",        (DL_FUNC) &zucrypt_hash,        2},
     {"zucrypt_hmac",        (DL_FUNC) &zucrypt_hmac,        3},
@@ -474,5 +507,6 @@ const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_stream_update",   (DL_FUNC) &zucrypt_stream_update,   2},
     {"zucrypt_stream_finish",   (DL_FUNC) &zucrypt_stream_finish,   1},
     {"zucrypt_algorithms",  (DL_FUNC) &zucrypt_algorithms,  0},
+    {"zucrypt_rand_bytes",  (DL_FUNC) &zucrypt_rand_bytes,  1},
     {NULL, NULL, 0}
 };

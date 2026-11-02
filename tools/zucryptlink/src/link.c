@@ -133,6 +133,26 @@ SEXP zl_hmac(SEXP algorithm, SEXP key, SEXP data)
     return out;
 }
 
+/* n bytes from the archive's own copy of the random source. */
+SEXP zl_random(SEXP n)
+{
+    int len = Rf_asInteger(n);
+    zuc_status st;
+    SEXP out;
+
+    require_backend();
+    if (len == NA_INTEGER || len < 0) {
+        Rf_error("zucryptlink: n must be a non-negative integer");
+    }
+    out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) len));
+    st = zuc_random_bytes(RAW(out), (size_t) len);
+    UNPROTECT(1);
+    if (st != ZUC_OK) {
+        Rf_error("zucryptlink: zuc_random_bytes() failed (%s)", zuc_status_name(st));
+    }
+    return out;
+}
+
 /* H_0 = hash(seed); H_n = hash(int32le(n - 1) || H_{n-1}), through one
  * reused incremental context -- the loop zuxlsx's agile decryption runs,
  * without anything Office-specific in it. The same rehearsal as
@@ -234,6 +254,7 @@ static const R_CallMethodDef call_methods[] = {
     {"zl_hmac",     (DL_FUNC) &zl_hmac,     3},
     {"zl_derive",   (DL_FUNC) &zl_derive,   3},
     {"zl_segments", (DL_FUNC) &zl_segments, 5},
+    {"zl_random",   (DL_FUNC) &zl_random,   1},
     {NULL, NULL, 0}
 };
 

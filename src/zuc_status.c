@@ -22,6 +22,7 @@ const char *zuc_status_string(zuc_status status)
     case ZUC_ERR_ABI:              return "ABI version or structure size mismatch";
     case ZUC_ERR_INTERNAL:         return "internal error";
     case ZUC_ERR_NOT_READY:        return "the library is not initialised; call zuc_init() first";
+    case ZUC_ERR_ENTROPY:          return "the operating system's random source failed";
     }
     /* No default label above, so a new enumerator is a compiler warning
      * here rather than a silent fall-through. This line is for a value that
@@ -42,6 +43,7 @@ const char *zuc_status_name(zuc_status status)
     case ZUC_ERR_ABI:              return "ZUC_ERR_ABI";
     case ZUC_ERR_INTERNAL:         return "ZUC_ERR_INTERNAL";
     case ZUC_ERR_NOT_READY:        return "ZUC_ERR_NOT_READY";
+    case ZUC_ERR_ENTROPY:          return "ZUC_ERR_ENTROPY";
     }
     return "ZUC_ERR_UNKNOWN";
 }
@@ -55,6 +57,7 @@ zuc_status zuc_int_from_psa(psa_status_t status)
     case PSA_ERROR_BUFFER_TOO_SMALL:      return ZUC_ERR_BAD_LENGTH;
     case PSA_ERROR_INSUFFICIENT_MEMORY:   return ZUC_ERR_MEMORY;
     case PSA_ERROR_BAD_STATE:             return ZUC_ERR_INTERNAL;
+    case PSA_ERROR_INSUFFICIENT_ENTROPY:  return ZUC_ERR_ENTROPY;
     default:                              return ZUC_ERR_BACKEND;
     }
 }

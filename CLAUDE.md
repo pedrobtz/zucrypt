@@ -38,6 +38,13 @@ is tagged `v0.1.0` with its GitHub release; `main` is now `0.1.0.9000`. Stage 12
 CRAN's acceptance, with `zuxlsx` told it can submit; if CRAN asks for changes, the fix ships
 as the resubmission and the tag moves to it.
 
+**Stage 13a is done** (2026-11-02, #9): Stage 13 was split so that randomness ships first,
+because `zujwt` is blocked on it. `zuc_random_bytes()` (archive), `random_bytes` (table field,
+appended), `ZUC_ERR_ENTROPY = 10`, `crypt_rand_bytes()` and `zucrypt_entropy_error`. It reads
+`src/zuc_random.c`'s operating-system source directly, not through `psa_generate_random()`.
+`zuc_int_random_fail()` (declared in `src/zuc_live.h`) makes the source fail for the harness.
+13b, the rest of the tranche, is next; 0.2.0 waits for it.
+
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
 it in CI and fails on any difference, so never edit `README.md` by hand.
 
@@ -51,8 +58,8 @@ CRAN or security reviewer reads, and its facts (file counts, defines, sizes, pat
 updated whenever the vendored tree or its configuration changes. Their examples are executed when the site builds, so they must stay runnable with
 no `Suggests` beyond the website needs — mention openssl or sodium in prose, never in a chunk.
 
-The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports exactly the
-seven `crypt_*` functions of design §7 (`crypt_hex()` joined the original six in #59), and publishes both consumer shapes: the registered function
+The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports eight `crypt_*` functions: the seven of design §7 (`crypt_hex()` joined the original
+six in #59) and `crypt_rand_bytes()` (Stage 13a, #9), and publishes both consumer shapes: the registered function
 table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the static archive (`libzucrypt.a`,
 which `src/install.libs.R` installs to the package's `lib${R_ARCH}/`, beside
 `licenses/tf-psa-crypto-LICENSE`; there is no `inst/lib/` in the sources). Stage 7 removed
@@ -246,8 +253,9 @@ a green job that proved nothing.
 
 Three surfaces are exposed:
 
-1. A small R surface: `crypt_info()`, `crypt_hash()`, `crypt_hmac()`, `crypt_equal()`,
-   `crypt_aes_cbc_encrypt_nopad()` / `crypt_aes_cbc_decrypt_nopad()`.
+1. A small R surface: `crypt_info()`, `crypt_hash()`, `crypt_hmac()`, `crypt_hex()`,
+   `crypt_equal()`, `crypt_rand_bytes()`, `crypt_aes_cbc_encrypt_nopad()` /
+   `crypt_aes_cbc_decrypt_nopad()`.
 2. A registered function table (`inst/include/zucrypt-r.h`, `zucrypt_api_v1`, resolved lazily
    via `zucrypt_get_api`) for consumers that can carry `Imports:` + `LinkingTo:` + a real
    `importFrom()`. `zuhttp` is the consumer this was *hoped* for, not a real one: its
@@ -293,8 +301,8 @@ to each other, and `tests/testthat/test-abi.R` asserts that the shared object ex
   static 32-slot store it replaced failed at the 17th live AES handle and reported it as
   `ZUC_ERR_MEMORY`. Tearing the backend down (`zuc_shutdown()` to zero) destroys every key, so
   a test that does it must run with nothing else live.
-- No `encrypt_file(password = )`, ever: the package specifies no format. PBKDF2, HKDF, AEAD
-  and randomness are Stages 13–14 (design §6 tranches), not yet on `main`.
+- No `encrypt_file(password = )`, ever: the package specifies no format. PBKDF2, HKDF and AEAD
+  are Stage 14 (design §6 tranches), not yet on `main`; randomness is (Stage 13a).
 - The openssl-shaped layer (design §7.1) is the one place character input is accepted, typed
   as `openssl` types it; the core `crypt_hash()`, `crypt_hmac()` and CBC pair stay raw-only.
   Every mirrored function must be byte-identical to `openssl`, cross-verified, or a documented
@@ -302,7 +310,8 @@ to each other, and `tests/testthat/test-abi.R` asserts that the shared object ex
   Compatibility is subordinate to the security contract: never mirror a failure to
   authenticate or verify. `openssl` 2.3.4's GCM returns no tag and accepts tampered
   ciphertext, so `crypt_aes_gcm_*` keeps RFC 5116's contract and is a documented difference.
-- Any future randomness uses platform entropy or a seeded backend RNG, **never R's RNG**.
+- Randomness uses platform entropy or a seeded backend RNG, **never R's RNG**.
+  `test-random.R` sets a seed, draws twice and expects a difference.
 - Errors are R conditions `c(<specific>, "zucrypt_error", "error", "condition")` built in R from a
   `zuc_status`, mapped by enumerator *name*; never attach keys, passwords or plaintext -- in the
   message *or the call*: `zucrypt_abort()` reduces every condition's call to the bare function

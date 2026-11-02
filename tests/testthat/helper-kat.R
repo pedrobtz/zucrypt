@@ -86,6 +86,12 @@ native_info_size <- function(size) {
 native_required_sizes <- function() .Call(zucrypt:::zucrypt_test_required_sizes)
 native_status_codes <- function() .Call(zucrypt:::zucrypt_status_codes)
 native_not_ready <- function() .Call(zucrypt:::zucrypt_test_not_ready)
+native_random_contract <- function() {
+  .Call(zucrypt:::zucrypt_test_random_contract)
+}
+native_random_fail <- function(on) {
+  invisible(.Call(zucrypt:::zucrypt_test_random_fail, isTRUE(on)))
+}
 native_live_handles <- function(n) {
   .Call(zucrypt:::zucrypt_test_live_handles, as.integer(n))
 }
