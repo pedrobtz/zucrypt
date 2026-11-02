@@ -58,6 +58,17 @@ Stage 12 closes on CRAN’s acceptance, with `zuxlsx` told it can submit;
 if CRAN asks for changes, the fix ships as the resubmission and the tag
 moves to it.
 
+**Stage 13a is done** (2026-11-02, \#9): Stage 13 was split so that
+randomness ships first, because `zujwt` is blocked on it.
+`zuc_random_bytes()` (archive), `random_bytes` (table field, appended),
+`ZUC_ERR_ENTROPY = 10`,
+[`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
+and `zucrypt_entropy_error`. It reads `src/zuc_random.c`’s
+operating-system source directly, not through `psa_generate_random()`.
+`zuc_int_random_fail()` (declared in `src/zuc_live.h`) makes the source
+fail for the harness. 13b, the rest of the tranche, is next; 0.2.0 waits
+for it.
+
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`);
 `readme.yaml` re-renders it in CI and fails on any difference, so never
 edit `README.md` by hand.
@@ -77,16 +88,17 @@ builds, so they must stay runnable with no `Suggests` beyond the website
 needs — mention openssl or sodium in prose, never in a chunk.
 
 The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from
-source, exports exactly the seven `crypt_*` functions of design §7
+source, exports eight `crypt_*` functions: the seven of design §7
 ([`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
-joined the original six in \#59), and publishes both consumer shapes:
-the registered function table (`inst/include/zucrypt-r.h`,
-`zucrypt_get_api`) and the static archive (`libzucrypt.a`, which
-`src/install.libs.R` installs to the package’s `lib${R_ARCH}/`, beside
-`licenses/tf-psa-crypto-LICENSE`; there is no `inst/lib/` in the
-sources). Stage 7 removed AES-ECB (#29), made the PSA key store dynamic
-(#30), appended `ZUC_ERR_NOT_READY` and `ZUCRYPT_API_HAS`, and moved the
-install layout to zukomp’s (#33).
+joined the original six in \#59) and
+[`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
+(Stage 13a, \#9), and publishes both consumer shapes: the registered
+function table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the
+static archive (`libzucrypt.a`, which `src/install.libs.R` installs to
+the package’s `lib${R_ARCH}/`, beside `licenses/tf-psa-crypto-LICENSE`;
+there is no `inst/lib/` in the sources). Stage 7 removed AES-ECB (#29),
+made the PSA key store dynamic (#30), appended `ZUC_ERR_NOT_READY` and
+`ZUCRYPT_API_HAS`, and moved the install layout to zukomp’s (#33).
 
 **Stability comes in tiers (design §8.6).** The seven R functions are
 stable. The archive (`zucrypt.h`, `libzucrypt.a`,
@@ -345,7 +357,9 @@ Three surfaces are exposed:
     [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md),
     [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
     [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md),
+    [`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md),
     [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md),
+    [`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md),
     [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
     /
     [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md).
@@ -412,8 +426,8 @@ shared object exports `R_init_zucrypt` and nothing else.
   destroys every key, so a test that does it must run with nothing else
   live.
 - No `encrypt_file(password = )`, ever: the package specifies no format.
-  PBKDF2, HKDF, AEAD and randomness are Stages 13–14 (design §6
-  tranches), not yet on `main`.
+  PBKDF2, HKDF and AEAD are Stage 14 (design §6 tranches), not yet on
+  `main`; randomness is (Stage 13a).
 - The openssl-shaped layer (design §7.1) is the one place character
   input is accepted, typed as `openssl` types it; the core
   [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
@@ -426,8 +440,9 @@ shared object exports `R_init_zucrypt` and nothing else.
   2.3.4’s GCM returns no tag and accepts tampered ciphertext, so
   `crypt_aes_gcm_*` keeps RFC 5116’s contract and is a documented
   difference.
-- Any future randomness uses platform entropy or a seeded backend RNG,
-  **never R’s RNG**.
+- Randomness uses platform entropy or a seeded backend RNG, **never R’s
+  RNG**. `test-random.R` sets a seed, draws twice and expects a
+  difference.
 - Errors are R conditions
   `c(<specific>, "zucrypt_error", "error", "condition")` built in R from
   a `zuc_status`, mapped by enumerator *name*; never attach keys,

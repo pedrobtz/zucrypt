@@ -91,6 +91,22 @@
         </dt>
         <dd>Report What This Build of 'zucrypt' Contains</dd>
       </dl></div><div class="section level2">
+      <h2 id="randomness">Randomness<a class="anchor" aria-label="anchor" href="#randomness"></a></h2>
+
+      <div class="section-desc"><p>Random bytes from the operating system, for keys, initialisation vectors, nonces and salts. R’s random number generator is never involved.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="crypt_rand_bytes.html">crypt_rand_bytes()</a></code>
+
+        </dt>
+        <dd>Cryptographically Secure Random Bytes</dd>
+      </dl></div><div class="section level2">
       <h2 id="ciphers-advanced-">Ciphers (advanced)<a class="anchor" aria-label="anchor" href="#ciphers-advanced-"></a></h2>
 
       <div class="section-desc"><p>Unauthenticated AES-CBC, for reading and writing formats that specify it. No padding is added or removed and nothing is authenticated: ciphertext produced here can be altered undetectably, and detecting that is the caller’s job. These are interoperability tools, not a way to encrypt something of your own.</p></div>

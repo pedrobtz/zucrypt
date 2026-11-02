@@ -2,6 +2,27 @@
 
 ## zucrypt (development version)
 
+### R interface
+
+- `crypt_rand_bytes(n = 1)` returns `n` bytes from the operating
+  system’s cryptographic random source, mirroring
+  [`openssl::rand_bytes()`](https://jeroen.r-universe.dev/openssl/reference/rand_bytes.html)
+  ([\#9](https://github.com/pedrobtz/zucrypt/issues/9)). R’s random
+  number generator is never used or disturbed, so
+  [`set.seed()`](https://rdrr.io/r/base/Random.html) has no effect on
+  it. A failure of the source raises the new `zucrypt_entropy_error`
+  class and never returns bytes.
+
+### C interface
+
+- `zuc_random_bytes()` is added to the archive, and `random_bytes` is
+  appended to the registered table; test for it with
+  `ZUCRYPT_API_HAS(api, random_bytes)`. Both are additions, as ABI 1
+  allows.
+- `ZUC_ERR_ENTROPY = 10` is appended to `zuc_status`.
+- On glibc, a `getrandom()` call interrupted by a signal is retried
+  instead of being reported as an entropy failure.
+
 ## zucrypt 0.1.0
 
 CRAN release: 2026-10-23

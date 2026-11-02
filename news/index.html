@@ -40,6 +40,19 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="zucrypt-development-version">zucrypt (development version)<a class="anchor" aria-label="anchor" href="#zucrypt-development-version"></a></h2>
+<div class="section level3">
+<h3 id="r-interface-development-version">R interface<a class="anchor" aria-label="anchor" href="#r-interface-development-version"></a></h3>
+<ul><li>
+<code>crypt_rand_bytes(n = 1)</code> returns <code>n</code> bytes from the operating system’s cryptographic random source, mirroring <code><a href="https://jeroen.r-universe.dev/openssl/reference/rand_bytes.html" class="external-link">openssl::rand_bytes()</a></code> (<a href="https://github.com/pedrobtz/zucrypt/issues/9" class="external-link">#9</a>). R’s random number generator is never used or disturbed, so <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> has no effect on it. A failure of the source raises the new <code>zucrypt_entropy_error</code> class and never returns bytes.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="c-interface-development-version">C interface<a class="anchor" aria-label="anchor" href="#c-interface-development-version"></a></h3>
+<ul><li>
+<code>zuc_random_bytes()</code> is added to the archive, and <code>random_bytes</code> is appended to the registered table; test for it with <code>ZUCRYPT_API_HAS(api, random_bytes)</code>. Both are additions, as ABI 1 allows.</li>
+<li>
+<code>ZUC_ERR_ENTROPY = 10</code> is appended to <code>zuc_status</code>.</li>
+<li>On glibc, a <code>getrandom()</code> call interrupted by a signal is retried instead of being reported as an entropy failure.</li>
+</ul></div>
 </div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="zucrypt-010">zucrypt 0.1.0<a class="anchor" aria-label="anchor" href="#zucrypt-010"></a></h2><p class="text-muted">CRAN release: 2026-10-23</p>

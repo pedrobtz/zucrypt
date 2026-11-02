@@ -25,6 +25,15 @@ finding out what this build contains.
 - [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md)
   : Report What This Build of 'zucrypt' Contains
 
+## Randomness
+
+Random bytes from the operating system, for keys, initialisation
+vectors, nonces and salts. R’s random number generator is never
+involved.
+
+- [`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
+  : Cryptographically Secure Random Bytes
+
 ## Ciphers (advanced)
 
 Unauthenticated AES-CBC, for reading and writing formats that specify

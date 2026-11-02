@@ -5,7 +5,7 @@
 library(zucrypt)
 ```
 
-zucrypt has seven functions:
+zucrypt has eight functions:
 
 | Function | What it is for |
 |----|----|
@@ -13,6 +13,7 @@ zucrypt has seven functions:
 | [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md) | A keyed digest (HMAC) of some bytes |
 | [`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md) | Lower-case hex of some bytes, for printing or storing a digest |
 | [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md) | Comparing a secret value in constant time |
+| [`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md) | Random bytes from the operating system, for keys, IVs and salts |
 | [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md) | What the installed build contains |
 | [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md), [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md) | Unauthenticated AES-CBC, for formats that specify it |
 
@@ -213,6 +214,34 @@ simply not equal.
 crypt_equal(tag, tag[1:16])
 #> [1] FALSE
 ```
+
+## `crypt_rand_bytes()`: random bytes
+
+A key, an IV or a salt needs bytes nobody can predict.
+[`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
+draws them from the operating system’s cryptographic source:
+
+``` r
+
+crypt_rand_bytes(16)
+#>  [1] 26 25 15 87 6b 5d 99 b0 20 e6 1f 78 96 31 1d f9
+```
+
+R’s own random number generator is not involved, so
+[`set.seed()`](https://rdrr.io/r/base/Random.html) does not make it
+repeat, and drawing bytes does not disturb a simulation that relies on
+[`set.seed()`](https://rdrr.io/r/base/Random.html):
+
+``` r
+
+set.seed(1)
+a <- crypt_rand_bytes(8)
+set.seed(1)
+identical(a, crypt_rand_bytes(8))
+#> [1] FALSE
+```
+
+`crypt_info()$build_flags$random_backend` names the source compiled in.
 
 ## `crypt_info()`: what is installed
 
@@ -417,6 +446,7 @@ e$algorithm
 | `zucrypt_bad_length` | A key, IV or data length is not allowed |
 | `zucrypt_connection_error` | A connection passed as `data` could not be opened, or ran dry before its end |
 | `zucrypt_memory_error` | An allocation failed |
+| `zucrypt_entropy_error` | The operating system’s random source failed |
 | `zucrypt_backend_error`, `zucrypt_internal_error` | The cryptographic library refused, or an invariant broke; please report these |
 
 Every condition also carries `algorithm` and `native_status` fields.
