@@ -14,7 +14,8 @@
  *
  * Scope is design.md section 6: hashes, HMAC, unauthenticated AES-CBC, in
  * hardware where the CPU allows (below), and from Stage 14a AES-GCM and
- * PBKDF2-HMAC. No public-key cryptography, no X.509, no TLS.
+ * PBKDF2-HMAC, and from Stage 15a RSA with PEM and DER key I/O. No elliptic
+ * curves, no X.509, no TLS.
  * SHA-1 is present for Office compatibility only and is never a default for
  * a new format. ECB was here too, for Office Standard encryption; it left in
  * design revision 3 (#29) when that format left zuxlsx's scope.
@@ -50,6 +51,35 @@
 /* PBKDF2 with HMAC as the PRF (RFC 8018, #12), over the digests above,
  * through the backend's key-derivation interface. */
 #define PSA_WANT_ALG_PBKDF2_HMAC         1
+
+/* RSA (RFC 8017), Stage 15a: key pairs that can be imported, exported and
+ * generated; PKCS#1 v1.5 and PSS signatures; OAEP and PKCS#1 v1.5
+ * encryption. PSA caps the modulus at 4096 bits (PSA_VENDOR_RSA_MAX_KEY_BITS
+ * in crypto_sizes.h) and generates no smaller than 1024. */
+#define PSA_WANT_KEY_TYPE_RSA_PUBLIC_KEY        1
+#define PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_BASIC    1
+#define PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_IMPORT   1
+#define PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_EXPORT   1
+#define PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_GENERATE 1
+#define PSA_WANT_ALG_RSA_PKCS1V15_SIGN          1
+#define PSA_WANT_ALG_RSA_PSS                    1
+#define PSA_WANT_ALG_RSA_OAEP                   1
+#define PSA_WANT_ALG_RSA_PKCS1V15_CRYPT         1
+
+/* Key reading and writing, Stage 15a: the PK layer over PSA keys, DER and
+ * PEM through ASN.1, Base64 and OID tables. No password-encrypted PEM:
+ * that would add DES and PKCS#5 (Stage 15b). These are defined with no
+ * value, as upstream's own crypto_config.h defines them: RSA makes
+ * crypto_adjust_config_enable_builtins.h define the two ASN.1 options the
+ * same way, and only an identical redefinition is free of warnings. */
+#define MBEDTLS_PK_C
+#define MBEDTLS_PK_PARSE_C
+#define MBEDTLS_PK_WRITE_C
+#define MBEDTLS_ASN1_PARSE_C
+#define MBEDTLS_ASN1_WRITE_C
+#define MBEDTLS_BASE64_C
+#define MBEDTLS_PEM_PARSE_C
+#define MBEDTLS_PEM_WRITE_C
 
 #define MBEDTLS_PSA_CRYPTO_C             1
 
@@ -108,9 +138,10 @@
  * from the operating system.
  *
  * The spike measured what this costs: psa_crypto_init() succeeds without
- * drawing a single byte, even when the external RNG is wired to fail. No
- * operation in the profile above consumes randomness -- CBC takes the IV from
- * the caller -- so the RNG is a link-time requirement, not a runtime one.
+ * drawing a single byte, even when the external RNG is wired to fail. Until
+ * Stage 15a no operation consumed randomness; now RSA key generation, PSS
+ * signing, RSA encryption and RSA blinding do, each through this source, so
+ * a failure of the operating system's RNG is ZUC_ERR_ENTROPY there too.
  * Hardware AES is configured above, not here. */
 #define MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG  1
 

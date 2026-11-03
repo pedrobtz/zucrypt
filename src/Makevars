@@ -42,7 +42,7 @@ PKG_CFLAGS = $(C_VISIBILITY)
 # Upstream's own build compiles every file in core/, drivers/builtin/src/,
 # platform/, utilities/, dispatch/ and extras/ and lets the configuration
 # guard the unused ones down to empty translation units. Under
-# src/zuc_crypto_config.h that is 77 files of which 21 define a single symbol;
+# src/zuc_crypto_config.h that is 77 files of which 36 define a single symbol;
 # the other 59 are compiled, produce nothing, and are not vendored at all.
 #
 # The list is derived, not chosen: compile all 77, keep the ones whose object
@@ -72,7 +72,22 @@ VENDOR_OBJECTS = \
   $(VENDOR)/lib/sha256.o \
   $(VENDOR)/lib/sha512.o \
   $(VENDOR)/lib/platform_util.o \
-  $(VENDOR)/lib/constant_time.o
+  $(VENDOR)/lib/constant_time.o \
+  $(VENDOR)/lib/asn1parse.o \
+  $(VENDOR)/lib/asn1write.o \
+  $(VENDOR)/lib/base64.o \
+  $(VENDOR)/lib/bignum.o \
+  $(VENDOR)/lib/bignum_core.o \
+  $(VENDOR)/lib/md.o \
+  $(VENDOR)/lib/oid.o \
+  $(VENDOR)/lib/pem.o \
+  $(VENDOR)/lib/pk.o \
+  $(VENDOR)/lib/pk_rsa.o \
+  $(VENDOR)/lib/pk_wrap.o \
+  $(VENDOR)/lib/pkparse.o \
+  $(VENDOR)/lib/pkwrite.o \
+  $(VENDOR)/lib/rsa.o \
+  $(VENDOR)/lib/rsa_alt_helpers.o
 
 # psa_crypto_rsa.o is in that list and looks out of place: no public-key
 # algorithm is enabled. It compiles to two key-management helpers that
@@ -94,6 +109,7 @@ ADAPTER_OBJECTS = \
   zuc_random.o \
   zuc_aead.o \
   zuc_kdf.o \
+  zuc_pkey.o \
   $(VENDOR_OBJECTS)
 
 # The four files that do include R headers. zucrypt_test.c is compiled into
