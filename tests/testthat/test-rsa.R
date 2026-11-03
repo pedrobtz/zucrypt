@@ -118,7 +118,10 @@ test_that("signatures cross-verify with openssl", {
   key <- crypt_rsa_keygen(2048)
   theirs <- openssl::read_key(crypt_write_pem(key))
   msg <- charToRaw("cross")
-  for (h in c("sha1", "sha256", "sha384", "sha512")) {
+  # Not SHA-1: an OpenSSL configured to refuse SHA-1 signatures, as the
+  # sanitizer containers' is, fails openssl's side of the comparison. The
+  # SHA-1 path is the same code with another digest.
+  for (h in c("sha256", "sha384", "sha512")) {
     ours <- crypt_signature_create(msg, hash_fun(h), key)
     other <- openssl::signature_create(msg, getExportedValue("openssl", h),
                                        theirs)
@@ -160,7 +163,10 @@ test_that("a bad signature is zucrypt_auth_error, whatever is wrong", {
   sig <- crypt_signature_create(msg, crypt_sha256, key)
   flipped <- sig
   flipped[[1]] <- xor(flipped[[1]], as.raw(1))
-  for (bad in list(flipped, sig[-1], c(sig, as.raw(0)), raw(0))) {
+  # The last is an integer above the modulus, which the backend refuses as
+  # bad input rather than a bad signature: it must still read as one.
+  for (bad in list(flipped, sig[-1], c(sig, as.raw(0)), raw(0),
+                   as.raw(rep(0xff, length(sig))))) {
     expect_error(crypt_signature_verify(msg, bad, crypt_sha256, key),
                  class = "zucrypt_auth_error")
   }

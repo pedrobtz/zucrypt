@@ -379,6 +379,12 @@ static zuc_status public_der(const zuc_pkey *key, uint8_t **der,
     if (st != ZUC_OK) {
         return st;
     }
+    /* Not reachable -- success always returns a handle -- but the analyzer
+     * cannot see that through pkey_from_psa(), and a NULL here would be a
+     * crash rather than an error. */
+    if (pub == NULL) {
+        return ZUC_ERR_INTERNAL;
+    }
     *der = pub->der;
     *der_len = pub->der_len;
     pub->der = NULL;
@@ -676,7 +682,11 @@ static zuc_status pkey_verify_hash_impl(const zuc_pkey *key, zuc_alg scheme,
     }
     ps = psa_verify_hash(id, alg, digest, digest_len, sig, sig_len);
     psa_destroy_key(id);
-    if (ps == PSA_ERROR_INVALID_SIGNATURE) {
+    /* Every argument has been checked above, so an "invalid argument" from
+     * the backend is about the signature: one whose integer is not below
+     * the modulus is refused as bad input rather than as a bad signature.
+     * Either way it does not verify. */
+    if (ps == PSA_ERROR_INVALID_SIGNATURE || ps == PSA_ERROR_INVALID_ARGUMENT) {
         return ZUC_ERR_AUTH;
     }
     return zuc_int_from_psa(ps);
