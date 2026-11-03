@@ -14,8 +14,8 @@
  *
  * Scope is design.md section 6: hashes, HMAC, unauthenticated AES-CBC, in
  * hardware where the CPU allows (below), and from Stage 14a AES-GCM and
- * PBKDF2-HMAC, and from Stage 15a RSA with PEM and DER key I/O. No elliptic
- * curves, no X.509, no TLS.
+ * PBKDF2-HMAC, from Stage 15a RSA with PEM and DER key I/O, and from Stage
+ * 16a elliptic curves and X25519. No Ed25519, no X.509, no TLS.
  * SHA-1 is present for Office compatibility only and is never a default for
  * a new format. ECB was here too, for Office Standard encryption; it left in
  * design revision 3 (#29) when that format left zuxlsx's scope.
@@ -65,6 +65,24 @@
 #define PSA_WANT_ALG_RSA_PSS                    1
 #define PSA_WANT_ALG_RSA_OAEP                   1
 #define PSA_WANT_ALG_RSA_PKCS1V15_CRYPT         1
+
+/* Elliptic curves (FIPS 186-5, RFC 7748), Stage 16a: NIST P-256, P-384 and
+ * P-521 for ECDSA and ECDH, and Curve25519 for X25519 key agreement. Key
+ * pairs can be imported, exported and generated. ECDSA comes randomised
+ * and, after RFC 6979, deterministic. No Ed25519: the pinned release has no
+ * EdDSA (design.md section 6, gaps). */
+#define PSA_WANT_ECC_SECP_R1_256                1
+#define PSA_WANT_ECC_SECP_R1_384                1
+#define PSA_WANT_ECC_SECP_R1_521                1
+#define PSA_WANT_ECC_MONTGOMERY_255             1
+#define PSA_WANT_KEY_TYPE_ECC_PUBLIC_KEY        1
+#define PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_BASIC    1
+#define PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_IMPORT   1
+#define PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_EXPORT   1
+#define PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_GENERATE 1
+#define PSA_WANT_ALG_ECDSA                      1
+#define PSA_WANT_ALG_DETERMINISTIC_ECDSA        1
+#define PSA_WANT_ALG_ECDH                       1
 
 /* Key reading and writing, Stage 15a: the PK layer over PSA keys, DER and
  * PEM through ASN.1, Base64 and OID tables. No password-encrypted PEM:

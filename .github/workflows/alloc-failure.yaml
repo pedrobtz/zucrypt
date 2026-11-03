@@ -35,7 +35,11 @@ jobs:
       # (Stage 15a) took it to about 2,000 on macOS, 2026-11-03, and Linux
       # allocates more for the same work, so the cap is 4000: a window cut
       # short would leave the workload's tail unswept and say nothing.
-      max-allocations: 4000
+      # Elliptic curves (Stage 16a) took it to about 13,000: see
+      # tools/alloc-exercise.R for what the window holds and what it leaves
+      # out. At about 0.2 s a position, that is some 45 minutes.
+      max-allocations: 16000
+      timeout-minutes: 90
 
       # What makes this "behaved" rather than "did not crash". Surviving a
       # failed allocation while returning a truncated digest would pass a

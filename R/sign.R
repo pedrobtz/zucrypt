@@ -1,7 +1,7 @@
-#' RSA Signatures and Encryption
+#' Signatures and RSA Encryption
 #'
 #' @description
-#' `crypt_signature_create()` signs data with a private key, and
+#' `crypt_signature_create()` signs data with a private RSA or EC key, and
 #' `crypt_signature_verify()` checks the signature with the public key.
 #' `crypt_rsa_encrypt()` encrypts a short message to a public key, and
 #' `crypt_rsa_decrypt()` decrypts it with the private key. The names,
@@ -13,6 +13,12 @@
 #' v1.5 signatures are deterministic. PSS signatures (`pss = TRUE`, RFC 8017
 #' section 8.1) are randomised, use MGF1 with the same digest, and a salt as
 #' long as the digest; verification requires that salt length.
+#'
+#' With a key on P-256, P-384 or P-521 the signature is ECDSA, encoded in DER
+#' as openssl encodes it; [crypt_ecdsa_parse()] gives its `r` and `s`.
+#' ECDSA signatures are randomised unless `deterministic = TRUE`, which
+#' derives the nonce from the key and digest as RFC 6979 specifies.
+#' Verification accepts only the canonical DER encoding.
 #'
 #' RSA encryption is for short secrets such as keys: a 2048-bit key with
 #' OAEP over SHA-1 takes at most 214 bytes. OAEP (`oaep = TRUE`, RFC 8017
@@ -35,6 +41,9 @@
 #' @param password Not supported yet; must be `NULL`.
 #' @param sig The signature, a raw vector.
 #' @param pss `TRUE` for RSASSA-PSS, `FALSE` (the default) for PKCS#1 v1.5.
+#'   RSA keys only.
+#' @param deterministic `TRUE` for RFC 6979 deterministic ECDSA. EC keys
+#'   only.
 #' @param oaep `TRUE` for OAEP, `FALSE` (the default) for PKCS#1 v1.5.
 #' @param oaep_hash The OAEP digest: `"sha1"` (the default), `"sha256"`,
 #'   `"sha384"` or `"sha512"`. Ignored unless `oaep = TRUE`.
@@ -50,7 +59,7 @@
 #' key is `zucrypt_bad_length`.
 #'
 #' @section Compared with openssl:
-#' `pss` and `oaep_hash` are additions. There is no default key: openssl
+#' `pss`, `deterministic` and `oaep_hash` are additions. There is no default key: openssl
 #' reads `~/.ssh`. PKCS#1 v1.5 decryption of an invalid ciphertext is an
 #' error here; OpenSSL 3 returns random bytes instead (implicit rejection).
 #'
@@ -116,20 +125,45 @@ check_flag <- function(x, arg, call) {
 #' @rdname crypt_rsa_crypto
 #' @export
 crypt_signature_create <- function(data, hash = crypt_sha1, key,
-                                   password = NULL, pss = FALSE) {
+                                   password = NULL, pss = FALSE,
+                                   deterministic = FALSE) {
   call <- sys.call()
   check_flag(pss, "pss", call)
+  check_flag(deterministic, "deterministic", call)
   md <- apply_hash(key_input(data, "data", call), hash, call)
   digest <- digest_name(md, call)
   no_password(password, call)
   key <- crypt_read_key(key)
   pkey_info(key, call)
-  scheme <- if (pss) "rsa-pss" else "rsa-pkcs1v15-sign"
+  scheme <- signature_scheme(key, pss, deterministic, call)
   res <- .Call(zucrypt_pkey_sign, key, scheme, digest, md)
   if (res$status != 0L) {
     abort_native(res$status, algorithm = scheme, call = call)
   }
-  res$value
+  if (inherits(key, "crypt_ecdsa")) ecdsa_der(res$value) else res$value
+}
+
+# The scheme a key signs with, and the options that apply to it.
+signature_scheme <- function(key, pss, deterministic, call) {
+  if (inherits(key, "crypt_rsa")) {
+    if (deterministic) {
+      zucrypt_abort("zucrypt_invalid_argument",
+                    "`deterministic` applies to EC keys only.", call = call)
+    }
+    return(if (pss) "rsa-pss" else "rsa-pkcs1v15-sign")
+  }
+  if (inherits(key, "crypt_ecdsa")) {
+    if (pss) {
+      zucrypt_abort("zucrypt_invalid_argument",
+                    "`pss` applies to RSA keys only.", call = call)
+    }
+    return(if (deterministic) "ecdsa-deterministic" else "ecdsa")
+  }
+  zucrypt_abort(
+    "zucrypt_invalid_argument",
+    "X25519 keys agree on secrets and do not sign; there is no Ed25519.",
+    call = call
+  )
 }
 
 #' @rdname crypt_rsa_crypto
@@ -142,13 +176,32 @@ crypt_signature_verify <- function(data, sig, hash = crypt_sha1, pubkey,
   digest <- digest_name(md, call)
   sig <- key_input(sig, "sig", call)
   pubkey <- crypt_read_pubkey(pubkey)
-  pkey_info(pubkey, call)
-  scheme <- if (pss) "rsa-pss" else "rsa-pkcs1v15-sign"
+  info <- pkey_info(pubkey, call)
+  scheme <- signature_scheme(pubkey, pss, FALSE, call)
+  if (inherits(pubkey, "crypt_ecdsa")) {
+    # Deterministic and randomised ECDSA verify alike.
+    sig <- ecdsa_raw(sig, curve_bytes[[info$type]])
+    if (is.null(sig)) {
+      zucrypt_abort(
+        "zucrypt_auth_error",
+        "The signature is not a canonical DER ECDSA signature for this key.",
+        algorithm = "ecdsa",
+        call = call
+      )
+    }
+  }
   res <- .Call(zucrypt_pkey_verify, pubkey, scheme, digest, md, sig)
   if (res$status != 0L) {
     abort_native(res$status, algorithm = scheme, call = call)
   }
   TRUE
+}
+
+check_rsa <- function(key, call) {
+  if (!inherits(key, "crypt_rsa")) {
+    zucrypt_abort("zucrypt_invalid_argument",
+                  "RSA encryption needs an RSA key.", call = call)
+  }
 }
 
 rsa_scheme <- function(oaep, oaep_hash, call) {
@@ -177,6 +230,7 @@ crypt_rsa_encrypt <- function(data, pubkey, oaep = FALSE,
   check_raw(data, "data", algorithm = s$scheme, call = call)
   pubkey <- crypt_read_pubkey(pubkey)
   pkey_info(pubkey, call)
+  check_rsa(pubkey, call)
   res <- .Call(zucrypt_pkey_crypt, pubkey, s$scheme, s$hash, data, TRUE)
   if (res$status != 0L) {
     abort_native(res$status, algorithm = s$scheme, call = call)
@@ -194,6 +248,7 @@ crypt_rsa_decrypt <- function(data, key, password = NULL, oaep = FALSE,
   no_password(password, call)
   key <- crypt_read_key(key)
   pkey_info(key, call)
+  check_rsa(key, call)
   res <- .Call(zucrypt_pkey_crypt, key, s$scheme, s$hash, data, FALSE)
   if (res$status != 0L) {
     abort_native(res$status, algorithm = s$scheme, call = call)

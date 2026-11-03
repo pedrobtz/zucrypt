@@ -36,13 +36,14 @@ reference:
   - crypt_aes_gcm
   - crypt_pbkdf2
 
-- title: RSA keys and signatures (openssl-style)
+- title: Public keys and signatures (openssl-style)
   desc: >
-    Reading, writing and generating RSA keys, signatures and RSA encryption,
-    with openssl's names and arguments under a crypt_ prefix, and the
-    openssl-style digests they take.
+    RSA and elliptic-curve keys, signatures, RSA encryption and key
+    agreement, with openssl's names and arguments under a crypt_ prefix, and
+    the openssl-style digests they take.
   contents:
   - crypt_rsa_keys
+  - crypt_ec_keys
   - crypt_rsa_crypto
   - crypt_sha
 

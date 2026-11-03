@@ -6,14 +6,15 @@
 \alias{crypt_signature_verify}
 \alias{crypt_rsa_encrypt}
 \alias{crypt_rsa_decrypt}
-\title{RSA Signatures and Encryption}
+\title{Signatures and RSA Encryption}
 \usage{
 crypt_signature_create(
   data,
   hash = crypt_sha1,
   key,
   password = NULL,
-  pss = FALSE
+  pss = FALSE,
+  deterministic = FALSE
 )
 
 crypt_signature_verify(data, sig, hash = crypt_sha1, pubkey, pss = FALSE)
@@ -35,7 +36,11 @@ crypt_rsa_decrypt(data, key, password = NULL, oaep = FALSE, oaep_hash = "sha1")
 
 \item{password}{Not supported yet; must be \code{NULL}.}
 
-\item{pss}{\code{TRUE} for RSASSA-PSS, \code{FALSE} (the default) for PKCS#1 v1.5.}
+\item{pss}{\code{TRUE} for RSASSA-PSS, \code{FALSE} (the default) for PKCS#1 v1.5.
+RSA keys only.}
+
+\item{deterministic}{\code{TRUE} for RFC 6979 deterministic ECDSA. EC keys
+only.}
 
 \item{sig}{The signature, a raw vector.}
 
@@ -54,7 +59,7 @@ signals \code{zucrypt_auth_error}. \code{crypt_rsa_encrypt()} returns the
 ciphertext and \code{crypt_rsa_decrypt()} the plaintext, as raw vectors.
 }
 \description{
-\code{crypt_signature_create()} signs data with a private key, and
+\code{crypt_signature_create()} signs data with a private RSA or EC key, and
 \code{crypt_signature_verify()} checks the signature with the public key.
 \code{crypt_rsa_encrypt()} encrypts a short message to a public key, and
 \code{crypt_rsa_decrypt()} decrypts it with the private key. The names,
@@ -66,6 +71,12 @@ signed, so \code{hash = crypt_sha256} gives an RSA-SHA256 signature. With
 v1.5 signatures are deterministic. PSS signatures (\code{pss = TRUE}, RFC 8017
 section 8.1) are randomised, use MGF1 with the same digest, and a salt as
 long as the digest; verification requires that salt length.
+
+With a key on P-256, P-384 or P-521 the signature is ECDSA, encoded in DER
+as openssl encodes it; \code{\link[=crypt_ecdsa_parse]{crypt_ecdsa_parse()}} gives its \code{r} and \code{s}.
+ECDSA signatures are randomised unless \code{deterministic = TRUE}, which
+derives the nonce from the key and digest as RFC 6979 specifies.
+Verification accepts only the canonical DER encoding.
 
 RSA encryption is for short secrets such as keys: a 2048-bit key with
 OAEP over SHA-1 takes at most 214 bytes. OAEP (\code{oaep = TRUE}, RFC 8017
@@ -85,7 +96,7 @@ key is \code{zucrypt_bad_length}.
 
 \section{Compared with openssl}{
 
-\code{pss} and \code{oaep_hash} are additions. There is no default key: openssl
+\code{pss}, \code{deterministic} and \code{oaep_hash} are additions. There is no default key: openssl
 reads \verb{~/.ssh}. PKCS#1 v1.5 decryption of an invalid ciphertext is an
 error here; OpenSSL 3 returns random bytes instead (implicit rejection).
 }

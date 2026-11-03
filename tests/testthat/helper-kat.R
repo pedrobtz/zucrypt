@@ -121,3 +121,18 @@ rsa_fixture_key <- function(id) {
 native_pkey_contract <- function(pem) {
   .Call(zucrypt:::zucrypt_test_pkey_contract, pem)
 }
+
+# The EC fixtures (Stage 16a).
+ec_vectors <- function() {
+  utils::read.delim(test_path("fixtures", "ec.tsv"), colClasses = "character")
+}
+ec_fixture_key <- function(id) {
+  k <- utils::read.delim(test_path("fixtures", "ec-keys.tsv"),
+                         colClasses = "character")
+  k <- k[k$id == id, ]
+  if (k$curve == "X25519") {
+    return(crypt_read_x25519_key(unhex(k$d)))
+  }
+  crypt_ec_key(k$curve, unhex(k$x), unhex(k$y), unhex(k$d))
+}
+native_ec_contract <- function() .Call(zucrypt:::zucrypt_test_ec_contract)

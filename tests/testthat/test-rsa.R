@@ -282,11 +282,13 @@ test_that("what is not an RSA key is refused, and says which way", {
   expect_error(crypt_read_key(pub), class = "zucrypt_invalid_argument")
   expect_error(crypt_read_key(pub, password = "x"),
                class = "zucrypt_unsupported_algorithm")
+  # A well-formed key of a type this build lacks: Ed25519, which the
+  # bundled library does not have.
   skip_if_not_installed("openssl")
-  ec <- openssl::ec_keygen()
-  expect_error(crypt_read_key(openssl::write_pem(ec)),
+  ed <- openssl::ed25519_keygen()
+  expect_error(crypt_read_key(openssl::write_pem(ed)),
                class = "zucrypt_unsupported_algorithm")
-  expect_error(crypt_read_pubkey(openssl::write_pem(ec$pubkey)),
+  expect_error(crypt_read_pubkey(openssl::write_pem(ed$pubkey)),
                class = "zucrypt_unsupported_algorithm")
 })
 

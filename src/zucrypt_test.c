@@ -486,9 +486,10 @@ SEXP zucrypt_test_not_ready(void)
     static const char *names[] = {
         "hash_compute", "hash_new", "hmac_compute", "hmac_new", "aes_new",
         "aes_cbc_encrypt", "random_bytes", "aead_encrypt", "aead_decrypt",
-        "pbkdf2_hmac", "pkey_parse", "pkey_generate", "shutdown", "init"
+        "pbkdf2_hmac", "pkey_parse", "pkey_generate", "pkey_import",
+        "pkey_export", "pkey_agree", "shutdown", "init"
     };
-    enum { N = 14 };
+    enum { N = 17 };
     zuc_status st[N];
     uint8_t key[ZUC_AES_KEY_SIZE_128] = {0}, block[ZUC_AES_BLOCK_SIZE] = {0};
     uint8_t out[ZUC_MAX_DIGEST_SIZE], nonce[ZUC_GCM_NONCE_SIZE] = {0};
@@ -505,7 +506,7 @@ SEXP zucrypt_test_not_ready(void)
         Rf_error("zucrypt: could not create the handle this test needs");
     }
 
-    st[12] = zuc_shutdown();
+    st[15] = zuc_shutdown();
     st[0] = zuc_hash_compute(ZUC_ALG_SHA256, block, sizeof block,
                              out, sizeof out, &out_len);
     st[1] = zuc_hash_new(ZUC_ALG_SHA256, &hash);
@@ -525,7 +526,10 @@ SEXP zucrypt_test_not_ready(void)
                             sizeof block, 1, out, 32);
     st[10] = zuc_pkey_parse(block, sizeof block, 0, &pkey);
     st[11] = zuc_pkey_generate(ZUC_ALG_RSA, 1024, &pkey);
-    st[13] = zuc_init();
+    st[12] = zuc_pkey_import(ZUC_ALG_X25519, 1, block, 16, &pkey);
+    st[13] = zuc_pkey_export(pkey, 0, out, sizeof out, &out_len);
+    st[14] = zuc_pkey_agree(pkey, pkey, out, sizeof out, &out_len);
+    st[16] = zuc_init();
 
     /* Anything the calls above wrongly created goes too. */
     zuc_aes_free(live);
@@ -995,6 +999,106 @@ SEXP zucrypt_test_pkey_contract(SEXP pem)
     return res;
 }
 
+/* The elliptic-curve contract of zucrypt.h (Stage 16a), on keys this
+ * function generates. Each case is named; its value is a status name, or
+ * "TRUE"/"FALSE" for a property of the buffers. */
+SEXP zucrypt_test_ec_contract(void)
+{
+    enum { N = 18 };
+    static const char *names[N] = {
+        "generate", "export_point", "import_point", "off_curve",
+        "scalar_zero", "sign", "verify", "verify_short", "sign_x25519",
+        "pss_on_ec", "encrypt_ec", "agree", "agree_symmetric",
+        "agree_other_curve", "x25519_zero", "x25519_zero_wiped",
+        "pkcs1_public_ec", "pkcs1_x25519"
+    };
+    const char *got[N];
+    zuc_pkey *a = NULL, *b = NULL, *pub = NULL, *bad = NULL, *p384 = NULL;
+    zuc_pkey *x = NULL, *xzero = NULL;
+    uint8_t point[133], digest[32], sig[132], k1[66], k2[66], buf[1024];
+    uint8_t zero32[32] = {0}, scalar0[32] = {0};
+    size_t plen = 0, slen = 0, l1 = 0, l2 = 0, len = 0, i;
+    SEXP res, nms;
+
+    for (i = 0; i < N; i++) got[i] = "unset";
+    for (i = 0; i < sizeof digest; i++) digest[i] = (uint8_t) (i * 3);
+
+    got[0] = zuc_status_name(zuc_pkey_generate(ZUC_ALG_EC_P256, 0, &a));
+    if (a == NULL || zuc_pkey_generate(ZUC_ALG_EC_P256, 256, &b) != ZUC_OK ||
+        zuc_pkey_generate(ZUC_ALG_EC_P384, 0, &p384) != ZUC_OK ||
+        zuc_pkey_generate(ZUC_ALG_X25519, 0, &x) != ZUC_OK) {
+        zuc_pkey_free(a); zuc_pkey_free(b); zuc_pkey_free(p384);
+        zuc_pkey_free(x);
+        Rf_error("zucrypt: the EC contract test could not generate keys");
+    }
+    got[1] = (zuc_pkey_export(a, 1, point, sizeof point, &plen) == ZUC_OK &&
+              plen == 65 && point[0] == 0x04) ? "TRUE" : "FALSE";
+    got[2] = zuc_status_name(zuc_pkey_import(ZUC_ALG_EC_P256, 0, point, plen,
+                                             &pub));
+    point[64] ^= 1;
+    got[3] = zuc_status_name(zuc_pkey_import(ZUC_ALG_EC_P256, 0, point, plen,
+                                             &bad));
+    point[64] ^= 1;
+    zuc_pkey_free(bad);
+    bad = NULL;
+    got[4] = zuc_status_name(zuc_pkey_import(ZUC_ALG_EC_P256, 1, scalar0,
+                                             sizeof scalar0, &bad));
+    zuc_pkey_free(bad);
+    bad = NULL;
+
+    got[5] = zuc_status_name(zuc_pkey_sign_hash(a, ZUC_ALG_ECDSA,
+                                                ZUC_ALG_SHA256, digest, 32,
+                                                sig, sizeof sig, &slen));
+    got[6] = zuc_status_name(zuc_pkey_verify_hash(pub, ZUC_ALG_ECDSA,
+                                                  ZUC_ALG_SHA256, digest, 32,
+                                                  sig, slen));
+    got[7] = zuc_status_name(zuc_pkey_verify_hash(pub, ZUC_ALG_ECDSA,
+                                                  ZUC_ALG_SHA256, digest, 32,
+                                                  sig, slen - 1));
+    got[8] = zuc_status_name(zuc_pkey_sign_hash(x, ZUC_ALG_ECDSA,
+                                                ZUC_ALG_SHA256, digest, 32,
+                                                sig, sizeof sig, &len));
+    got[9] = zuc_status_name(zuc_pkey_sign_hash(a, ZUC_ALG_RSA_PSS,
+                                                ZUC_ALG_SHA256, digest, 32,
+                                                sig, sizeof sig, &len));
+    got[10] = zuc_status_name(zuc_pkey_encrypt(a, ZUC_ALG_RSA_OAEP,
+                                               ZUC_ALG_SHA256, digest, 32,
+                                               buf, sizeof buf, &len));
+    got[11] = zuc_status_name(zuc_pkey_agree(a, b, k1, sizeof k1, &l1));
+    got[12] = (zuc_pkey_agree(b, a, k2, sizeof k2, &l2) == ZUC_OK &&
+               l1 == 32 && l1 == l2 && memcmp(k1, k2, l1) == 0)
+                  ? "TRUE" : "FALSE";
+    got[13] = zuc_status_name(zuc_pkey_agree(a, p384, k1, sizeof k1, &l1));
+    /* An all-zero public key is a low-order point: if the backend imports
+     * it, agreement must still refuse the all-zero result. */
+    if (zuc_pkey_import(ZUC_ALG_X25519, 0, zero32, 32, &xzero) == ZUC_OK) {
+        memset(k1, 0xA5, sizeof k1);
+        got[14] = zuc_status_name(zuc_pkey_agree(x, xzero, k1, sizeof k1,
+                                                 &l1));
+        got[15] = all_bytes(k1, sizeof k1, 0) ? "TRUE" : "FALSE";
+    } else {
+        got[14] = "ZUC_ERR_INVALID_ARGUMENT";
+        got[15] = "TRUE";
+    }
+    got[16] = zuc_status_name(zuc_pkey_write(pub, ZUC_PKEY_PKCS1_DER, 0, buf,
+                                             sizeof buf, &len));
+    got[17] = zuc_status_name(zuc_pkey_write(x, ZUC_PKEY_PKCS1_PEM, 0, buf,
+                                             sizeof buf, &len));
+
+    zuc_pkey_free(a); zuc_pkey_free(b); zuc_pkey_free(pub);
+    zuc_pkey_free(p384); zuc_pkey_free(x); zuc_pkey_free(xzero);
+
+    res = PROTECT(Rf_allocVector(STRSXP, N));
+    nms = PROTECT(Rf_allocVector(STRSXP, N));
+    for (i = 0; i < N; i++) {
+        SET_STRING_ELT(res, (R_xlen_t) i, Rf_mkChar(got[i]));
+        SET_STRING_ELT(nms, (R_xlen_t) i, Rf_mkChar(names[i]));
+    }
+    Rf_setAttrib(res, R_NamesSymbol, nms);
+    UNPROTECT(2);
+    return res;
+}
+
 const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_hash",           (DL_FUNC) &zucrypt_test_hash,           3},
     {"zucrypt_test_hmac",           (DL_FUNC) &zucrypt_test_hmac,           4},
@@ -1016,5 +1120,6 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_random_fail",    (DL_FUNC) &zucrypt_test_random_fail,    1},
     {"zucrypt_test_aead_contract",  (DL_FUNC) &zucrypt_test_aead_contract,  0},
     {"zucrypt_test_pkey_contract",  (DL_FUNC) &zucrypt_test_pkey_contract,  1},
+    {"zucrypt_test_ec_contract",    (DL_FUNC) &zucrypt_test_ec_contract,    0},
     {NULL, NULL, 0}
 };

@@ -65,3 +65,46 @@ rsa.tsv	rsa-pss-sha384	Python cryptography 50.0.2, generated (no published vecto
 rsa.tsv	rsa-oaep-sha384	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
 rsa.tsv	rsa-pss-sha512	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
 rsa.tsv	rsa-oaep-sha512	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
+ec-keys.tsv	rfc6979-p256	RFC 6979 A.2.5, SHA-1, message sample	tools/make-ec-kat.py
+ec-keys.tsv	rfc6979-p384	RFC 6979 A.2.6, SHA-1, message sample	tools/make-ec-kat.py
+ec-keys.tsv	rfc6979-p521	RFC 6979 A.2.7, SHA-1, message sample	tools/make-ec-kat.py
+ec-keys.tsv	rfc7748-alice	RFC 7748 section 6.1 (X25519)	tools/make-ec-kat.py
+ec-keys.tsv	rfc7748-bob	RFC 7748 section 6.1 (X25519)	tools/make-ec-kat.py
+ec-keys.tsv	rfc5903-p256-i	RFC 5903 section 8.1 (ECDH P-256)	tools/make-ec-kat.py
+ec-keys.tsv	rfc5903-p256-r	RFC 5903 section 8.1 (ECDH P-256)	tools/make-ec-kat.py
+ec-keys.tsv	rfc5903-p384-i	RFC 5903 section 8.2 (ECDH P-384)	tools/make-ec-kat.py
+ec-keys.tsv	rfc5903-p384-r	RFC 5903 section 8.2 (ECDH P-384)	tools/make-ec-kat.py
+ec-keys.tsv	rfc5903-p521-i	RFC 5903 section 8.3 (ECDH P-521)	tools/make-ec-kat.py
+ec-keys.tsv	rfc5903-p521-r	RFC 5903 section 8.3 (ECDH P-521)	tools/make-ec-kat.py
+ec-keys.tsv	rfc7515-a3	RFC 7515 A.3 (ES256 signature)	tools/make-ec-kat.py
+ec-keys.tsv	rfc7515-a4	RFC 7515 A.4 (ES512 signature)	tools/make-ec-kat.py
+ec.tsv	rfc6979-p256-sha1-sample	RFC 6979 A.2.5, SHA-1, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p256-sha256-sample	RFC 6979 A.2.5, SHA-256, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p256-sha384-sample	RFC 6979 A.2.5, SHA-384, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p256-sha512-sample	RFC 6979 A.2.5, SHA-512, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p256-sha1-test	RFC 6979 A.2.5, SHA-1, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p256-sha256-test	RFC 6979 A.2.5, SHA-256, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p256-sha384-test	RFC 6979 A.2.5, SHA-384, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p256-sha512-test	RFC 6979 A.2.5, SHA-512, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p384-sha1-sample	RFC 6979 A.2.6, SHA-1, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p384-sha256-sample	RFC 6979 A.2.6, SHA-256, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p384-sha384-sample	RFC 6979 A.2.6, SHA-384, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p384-sha512-sample	RFC 6979 A.2.6, SHA-512, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p384-sha1-test	RFC 6979 A.2.6, SHA-1, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p384-sha256-test	RFC 6979 A.2.6, SHA-256, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p384-sha384-test	RFC 6979 A.2.6, SHA-384, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p384-sha512-test	RFC 6979 A.2.6, SHA-512, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p521-sha1-sample	RFC 6979 A.2.7, SHA-1, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p521-sha256-sample	RFC 6979 A.2.7, SHA-256, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p521-sha384-sample	RFC 6979 A.2.7, SHA-384, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p521-sha512-sample	RFC 6979 A.2.7, SHA-512, message sample	tools/make-ec-kat.py
+ec.tsv	rfc6979-p521-sha1-test	RFC 6979 A.2.7, SHA-1, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p521-sha256-test	RFC 6979 A.2.7, SHA-256, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p521-sha384-test	RFC 6979 A.2.7, SHA-384, message test	tools/make-ec-kat.py
+ec.tsv	rfc6979-p521-sha512-test	RFC 6979 A.2.7, SHA-512, message test	tools/make-ec-kat.py
+ec.tsv	rfc7748-6.1	RFC 7748 section 6.1 (X25519)	tools/make-ec-kat.py
+ec.tsv	rfc5903-p256	RFC 5903 section 8.1 (ECDH P-256)	tools/make-ec-kat.py
+ec.tsv	rfc5903-p384	RFC 5903 section 8.2 (ECDH P-384)	tools/make-ec-kat.py
+ec.tsv	rfc5903-p521	RFC 5903 section 8.3 (ECDH P-521)	tools/make-ec-kat.py
+ec.tsv	rfc7515-a3	RFC 7515 A.3 (ES256 signature)	tools/make-ec-kat.py
+ec.tsv	rfc7515-a4	RFC 7515 A.4 (ES512 signature)	tools/make-ec-kat.py

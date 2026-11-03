@@ -124,11 +124,23 @@ no_password <- function(password, call = sys.call(-1L)) {
   }
 }
 
+# The zuc_alg names of key types, and the class and curve name each gets.
+key_families <- c(rsa = "crypt_rsa", p256 = "crypt_ecdsa",
+                  p384 = "crypt_ecdsa", p521 = "crypt_ecdsa",
+                  x25519 = "crypt_x25519")
+curve_names <- c(p256 = "P-256", p384 = "P-384", p521 = "P-521")
+
 new_key <- function(ptr) {
   info <- pkey_info(ptr)
   class(ptr) <- c(if (info$private) "crypt_key" else "crypt_pubkey",
-                  "crypt_rsa")
+                  unname(key_families[info$type]))
   ptr
+}
+
+# openssl's type names, for as.list() and print().
+key_type_name <- function(type) {
+  c(rsa = "rsa", p256 = "ecdsa", p384 = "ecdsa", p521 = "ecdsa",
+    x25519 = "x25519")[[type]]
 }
 
 pkey_info <- function(x, call = sys.call(-1L)) {
@@ -163,7 +175,7 @@ parse_key <- function(bytes, private, call) {
     if (identical(name, "ZUC_ERR_UNSUPPORTED")) {
       zucrypt_abort(
         "zucrypt_unsupported_algorithm",
-        "Only RSA keys are supported in this version.",
+        "Only RSA, P-256, P-384, P-521 and X25519 keys are supported.",
         call = call
       )
     }
@@ -217,7 +229,7 @@ crypt_rsa_keygen <- function(bits = 2048) {
       call = call
     )
   }
-  res <- .Call(zucrypt_pkey_generate, as.double(bits))
+  res <- .Call(zucrypt_pkey_generate, "rsa", as.double(bits))
   if (res$status != 0L) {
     abort_native(res$status, algorithm = "rsa", call = call)
   }
@@ -273,7 +285,14 @@ crypt_write_pem <- function(x, path = NULL, password = NULL) {
 #' @export
 crypt_write_der <- function(x, path = NULL) {
   call <- sys.call()
-  format <- if (inherits(x, "crypt_key")) "pkcs1_der" else "info_der"
+  # As openssl::write_der(): a private RSA or EC key in its own structure
+  # (PKCS#1, SEC1); an X25519 key, which has none, and every public key in
+  # the standard ones (PKCS#8, SubjectPublicKeyInfo).
+  format <- if (inherits(x, "crypt_key") && !inherits(x, "crypt_x25519")) {
+    "pkcs1_der"
+  } else {
+    "info_der"
+  }
   write_out(write_key(x, format, call), path)
 }
 
@@ -373,6 +392,9 @@ crypt_rsa_key <- function(n, e, d = NULL, p = NULL, q = NULL, dp = NULL,
 as.list.crypt_key <- function(x, ...) {
   call <- sys.call()
   info <- pkey_info(x, call)
+  if (info$type != "rsa") {
+    return(ec_as_list(x, info, call))
+  }
   v <- der_integers(write_key(x, "pkcs1_der", call))
   names(v) <- c("version", "n", "e", "d", "p", "q", "dp", "dq", "qi")
   list(
@@ -387,6 +409,9 @@ as.list.crypt_key <- function(x, ...) {
 as.list.crypt_pubkey <- function(x, ...) {
   call <- sys.call()
   info <- pkey_info(x, call)
+  if (info$type != "rsa") {
+    return(ec_as_list(x, info, call))
+  }
   v <- der_integers(write_key(x, "pkcs1_der", call))
   names(v) <- c("n", "e")
   list(type = info$type, size = info$bits, data = v[c("e", "n")])
@@ -401,13 +426,15 @@ as.list.crypt_pubkey <- function(x, ...) {
 #' @export
 print.crypt_key <- function(x, ...) {
   info <- pkey_info(x)
-  cat(sprintf("[%d-bit %s private key]\n", as.integer(info$bits), info$type))
+  cat(sprintf("[%d-bit %s private key]\n", as.integer(info$bits),
+              key_type_name(info$type)))
   invisible(x)
 }
 
 #' @export
 print.crypt_pubkey <- function(x, ...) {
   info <- pkey_info(x)
-  cat(sprintf("[%d-bit %s public key]\n", as.integer(info$bits), info$type))
+  cat(sprintf("[%d-bit %s public key]\n", as.integer(info$bits),
+              key_type_name(info$type)))
   invisible(x)
 }

@@ -85,6 +85,10 @@ static void fill_api(void)
     api.pkey_encrypt     = zuc_pkey_encrypt;
     api.pkey_decrypt     = zuc_pkey_decrypt;
 
+    api.pkey_import      = zuc_pkey_import;
+    api.pkey_export      = zuc_pkey_export;
+    api.pkey_agree       = zuc_pkey_agree;
+
     api_ready = 1;
 }
 
