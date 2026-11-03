@@ -45,6 +45,15 @@ appended), `ZUC_ERR_ENTROPY = 10`, `crypt_rand_bytes()` and `zucrypt_entropy_err
 `zuc_int_random_fail()` (declared in `src/zuc_live.h`) makes the source fail for the harness.
 13b, the rest of the tranche, is next; 0.2.0 waits for it.
 
+**Stage 14a is done** (2026-11-03, #10, #12): Stage 14 was split the same way, because
+`zujwt`'s JWE needs AES-GCM and PBKDF2 and nothing else from tranche 2. `zuc_aead_encrypt()`,
+`zuc_aead_decrypt()` and `zuc_pbkdf2_hmac()` (archive), three appended table fields,
+`ZUC_ALG_AES_GCM = 96`, `ZUC_ERR_AUTH = 11`, `crypt_aes_gcm_encrypt()`/`_decrypt()`,
+`crypt_pbkdf2()` and `zucrypt_auth_error`. The AEAD is one-shot only, with a 12-byte nonce
+and a 16-byte tag; a received tag of another length is `ZUC_ERR_AUTH`. `tools/check-kat.py`
+is the outside oracle for `aead.tsv` and `kdf.tsv` (Python `cryptography` and `hashlib`; run
+it from a venv). 14b (ChaCha20-Poly1305, CTR, padded CBC, HKDF) follows 13b.
+
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
 it in CI and fails on any difference, so never edit `README.md` by hand.
 
@@ -58,8 +67,9 @@ CRAN or security reviewer reads, and its facts (file counts, defines, sizes, pat
 updated whenever the vendored tree or its configuration changes. Their examples are executed when the site builds, so they must stay runnable with
 no `Suggests` beyond the website needs — mention openssl or sodium in prose, never in a chunk.
 
-The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports eight `crypt_*` functions: the seven of design §7 (`crypt_hex()` joined the original
-six in #59) and `crypt_rand_bytes()` (Stage 13a, #9), and publishes both consumer shapes: the registered function
+The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports eleven `crypt_*` functions: the seven of design §7 (`crypt_hex()` joined the original
+six in #59), `crypt_rand_bytes()` (Stage 13a, #9), and `crypt_aes_gcm_encrypt()`,
+`crypt_aes_gcm_decrypt()` and `crypt_pbkdf2()` (Stage 14a, #10, #12), and publishes both consumer shapes: the registered function
 table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the static archive (`libzucrypt.a`,
 which `src/install.libs.R` installs to the package's `lib${R_ARCH}/`, beside
 `licenses/tf-psa-crypto-LICENSE`; there is no `inst/lib/` in the sources). Stage 7 removed
@@ -124,8 +134,8 @@ provenance in `MANIFEST.tsv`; `Rscript tools/make-kat.R --check` recomputes ever
 `openssl` and fails on a mismatch.
 
 [.agents/stage-1-spike.md](.agents/stage-1-spike.md) records what the spike measured and every
-decision it settled — the pinned release, the configuration (now fourteen defines), the trim
-(now 20 objects, 113 files, since #51 added hardware AES; `aesce.c` is kept by hand because it
+decision it settled — the pinned release, the configuration (now sixteen defines), the trim
+(now 22 objects, 115 files, since #51 added hardware AES and Stage 14a GCM; `aesce.c` is kept by hand because it
 has symbols only on Arm) and how to re-derive it, the external-RNG choice, and the measurements. Read it before touching
 `src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.
 
@@ -255,7 +265,8 @@ Three surfaces are exposed:
 
 1. A small R surface: `crypt_info()`, `crypt_hash()`, `crypt_hmac()`, `crypt_hex()`,
    `crypt_equal()`, `crypt_rand_bytes()`, `crypt_aes_cbc_encrypt_nopad()` /
-   `crypt_aes_cbc_decrypt_nopad()`.
+   `crypt_aes_cbc_decrypt_nopad()`, `crypt_aes_gcm_encrypt()` / `crypt_aes_gcm_decrypt()`,
+   `crypt_pbkdf2()`.
 2. A registered function table (`inst/include/zucrypt-r.h`, `zucrypt_api_v1`, resolved lazily
    via `zucrypt_get_api`) for consumers that can carry `Imports:` + `LinkingTo:` + a real
    `importFrom()`. `zuhttp` is the consumer this was *hoped* for, not a real one: its
@@ -301,8 +312,9 @@ to each other, and `tests/testthat/test-abi.R` asserts that the shared object ex
   static 32-slot store it replaced failed at the 17th live AES handle and reported it as
   `ZUC_ERR_MEMORY`. Tearing the backend down (`zuc_shutdown()` to zero) destroys every key, so
   a test that does it must run with nothing else live.
-- No `encrypt_file(password = )`, ever: the package specifies no format. PBKDF2, HKDF and AEAD
-  are Stage 14 (design §6 tranches), not yet on `main`; randomness is (Stage 13a).
+- No `encrypt_file(password = )`, ever: the package specifies no format. AES-GCM and PBKDF2
+  are on `main` (Stage 14a), as is randomness (Stage 13a); HKDF and ChaCha20-Poly1305 are
+  Stage 14b.
 - The openssl-shaped layer (design §7.1) is the one place character input is accepted, typed
   as `openssl` types it; the core `crypt_hash()`, `crypt_hmac()` and CBC pair stay raw-only.
   Every mirrored function must be byte-identical to `openssl`, cross-verified, or a documented

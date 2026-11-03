@@ -112,7 +112,8 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 12 — v0.1.0 and CRAN | v0.1.0 | #17, #13, #15 | Stage 11 | |
 | 13a — Randomness | v0.2.0 | #9 | Stage 12 | **done**, 2026-11-02 |
 | 13b — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #16 | Stage 13a | |
-| 14 — Tranche 2: authenticated encryption and key derivation | v0.3.0 | #10, #12 | Stage 13 | |
+| 14a — AES-GCM and PBKDF2 | v0.3.0 | #10, #12 | Stage 13a | **done**, 2026-11-03 |
+| 14b — Tranche 2: the rest | v0.3.0 | new | Stages 13b and 14a | |
 | 15 — Tranche 3: key objects, PEM and DER, RSA | v0.4.0 | new | Stage 14 | |
 | 16 — Tranche 4: EC keys, ECDSA, ECDH, X25519 | v0.5.0 | new | Stage 15 | |
 | 17 — Tranche 5: certificates | v0.6.0 | new | Stage 16 | |
@@ -565,6 +566,27 @@ Exit:
 
 Goal: the constructions a caller composes into password-based encryption, without this
 package specifying a format.
+
+**Split 2026-11-03 into 14a and 14b**, as Stage 13 was. `zujwt`'s JWE stage needs AES-GCM and
+PBKDF2 (`A*GCM`, `A*GCMKW` and `PBES2-*`) and nothing else from this tranche, so those two ship
+first as Stage 14a, ahead of 13b. 14a delivered:
+- `PSA_WANT_ALG_GCM` and `PSA_WANT_ALG_PBKDF2_HMAC`, with the trim re-derived (two sources
+  added, `gcm.c` and `psa_crypto_aead.c`; no header);
+- `zuc_aead_encrypt()`/`_decrypt()` (one-shot, generic over `zuc_alg`), `zuc_pbkdf2_hmac()`,
+  three table fields, `ZUC_ALG_AES_GCM = 96` and `ZUC_ERR_AUTH = 11`;
+- `crypt_aes_gcm_encrypt()`/`_decrypt()`, with the nonce and tag as attributes of the
+  ciphertext, and `crypt_pbkdf2()`;
+- `zucrypt_auth_error`, and design §12's gate in C (`zucrypt_test_aead_contract()`) and in R
+  (`test-aead.R`);
+- `aead.tsv` and `kdf.tsv` with provenance, cross-checked by `tools/check-kat.py`
+  (`cryptography`, `hashlib`) and, for GCM ciphertext, by `make-kat.R --check` (`openssl`);
+- both fixtures calling the new functions, and `tools/alloc-exercise.R` reaching them.
+
+14a takes a 96-bit nonce and a 128-bit tag only; on decryption a tag of another length is an
+authentication failure, because a GCM tag prefix would otherwise verify. 14b keeps
+ChaCha20-Poly1305, AES-CTR, the padded CBC pair and HKDF, and with them the migration-article
+rows for GCM. The gate is "one-shot" only for now: no incremental AEAD exists to gate. Nothing
+is released until 14b: 0.3.0 still carries the whole tranche.
 
 Work items:
 

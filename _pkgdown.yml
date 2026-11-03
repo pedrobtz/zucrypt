@@ -28,6 +28,14 @@ reference:
   contents:
   - crypt_rand_bytes
 
+- title: Authenticated encryption and key derivation
+  desc: >
+    AES-GCM, which encrypts and authenticates together, and PBKDF2, which
+    derives a key from a password.
+  contents:
+  - crypt_aes_gcm
+  - crypt_pbkdf2
+
 - title: Ciphers (advanced)
   desc: >
     Unauthenticated AES-CBC, for reading and writing formats that specify it.

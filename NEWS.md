@@ -8,12 +8,41 @@
   effect on it. A failure of the source raises the new
   `zucrypt_entropy_error` class and never returns bytes.
 
+* `crypt_aes_gcm_encrypt()` and `crypt_aes_gcm_decrypt()` provide AES-GCM
+  authenticated encryption (#10), with a 12-byte nonce, a 16-byte tag and
+  optional associated data. The nonce is random unless supplied, and the
+  nonce and tag travel as attributes of the ciphertext. Decryption checks the
+  tag first: any alteration, a truncated tag or a wrong key raises the new
+  `zucrypt_auth_error` class and returns no plaintext. The names and argument
+  order follow `openssl`, and the ciphertext bytes match, but `openssl`
+  returns no tag and does not authenticate, so this is a documented
+  difference rather than a mirror.
+
+* `crypt_pbkdf2()` derives a key from a raw password with PBKDF2-HMAC over
+  SHA-1, SHA-256, SHA-384 or SHA-512 (#12).
+
 ## C interface
 
 * `zuc_random_bytes()` is added to the archive, and `random_bytes` is
   appended to the registered table; test for it with
   `ZUCRYPT_API_HAS(api, random_bytes)`. Both are additions, as ABI 1 allows.
 * `ZUC_ERR_ENTROPY = 10` is appended to `zuc_status`.
+* `zuc_aead_encrypt()`, `zuc_aead_decrypt()` and `zuc_pbkdf2_hmac()` are
+  added to the archive, and `aead_encrypt`, `aead_decrypt` and `pbkdf2_hmac`
+  are appended to the table. `ZUC_ALG_AES_GCM = 96` is the first identifier
+  in the cipher range, and `ZUC_ERR_AUTH = 11` is appended to `zuc_status`.
+  The digest and HMAC functions refuse `ZUC_ALG_AES_GCM`.
+
+## Backend
+
+* `PSA_WANT_ALG_GCM` and `PSA_WANT_ALG_PBKDF2_HMAC` are enabled. Re-deriving
+  the trim added two upstream sources, `gcm.c` and `psa_crypto_aead.c`, and
+  no header: 115 vendored files. Measured on macOS x86-64, the source tarball
+  grew from 548 KB to 580 KB, `zucrypt.so` from 162 KB to 188 KB, and
+  `libzucrypt.a` from 518 KB to 632 KB.
+* The AEAD and KDF vectors are checked outside the package by
+  `tools/check-kat.py`, against Python's `cryptography` and `hashlib`, and
+  `tools/make-kat.R --check` compares the GCM ciphertexts with `openssl`.
 * On glibc, a `getrandom()` call interrupted by a signal is retried instead
   of being reported as an entropy failure.
 
