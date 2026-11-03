@@ -100,8 +100,13 @@ typedef enum {
     ZUC_ERR_INTERNAL         = 8,  /* a broken invariant; report it */
     ZUC_ERR_NOT_READY        = 9,  /* called before zuc_init() or after the
                                       last zuc_shutdown() */
-    ZUC_ERR_ENTROPY          = 10  /* the operating system's random source
+    ZUC_ERR_ENTROPY          = 10, /* the operating system's random source
                                       failed; appended after ABI 1 */
+    ZUC_ERR_AUTH             = 11  /* authenticated decryption failed: the
+                                      tag does not match the key, nonce,
+                                      associated data and ciphertext. No
+                                      plaintext is released. Appended after
+                                      ABI 1 */
 } zuc_status;
 
 /* A short, stable, English description. Never returns NULL, including for a
@@ -143,9 +148,17 @@ typedef enum {
     ZUC_ALG_SHA1   = 1,
     ZUC_ALG_SHA256 = 2,
     ZUC_ALG_SHA384 = 3,
-    ZUC_ALG_SHA512 = 4
+    ZUC_ALG_SHA512 = 4,
 
     /* 5..63 reserved for further digests. */
+
+    /* AES-GCM (NIST SP 800-38D), for zuc_aead_encrypt() and
+     * zuc_aead_decrypt(). The key length selects AES-128, -192 or -256.
+     * Appended after ABI 1. zuc_alg_size() is 0 for it: it is not a
+     * digest, and the hash and HMAC functions refuse it. */
+    ZUC_ALG_AES_GCM = 96
+
+    /* 97..159 reserved for further ciphers and AEAD modes. */
 } zuc_alg;
 
 #define ZUC_ALG_DIGEST_FIRST     1
@@ -360,6 +373,94 @@ zuc_status zuc_aes_cbc_encrypt(zuc_aes *aes,
                                const uint8_t *in, size_t len, uint8_t *out);
 zuc_status zuc_aes_cbc_decrypt(zuc_aes *aes,
                                const uint8_t *in, size_t len, uint8_t *out);
+
+/* ------------------------------------------------------------------ *
+ * Authenticated encryption (AEAD)
+ * ------------------------------------------------------------------ */
+
+/* The nonce and tag sizes AES-GCM takes here. */
+#define ZUC_GCM_NONCE_SIZE 12
+#define ZUC_GCM_TAG_SIZE   16
+
+/* One-shot authenticated encryption, with RFC 5116's contract.
+ *
+ * `alg` is ZUC_ALG_AES_GCM; any other value is ZUC_ERR_UNSUPPORTED. `key_len`
+ * is 16, 24 or 32. `nonce_len` must be ZUC_GCM_NONCE_SIZE and `tag_len`
+ * ZUC_GCM_TAG_SIZE: shorter tags and other nonce lengths are not offered.
+ * Any other key or nonce length is ZUC_ERR_BAD_LENGTH, and so is another tag
+ * length on encryption. On decryption a tag of another length is
+ * ZUC_ERR_AUTH: a truncated tag cannot match.
+ *
+ * Encryption writes `len` bytes of ciphertext to `ciphertext` and the tag to
+ * `tag`. Decryption checks `tag` against the key, nonce, associated data and
+ * ciphertext. Only if it matches does it return ZUC_OK with `len` bytes of
+ * plaintext in `plaintext`; otherwise it returns ZUC_ERR_AUTH.
+ *
+ * An argument error (a NULL, a length, an overlap) is reported before
+ * anything is written. Any failure after that zeroes all `len` bytes of the
+ * output, and on encryption the tag too: no unauthenticated plaintext ever
+ * reaches the caller, and no half-made ciphertext either.
+ *
+ * A pointer may be NULL only when its length is 0: `aad` with `aad_len` 0,
+ * the data buffers with `len` 0. The output and the input may be the same
+ * pointer (exact in-place); any other overlap is ZUC_ERR_OVERLAP. The key is
+ * imported for the call and destroyed before it returns.
+ *
+ * THE NONCE MUST NEVER REPEAT UNDER ONE KEY. Two messages encrypted with the
+ * same key and nonce disclose the XOR of their plaintexts, and let anyone
+ * who sees them forge tags for that key. A random 12-byte nonce from
+ * zuc_random_bytes() is safe for up to about 2^32 messages per key.
+ *
+ * AES runs on the path described under AES below, with the same side-channel
+ * note for the software fallback; GHASH, the authentication half of GCM,
+ * also uses tables on that path.
+ *
+ * Added after ABI 1 was frozen. A table consumer tests for them with
+ * ZUCRYPT_API_HAS(api, aead_decrypt). */
+zuc_status zuc_aead_encrypt(zuc_alg alg,
+                            const uint8_t *key, size_t key_len,
+                            const uint8_t *nonce, size_t nonce_len,
+                            const uint8_t *aad, size_t aad_len,
+                            const uint8_t *plaintext, size_t len,
+                            uint8_t *ciphertext,
+                            uint8_t *tag, size_t tag_len);
+
+zuc_status zuc_aead_decrypt(zuc_alg alg,
+                            const uint8_t *key, size_t key_len,
+                            const uint8_t *nonce, size_t nonce_len,
+                            const uint8_t *aad, size_t aad_len,
+                            const uint8_t *ciphertext, size_t len,
+                            const uint8_t *tag, size_t tag_len,
+                            uint8_t *plaintext);
+
+/* ------------------------------------------------------------------ *
+ * Key derivation
+ * ------------------------------------------------------------------ */
+
+/* PBKDF2 (RFC 8018 section 5.2) with HMAC over `hash` as the PRF, which is
+ * ZUC_ALG_SHA1, ZUC_ALG_SHA256, ZUC_ALG_SHA384 or ZUC_ALG_SHA512.
+ *
+ * Writes `out_len` bytes to `out`. `iterations` must be at least 1 and
+ * `out_len` at least 1; otherwise ZUC_ERR_INVALID_ARGUMENT or
+ * ZUC_ERR_BAD_LENGTH. `password` and `salt` may be NULL only when their
+ * length is 0, and either may be empty. If the derivation itself fails, all
+ * `out_len` bytes of `out` are zeroed; an argument error writes nothing.
+ *
+ * The cost grows linearly with `iterations`, and the call cannot be
+ * interrupted. A caller taking `iterations` from untrusted input must bound
+ * it first.
+ *
+ * PBKDF2 derives a key from a password. It is not a password hash format
+ * and not a file format: the salt, the iteration count and what the key is
+ * for are the caller's to store and specify.
+ *
+ * Added after ABI 1 was frozen. A table consumer tests for it with
+ * ZUCRYPT_API_HAS(api, pbkdf2_hmac). */
+zuc_status zuc_pbkdf2_hmac(zuc_alg hash,
+                           const uint8_t *password, size_t password_len,
+                           const uint8_t *salt, size_t salt_len,
+                           uint32_t iterations,
+                           uint8_t *out, size_t out_len);
 
 /* ------------------------------------------------------------------ *
  * Randomness

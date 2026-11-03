@@ -96,3 +96,31 @@ test_that("the archive draws random bytes from its own source", {
   expect_false(identical(a, b))
   expect_identical(archive_random(0), raw(0))
 })
+
+test_that("the archive's AES-GCM reproduces the specification and refuses tampering", {
+  # Added after ABI 1 (Stage 14a). GCM specification test case 3.
+  hex <- function(x) as.raw(strtoi(substring(x, seq(1, nchar(x), 2),
+                                             seq(2, nchar(x), 2)), 16L))
+  key <- hex("feffe9928665731c6d6a8f9467308308")
+  iv <- hex("cafebabefacedbaddecaf888")
+  pt <- hex(paste0("d9313225f88406e5a55909c5aff5269a86a7a9531534f7da2e4c303d",
+                   "8a318a721c3c0c95956809532fcf0e2449a6b525b16aedf5aa0de657",
+                   "ba637b391aafd255"))
+  out <- archive_gcm_encrypt(key, iv, pt)
+  expect_identical(out[[1]][1:4], hex("42831ec2"))
+  expect_identical(out[[2]], hex("4d5c2af327cd64a62cf35abd2ba6fab4"))
+  expect_identical(archive_gcm_decrypt_status(key, iv, out[[1]], out[[2]]),
+                   "ZUC_OK")
+  tag <- out[[2]]
+  tag[1] <- xor(tag[1], as.raw(1))
+  expect_identical(archive_gcm_decrypt_status(key, iv, out[[1]], tag),
+                   "ZUC_ERR_AUTH")
+})
+
+test_that("the archive's PBKDF2 reproduces RFC 6070", {
+  expect_identical(
+    archive_pbkdf2(charToRaw("password"), charToRaw("salt"), 1, 20),
+    as.raw(c(0x0c, 0x60, 0xc8, 0x0f, 0x96, 0x1f, 0x0e, 0x71, 0xf3, 0xa9,
+             0xb5, 0x24, 0xaf, 0x60, 0x12, 0x06, 0x2f, 0xe0, 0x37, 0xa6))
+  )
+})

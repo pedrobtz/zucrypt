@@ -5606,7 +5606,12 @@ exit:
      * Even if the operation succeeds, make sure we clear the rest of the
      * buffer to prevent potential leakage of anything previously placed in
      * the same buffer.*/
-    psa_wipe_tag_output_buffer(tag, status, tag_size, *tag_length);
+    /* zucrypt: guarded as psa_mac_sign_finish() guards its own call. If a
+     * LOCAL_OUTPUT_ALLOC above fails, `tag` is still NULL here, and the
+     * unguarded wipe wrote tag_size bytes through it (0003). */
+    if (tag != NULL) {
+        psa_wipe_tag_output_buffer(tag, status, tag_size, *tag_length);
+    }
 
     psa_aead_abort(operation);
 

@@ -68,6 +68,10 @@ static void fill_api(void)
 
     api.random_bytes = zuc_random_bytes;
 
+    api.aead_encrypt = zuc_aead_encrypt;
+    api.aead_decrypt = zuc_aead_decrypt;
+    api.pbkdf2_hmac  = zuc_pbkdf2_hmac;
+
     api_ready = 1;
 }
 

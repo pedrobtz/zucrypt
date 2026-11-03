@@ -134,6 +134,28 @@ typedef struct {
 
     /* Randomness from the operating system (#9). */
     zuc_status  (*random_bytes)(uint8_t *out, size_t len);
+
+    /* Appended after ABI 1 (Stage 14a). Test with
+     * ZUCRYPT_API_HAS(api, pbkdf2_hmac): the three arrived together. */
+    zuc_status  (*aead_encrypt)(zuc_alg alg,
+                                const uint8_t *key, size_t key_len,
+                                const uint8_t *nonce, size_t nonce_len,
+                                const uint8_t *aad, size_t aad_len,
+                                const uint8_t *plaintext, size_t len,
+                                uint8_t *ciphertext,
+                                uint8_t *tag, size_t tag_len);
+    zuc_status  (*aead_decrypt)(zuc_alg alg,
+                                const uint8_t *key, size_t key_len,
+                                const uint8_t *nonce, size_t nonce_len,
+                                const uint8_t *aad, size_t aad_len,
+                                const uint8_t *ciphertext, size_t len,
+                                const uint8_t *tag, size_t tag_len,
+                                uint8_t *plaintext);
+    zuc_status  (*pbkdf2_hmac)(zuc_alg hash,
+                               const uint8_t *password, size_t password_len,
+                               const uint8_t *salt, size_t salt_len,
+                               uint32_t iterations,
+                               uint8_t *out, size_t out_len);
 } zucrypt_api_v1;
 
 /* Does this table have `field`? Fields are appended over time, and a

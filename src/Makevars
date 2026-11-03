@@ -42,7 +42,7 @@ PKG_CFLAGS = $(C_VISIBILITY)
 # Upstream's own build compiles every file in core/, drivers/builtin/src/,
 # platform/, utilities/, dispatch/ and extras/ and lets the configuration
 # guard the unused ones down to empty translation units. Under
-# src/zuc_crypto_config.h that is 77 files of which 18 define a single symbol;
+# src/zuc_crypto_config.h that is 77 files of which 21 define a single symbol;
 # the other 59 are compiled, produce nothing, and are not vendored at all.
 #
 # The list is derived, not chosen: compile all 77, keep the ones whose object
@@ -62,6 +62,8 @@ VENDOR_OBJECTS = \
   $(VENDOR)/lib/cipher.o \
   $(VENDOR)/lib/cipher_wrap.o \
   $(VENDOR)/lib/psa_crypto_cipher.o \
+  $(VENDOR)/lib/gcm.o \
+  $(VENDOR)/lib/psa_crypto_aead.o \
   $(VENDOR)/lib/psa_crypto_hash.o \
   $(VENDOR)/lib/psa_crypto_mac.o \
   $(VENDOR)/lib/psa_crypto_rsa.o \
@@ -90,6 +92,8 @@ ADAPTER_OBJECTS = \
   zuc_aes.o \
   zuc_util.o \
   zuc_random.o \
+  zuc_aead.o \
+  zuc_kdf.o \
   $(VENDOR_OBJECTS)
 
 # The four files that do include R headers. zucrypt_test.c is compiled into

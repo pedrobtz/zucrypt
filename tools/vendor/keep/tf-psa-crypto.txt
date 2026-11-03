@@ -19,7 +19,12 @@
 # hardware AES path on ARMv8. Deriving on one architecture would drop it, so
 # it is kept for both. Its only local headers, aesce.h and
 # tf_psa_crypto_common.h, are in the x86 closure already: aes.c includes
-# aesce.h unconditionally. That makes 19 derived sources plus aesce.c.
+# aesce.h unconditionally. That makes 21 derived sources plus aesce.c.
+#
+# Re-derived 2026-11-03 for Stage 14a (PSA_WANT_ALG_GCM,
+# PSA_WANT_ALG_PBKDF2_HMAC): the closure gained lib/gcm.c and
+# lib/psa_crypto_aead.c and no header. PBKDF2 lives in psa_crypto.c, which
+# was already here.
 #
 # The layout is flattened to two directories rather than mirroring upstream's
 # six, and that is not tidiness. R CMD check rejects a tarball path over 100
@@ -107,9 +112,11 @@ lib/constant_time.c                                              utilities/const
 lib/constant_time_impl.h                                         utilities/constant_time_impl.h
 lib/constant_time_internal.h                                     utilities/constant_time_internal.h
 lib/ctr.h                                                        drivers/builtin/src/ctr.h
+lib/gcm.c                                                        drivers/builtin/src/gcm.c
 lib/pk_wrap.h                                                    extras/pk_wrap.h
 lib/platform_util.c                                              platform/platform_util.c
 lib/psa_crypto.c                                                 core/psa_crypto.c
+lib/psa_crypto_aead.c                                            drivers/builtin/src/psa_crypto_aead.c
 lib/psa_crypto_aead.h                                            drivers/builtin/src/psa_crypto_aead.h
 lib/psa_crypto_cipher.c                                          drivers/builtin/src/psa_crypto_cipher.c
 lib/psa_crypto_cipher.h                                          drivers/builtin/src/psa_crypto_cipher.h

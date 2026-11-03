@@ -95,3 +95,14 @@ native_random_fail <- function(on) {
 native_live_handles <- function(n) {
   .Call(zucrypt:::zucrypt_test_live_handles, as.integer(n))
 }
+
+# The AEAD and KDF fixtures (Stage 14a), each with its own columns.
+aead_vectors <- function() {
+  utils::read.delim(test_path("fixtures", "aead.tsv"), colClasses = "character")
+}
+kdf_vectors <- function() {
+  utils::read.delim(test_path("fixtures", "kdf.tsv"), colClasses = "character")
+}
+native_aead_contract <- function() {
+  .Call(zucrypt:::zucrypt_test_aead_contract)
+}

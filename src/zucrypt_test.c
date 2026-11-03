@@ -485,12 +485,14 @@ SEXP zucrypt_test_not_ready(void)
 {
     static const char *names[] = {
         "hash_compute", "hash_new", "hmac_compute", "hmac_new", "aes_new",
-        "aes_cbc_encrypt", "random_bytes", "shutdown", "init"
+        "aes_cbc_encrypt", "random_bytes", "aead_encrypt", "aead_decrypt",
+        "pbkdf2_hmac", "shutdown", "init"
     };
-    enum { N = 9 };
+    enum { N = 12 };
     zuc_status st[N];
     uint8_t key[ZUC_AES_KEY_SIZE_128] = {0}, block[ZUC_AES_BLOCK_SIZE] = {0};
-    uint8_t out[ZUC_MAX_DIGEST_SIZE];
+    uint8_t out[ZUC_MAX_DIGEST_SIZE], nonce[ZUC_GCM_NONCE_SIZE] = {0};
+    uint8_t tag[ZUC_GCM_TAG_SIZE] = {0};
     size_t out_len = 0;
     zuc_hash *hash = NULL;
     zuc_hmac *hmac = NULL;
@@ -502,7 +504,7 @@ SEXP zucrypt_test_not_ready(void)
         Rf_error("zucrypt: could not create the handle this test needs");
     }
 
-    st[7] = zuc_shutdown();
+    st[10] = zuc_shutdown();
     st[0] = zuc_hash_compute(ZUC_ALG_SHA256, block, sizeof block,
                              out, sizeof out, &out_len);
     st[1] = zuc_hash_new(ZUC_ALG_SHA256, &hash);
@@ -512,7 +514,15 @@ SEXP zucrypt_test_not_ready(void)
     st[4] = zuc_aes_new(key, sizeof key, &aes);
     st[5] = zuc_aes_cbc_encrypt(live, block, sizeof block, block);
     st[6] = zuc_random_bytes(block, sizeof block);
-    st[8] = zuc_init();
+    st[7] = zuc_aead_encrypt(ZUC_ALG_AES_GCM, key, sizeof key, nonce,
+                             sizeof nonce, NULL, 0, block, sizeof block,
+                             out, tag, sizeof tag);
+    st[8] = zuc_aead_decrypt(ZUC_ALG_AES_GCM, key, sizeof key, nonce,
+                             sizeof nonce, NULL, 0, block, sizeof block,
+                             tag, sizeof tag, out);
+    st[9] = zuc_pbkdf2_hmac(ZUC_ALG_SHA256, key, sizeof key, block,
+                            sizeof block, 1, out, 32);
+    st[11] = zuc_init();
 
     /* Anything the calls above wrongly created goes too. */
     zuc_aes_free(live);
@@ -735,6 +745,163 @@ SEXP zucrypt_test_random_fail(SEXP on)
     return R_NilValue;
 }
 
+/* The AEAD and KDF contracts of zucrypt.h, and design.md section 12's
+ * authenticated-encryption gate, driven in C. Every case is named; its
+ * value is the status the adapter returned, or "TRUE"/"FALSE" for a
+ * property of the buffers afterwards. */
+static int all_bytes(const uint8_t *p, size_t n, uint8_t v)
+{
+    size_t i;
+    for (i = 0; i < n; i++) {
+        if (p[i] != v) return 0;
+    }
+    return 1;
+}
+
+#define AEAD_ENC(k, kl, n, nl, a, al, in, len, out, t, tl) \
+    zuc_aead_encrypt(ZUC_ALG_AES_GCM, k, kl, n, nl, a, al, in, len, out, t, tl)
+#define AEAD_DEC(k, kl, n, nl, a, al, in, len, t, tl, out) \
+    zuc_aead_decrypt(ZUC_ALG_AES_GCM, k, kl, n, nl, a, al, in, len, t, tl, out)
+
+SEXP zucrypt_test_aead_contract(void)
+{
+    enum { N = 26, LEN = 40 };
+    static const char *names[N] = {
+        "encrypt", "decrypt", "roundtrip",
+        "tampered_ciphertext", "tampered_tag", "tampered_aad",
+        "tampered_nonce", "truncated_tag", "wrong_key", "wiped_on_failure",
+        "inplace_encrypt", "inplace_decrypt", "inplace_matches",
+        "partial_overlap", "overlap_untouched",
+        "null_key", "null_data_0", "null_aad_0", "bad_key_length",
+        "bad_nonce_length", "short_tag_encrypt", "not_an_aead",
+        "hash_refuses_gcm", "hmac_refuses_gcm", "pbkdf2_refuses_gcm",
+        "pbkdf2_zero_iterations"
+    };
+    const char *got[N];
+    uint8_t key[32], key2[32], nonce[ZUC_GCM_NONCE_SIZE], aad[13];
+    uint8_t pt[LEN], ct[LEN], out[LEN], buf[LEN + 8];
+    uint8_t tag[ZUC_GCM_TAG_SIZE], tag2[ZUC_GCM_TAG_SIZE];
+    uint8_t digest[ZUC_MAX_DIGEST_SIZE];
+    size_t i, dlen = 0;
+    int wiped = 1;
+    SEXP res, nms;
+
+    for (i = 0; i < sizeof key; i++) key[i] = (uint8_t) i;
+    memcpy(key2, key, sizeof key);
+    key2[0] ^= 1;
+    for (i = 0; i < sizeof nonce; i++) nonce[i] = (uint8_t) (0xC0 + i);
+    for (i = 0; i < sizeof aad; i++) aad[i] = (uint8_t) (0x30 + i);
+    for (i = 0; i < LEN; i++) pt[i] = (uint8_t) (i * 7);
+
+    got[0] = zuc_status_name(AEAD_ENC(key, 32, nonce, 12, aad, sizeof aad,
+                                      pt, LEN, ct, tag, sizeof tag));
+    got[1] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
+                                      ct, LEN, tag, sizeof tag, out));
+    got[2] = memcmp(out, pt, LEN) == 0 ? "TRUE" : "FALSE";
+
+    /* Each tamper is undone before the next. The output is filled with a
+     * marker first, so "wiped" means the adapter zeroed it, not that it was
+     * never written. */
+#define EXPECT_WIPED() do { if (!all_bytes(out, LEN, 0)) wiped = 0; } while (0)
+    ct[5] ^= 0x80;
+    memset(out, 0xA5, LEN);
+    got[3] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
+                                      ct, LEN, tag, sizeof tag, out));
+    EXPECT_WIPED();
+    ct[5] ^= 0x80;
+
+    memcpy(tag2, tag, sizeof tag);
+    tag2[15] ^= 1;
+    memset(out, 0xA5, LEN);
+    got[4] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
+                                      ct, LEN, tag2, sizeof tag2, out));
+    EXPECT_WIPED();
+
+    aad[0] ^= 1;
+    memset(out, 0xA5, LEN);
+    got[5] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
+                                      ct, LEN, tag, sizeof tag, out));
+    EXPECT_WIPED();
+    aad[0] ^= 1;
+
+    nonce[11] ^= 1;
+    memset(out, 0xA5, LEN);
+    got[6] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
+                                      ct, LEN, tag, sizeof tag, out));
+    EXPECT_WIPED();
+    nonce[11] ^= 1;
+
+    /* A truncated tag is the right prefix: GCM would verify it as a shorter
+     * tag, so refusing it has to happen here, before the backend. */
+    memset(out, 0xA5, LEN);
+    got[7] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
+                                      ct, LEN, tag, sizeof tag - 1, out));
+    memset(out, 0, LEN);
+
+    memset(out, 0xA5, LEN);
+    got[8] = zuc_status_name(AEAD_DEC(key2, 32, nonce, 12, aad, sizeof aad,
+                                      ct, LEN, tag, sizeof tag, out));
+    EXPECT_WIPED();
+    got[9] = wiped ? "TRUE" : "FALSE";
+#undef EXPECT_WIPED
+
+    /* Exact in place, both directions, equal to the separate buffers. */
+    memcpy(buf, pt, LEN);
+    got[10] = zuc_status_name(AEAD_ENC(key, 32, nonce, 12, aad, sizeof aad,
+                                       buf, LEN, buf, tag2, sizeof tag2));
+    i = memcmp(buf, ct, LEN) == 0 && memcmp(tag2, tag, sizeof tag) == 0;
+    got[11] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
+                                       buf, LEN, tag, sizeof tag, buf));
+    got[12] = (i && memcmp(buf, pt, LEN) == 0) ? "TRUE" : "FALSE";
+
+    /* Partial overlap is refused before anything is written. */
+    memcpy(buf, pt, LEN);
+    got[13] = zuc_status_name(AEAD_ENC(key, 32, nonce, 12, NULL, 0,
+                                       buf, LEN, buf + 8, tag2, sizeof tag2));
+    got[14] = memcmp(buf, pt, LEN) == 0 ? "TRUE" : "FALSE";
+
+    got[15] = zuc_status_name(AEAD_ENC(NULL, 32, nonce, 12, NULL, 0,
+                                       pt, LEN, out, tag2, sizeof tag2));
+    got[16] = zuc_status_name(AEAD_ENC(key, 32, nonce, 12, NULL, 0,
+                                       NULL, 0, NULL, tag2, sizeof tag2));
+    got[17] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, NULL, 0,
+                                       NULL, 0, tag2, sizeof tag2, NULL));
+    got[18] = zuc_status_name(AEAD_ENC(key, 20, nonce, 12, NULL, 0,
+                                       pt, LEN, out, tag2, sizeof tag2));
+    got[19] = zuc_status_name(AEAD_ENC(key, 32, nonce, 16, NULL, 0,
+                                       pt, LEN, out, tag2, sizeof tag2));
+    got[20] = zuc_status_name(AEAD_ENC(key, 32, nonce, 12, NULL, 0,
+                                       pt, LEN, out, tag2, 12));
+    got[21] = zuc_status_name(zuc_aead_encrypt(ZUC_ALG_SHA256, key, 32, nonce,
+                                               12, NULL, 0, pt, LEN, out,
+                                               tag2, sizeof tag2));
+    got[22] = zuc_status_name(zuc_hash_compute(ZUC_ALG_AES_GCM, pt, LEN,
+                                               digest, sizeof digest, &dlen));
+    got[23] = zuc_status_name(zuc_hmac_compute(ZUC_ALG_AES_GCM, key, 32, pt,
+                                               LEN, digest, sizeof digest,
+                                               &dlen));
+    got[24] = zuc_status_name(zuc_pbkdf2_hmac(ZUC_ALG_AES_GCM, key, 32, pt,
+                                              16, 1, digest, 32));
+    got[25] = zuc_status_name(zuc_pbkdf2_hmac(ZUC_ALG_SHA256, key, 32, pt,
+                                              16, 0, digest, 32));
+
+    zuc_secure_zero(out, sizeof out);
+    zuc_secure_zero(buf, sizeof buf);
+
+    res = PROTECT(Rf_allocVector(STRSXP, N));
+    nms = PROTECT(Rf_allocVector(STRSXP, N));
+    for (i = 0; i < N; i++) {
+        SET_STRING_ELT(res, (R_xlen_t) i, Rf_mkChar(got[i]));
+        SET_STRING_ELT(nms, (R_xlen_t) i, Rf_mkChar(names[i]));
+    }
+    Rf_setAttrib(res, R_NamesSymbol, nms);
+    UNPROTECT(2);
+    return res;
+}
+
+#undef AEAD_ENC
+#undef AEAD_DEC
+
 const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_hash",           (DL_FUNC) &zucrypt_test_hash,           3},
     {"zucrypt_test_hmac",           (DL_FUNC) &zucrypt_test_hmac,           4},
@@ -754,5 +921,6 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_null_buffers",   (DL_FUNC) &zucrypt_test_null_buffers,   0},
     {"zucrypt_test_random_contract", (DL_FUNC) &zucrypt_test_random_contract, 0},
     {"zucrypt_test_random_fail",    (DL_FUNC) &zucrypt_test_random_fail,    1},
+    {"zucrypt_test_aead_contract",  (DL_FUNC) &zucrypt_test_aead_contract,  0},
     {NULL, NULL, 0}
 };

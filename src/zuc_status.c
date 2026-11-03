@@ -23,6 +23,7 @@ const char *zuc_status_string(zuc_status status)
     case ZUC_ERR_INTERNAL:         return "internal error";
     case ZUC_ERR_NOT_READY:        return "the library is not initialised; call zuc_init() first";
     case ZUC_ERR_ENTROPY:          return "the operating system's random source failed";
+    case ZUC_ERR_AUTH:             return "authentication failed; no plaintext was released";
     }
     /* No default label above, so a new enumerator is a compiler warning
      * here rather than a silent fall-through. This line is for a value that
@@ -44,6 +45,7 @@ const char *zuc_status_name(zuc_status status)
     case ZUC_ERR_INTERNAL:         return "ZUC_ERR_INTERNAL";
     case ZUC_ERR_NOT_READY:        return "ZUC_ERR_NOT_READY";
     case ZUC_ERR_ENTROPY:          return "ZUC_ERR_ENTROPY";
+    case ZUC_ERR_AUTH:             return "ZUC_ERR_AUTH";
     }
     return "ZUC_ERR_UNKNOWN";
 }
@@ -69,6 +71,7 @@ psa_algorithm_t zuc_int_psa_hash(zuc_alg alg)
     case ZUC_ALG_SHA256: return PSA_ALG_SHA_256;
     case ZUC_ALG_SHA384: return PSA_ALG_SHA_384;
     case ZUC_ALG_SHA512: return PSA_ALG_SHA_512;
+    case ZUC_ALG_AES_GCM:
     case ZUC_ALG_NONE:   return 0;
     }
     return 0;
@@ -81,6 +84,7 @@ const char *zuc_alg_name(zuc_alg alg)
     case ZUC_ALG_SHA256: return "sha256";
     case ZUC_ALG_SHA384: return "sha384";
     case ZUC_ALG_SHA512: return "sha512";
+    case ZUC_ALG_AES_GCM: return "aes-gcm";
     case ZUC_ALG_NONE:   return NULL;
     }
     return NULL;
@@ -92,7 +96,8 @@ zuc_alg zuc_alg_by_name(const char *name)
      * "SHA256" are not this library's spelling, and quietly accepting them
      * would make the accepted set impossible to document. */
     static const zuc_alg all[] = {
-        ZUC_ALG_SHA1, ZUC_ALG_SHA256, ZUC_ALG_SHA384, ZUC_ALG_SHA512
+        ZUC_ALG_SHA1, ZUC_ALG_SHA256, ZUC_ALG_SHA384, ZUC_ALG_SHA512,
+        ZUC_ALG_AES_GCM
     };
     size_t i;
 
@@ -115,6 +120,7 @@ size_t zuc_alg_size(zuc_alg alg)
     case ZUC_ALG_SHA256: return 32;
     case ZUC_ALG_SHA384: return 48;
     case ZUC_ALG_SHA512: return 64;
+    case ZUC_ALG_AES_GCM:
     case ZUC_ALG_NONE:   return 0;
     }
     return 0;
@@ -141,6 +147,17 @@ int zuc_alg_available(zuc_alg alg)
 #if defined(PSA_WANT_ALG_SHA_512)
     case ZUC_ALG_SHA512: return 1;
 #endif
+#if defined(PSA_WANT_ALG_GCM)
+    case ZUC_ALG_AES_GCM: return 1;
+#endif
     default: return 0;
     }
+}
+
+int zuc_int_digest_available(zuc_alg alg)
+{
+    /* A digest is an identifier the hash functions can run: available, and
+     * with a backend hash behind it. zuc_alg_available() alone also says yes
+     * to a cipher such as ZUC_ALG_AES_GCM, which must never reach them. */
+    return zuc_int_psa_hash(alg) != 0 && zuc_alg_available(alg);
 }

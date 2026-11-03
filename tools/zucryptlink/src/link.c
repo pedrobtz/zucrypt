@@ -153,6 +153,84 @@ SEXP zl_random(SEXP n)
     return out;
 }
 
+/* AES-GCM through the archive (Stage 14a): list(ciphertext, tag). */
+SEXP zl_gcm_encrypt(SEXP key, SEXP iv, SEXP data)
+{
+    zuc_status st;
+    SEXP ct, tag, out;
+    size_t len;
+
+    require_backend();
+    raw_arg(key, "key");
+    raw_arg(iv, "iv");
+    raw_arg(data, "data");
+    len = (size_t) XLENGTH(data);
+    ct = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) len));
+    tag = PROTECT(Rf_allocVector(RAWSXP, ZUC_GCM_TAG_SIZE));
+    st = zuc_aead_encrypt(ZUC_ALG_AES_GCM, RAW(key), (size_t) XLENGTH(key),
+                          RAW(iv), (size_t) XLENGTH(iv), NULL, 0,
+                          len ? RAW(data) : NULL, len, len ? RAW(ct) : NULL,
+                          RAW(tag), ZUC_GCM_TAG_SIZE);
+    if (st != ZUC_OK) {
+        UNPROTECT(2);
+        Rf_error("zucryptlink: zuc_aead_encrypt() failed (%s)", zuc_status_name(st));
+    }
+    out = PROTECT(Rf_allocVector(VECSXP, 2));
+    SET_VECTOR_ELT(out, 0, ct);
+    SET_VECTOR_ELT(out, 1, tag);
+    UNPROTECT(3);
+    return out;
+}
+
+/* The status name of a GCM decryption, and nothing else: whether the
+ * archive accepts or refuses a message is what the fixture checks. */
+SEXP zl_gcm_decrypt_status(SEXP key, SEXP iv, SEXP data, SEXP tag)
+{
+    zuc_status st;
+    SEXP out;
+    size_t len;
+
+    require_backend();
+    raw_arg(key, "key");
+    raw_arg(iv, "iv");
+    raw_arg(data, "data");
+    raw_arg(tag, "tag");
+    len = (size_t) XLENGTH(data);
+    out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) len));
+    st = zuc_aead_decrypt(ZUC_ALG_AES_GCM, RAW(key), (size_t) XLENGTH(key),
+                          RAW(iv), (size_t) XLENGTH(iv), NULL, 0,
+                          len ? RAW(data) : NULL, len,
+                          RAW(tag), (size_t) XLENGTH(tag),
+                          len ? RAW(out) : NULL);
+    UNPROTECT(1);
+    return Rf_mkString(zuc_status_name(st));
+}
+
+/* PBKDF2-HMAC-SHA1 through the archive (Stage 14a). */
+SEXP zl_pbkdf2(SEXP password, SEXP salt, SEXP iterations, SEXP n)
+{
+    int len = Rf_asInteger(n), iter = Rf_asInteger(iterations);
+    zuc_status st;
+    SEXP out;
+
+    require_backend();
+    raw_arg(password, "password");
+    raw_arg(salt, "salt");
+    if (len == NA_INTEGER || len < 1 || iter == NA_INTEGER || iter < 1) {
+        Rf_error("zucryptlink: n and iterations must be positive integers");
+    }
+    out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) len));
+    st = zuc_pbkdf2_hmac(ZUC_ALG_SHA1, RAW(password),
+                         (size_t) XLENGTH(password), RAW(salt),
+                         (size_t) XLENGTH(salt), (uint32_t) iter,
+                         RAW(out), (size_t) len);
+    UNPROTECT(1);
+    if (st != ZUC_OK) {
+        Rf_error("zucryptlink: zuc_pbkdf2_hmac() failed (%s)", zuc_status_name(st));
+    }
+    return out;
+}
+
 /* H_0 = hash(seed); H_n = hash(int32le(n - 1) || H_{n-1}), through one
  * reused incremental context -- the loop zuxlsx's agile decryption runs,
  * without anything Office-specific in it. The same rehearsal as
@@ -255,6 +333,9 @@ static const R_CallMethodDef call_methods[] = {
     {"zl_derive",   (DL_FUNC) &zl_derive,   3},
     {"zl_segments", (DL_FUNC) &zl_segments, 5},
     {"zl_random",   (DL_FUNC) &zl_random,   1},
+    {"zl_gcm_encrypt",        (DL_FUNC) &zl_gcm_encrypt,        3},
+    {"zl_gcm_decrypt_status", (DL_FUNC) &zl_gcm_decrypt_status, 4},
+    {"zl_pbkdf2",             (DL_FUNC) &zl_pbkdf2,             4},
     {NULL, NULL, 0}
 };
 

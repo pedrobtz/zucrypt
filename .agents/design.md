@@ -377,11 +377,12 @@ of Mbed TLS 4.1 LTS, which upstream supports until March 2029
   can be restricted to a tag pattern. That restriction is a follow-up in `r-actions` (#19).
 
 **The configuration** is `src/zuc_crypto_config.h`, which replaces upstream's configuration. It
-holds fourteen defines, each recorded in the manifest's `defines` column and cross-checked by
+holds sixteen defines, each recorded in the manifest's `defines` column and cross-checked by
 `tools/vendor/verify`:
 - SHA-1, SHA-256, SHA-384 and SHA-512;
 - HMAC and the HMAC key type;
 - CBC without padding, and the AES key type;
+- GCM and PBKDF2-HMAC (Stage 14a, #10, #12);
 - the PSA core;
 - external RNG;
 - `MBEDTLS_PSA_KEY_STORE_DYNAMIC`;
@@ -389,9 +390,9 @@ holds fourteen defines, each recorded in the manifest's `defines` column and cro
   needs on x86-64 (#51).
 
 Revision 3 swapped ECB-without-padding for the dynamic key store, and #51 added the three
-hardware-AES defines.
+hardware-AES defines, and Stage 14a the GCM and PBKDF2 ones.
 Nothing else is enabled:
-- no public-key cryptography, AEAD or key derivation;
+- no public-key cryptography, no AEAD but GCM and no key derivation but PBKDF2;
 - no X.509 or TLS;
 - no persistent key storage.
 
@@ -1041,6 +1042,8 @@ classes, keyed by C enumerator name, are:
 | `ZUC_ERR_ABI` | `zucrypt_abi_mismatch` |
 | `ZUC_ERR_INTERNAL` | `zucrypt_internal_error` |
 | `ZUC_ERR_NOT_READY` | `zucrypt_internal_error`. R initialises the backend in `R_init_zucrypt`, so from R this can only be a bug |
+| `ZUC_ERR_ENTROPY` | `zucrypt_entropy_error` (Stage 13a) |
+| `ZUC_ERR_AUTH` | `zucrypt_auth_error`: authenticated decryption failed, and no plaintext was released (Stage 14a) |
 | (none: raised in R) | `zucrypt_connection_error`: a connection given as `data` cannot be opened, or ran out of data before its end (#11) |
 
 **How the map and the conditions behave.**

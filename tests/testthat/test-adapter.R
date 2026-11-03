@@ -196,7 +196,7 @@ test_that("a call outside an initialised window is ZUC_ERR_NOT_READY", {
   expect_identical(got[["shutdown"]], "ZUC_OK")
   expect_identical(got[["init"]], "ZUC_OK")
   calls <- setdiff(names(got), c("shutdown", "init"))
-  expect_length(calls, 7L)
+  expect_length(calls, 10L)
   for (call in calls) {
     expect_identical(got[[call]], "ZUC_ERR_NOT_READY", info = call)
   }

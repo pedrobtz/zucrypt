@@ -8,7 +8,8 @@
 #
 #   - on each OS, the hardware path the runner's CPU must select, asserted
 #     through ZUCRYPT_EXPECT_AES (test-interface.R), and the whole suite --
-#     every published vector -- run on it;
+#     every published vector, the AES-GCM ones (test-aead.R) included --
+#     run on it;
 #   - on Linux, a build with ZUC_AES_SOFTWARE_ONLY (through
 #     ZUCRYPT_TEST_CPPFLAGS in src/Makevars), asserting "software" and
 #     running the suite on the fallback.
