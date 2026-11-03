@@ -54,6 +54,19 @@ and a 16-byte tag; a received tag of another length is `ZUC_ERR_AUTH`. `tools/ch
 is the outside oracle for `aead.tsv` and `kdf.tsv` (Python `cryptography` and `hashlib`; run
 it from a venv). 14b (ChaCha20-Poly1305, CTR, padded CBC, HKDF) follows 13b.
 
+**Stage 15a is done** (2026-11-03, #80): tranche 3 was admitted with `zujwt`
+as its workflow, and split. An opaque `zuc_pkey` holds RSA key material (PKCS#1
+DER) and imports it into PSA per operation, so one key serves every scheme
+and digest; twelve `zuc_pkey_*` functions and table fields. The R side is
+openssl-shaped: `crypt_read_key()`, `crypt_write_pem()`, `crypt_rsa_keygen()`,
+`crypt_signature_create()`, `crypt_rsa_encrypt()` and partners, plus
+`crypt_rsa_key()`/`as.list()` for JWK integers and `crypt_sha*()` (pulled
+forward from 13b, raw input only). Key objects are tagged external pointers;
+never strip their attributes, since an external pointer is not duplicated.
+`tools/make-rsa-kat.py` owns `rsa.tsv` and `rsa-keys.tsv` and their manifest
+rows; `make-kat.R` keeps rows other generators own. 15b (envelopes, SSH,
+fingerprints, bignum, encrypted PEM) follows.
+
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
 it in CI and fails on any difference, so never edit `README.md` by hand.
 
@@ -67,9 +80,11 @@ CRAN or security reviewer reads, and its facts (file counts, defines, sizes, pat
 updated whenever the vendored tree or its configuration changes. Their examples are executed when the site builds, so they must stay runnable with
 no `Suggests` beyond the website needs — mention openssl or sodium in prose, never in a chunk.
 
-The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports eleven `crypt_*` functions: the seven of design §7 (`crypt_hex()` joined the original
+The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from source, exports eleven core `crypt_*` functions: the seven of design §7 (`crypt_hex()` joined the original
 six in #59), `crypt_rand_bytes()` (Stage 13a, #9), and `crypt_aes_gcm_encrypt()`,
-`crypt_aes_gcm_decrypt()` and `crypt_pbkdf2()` (Stage 14a, #10, #12), and publishes both consumer shapes: the registered function
+`crypt_aes_gcm_decrypt()` and `crypt_pbkdf2()` (Stage 14a, #10, #12); and from Stage 15a
+fifteen openssl-style ones (the RSA key, signature and encryption functions and
+`crypt_sha1/256/384/512()`), and publishes both consumer shapes: the registered function
 table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the static archive (`libzucrypt.a`,
 which `src/install.libs.R` installs to the package's `lib${R_ARCH}/`, beside
 `licenses/tf-psa-crypto-LICENSE`; there is no `inst/lib/` in the sources). Stage 7 removed
@@ -134,8 +149,8 @@ provenance in `MANIFEST.tsv`; `Rscript tools/make-kat.R --check` recomputes ever
 `openssl` and fails on a mismatch.
 
 [.agents/stage-1-spike.md](.agents/stage-1-spike.md) records what the spike measured and every
-decision it settled — the pinned release, the configuration (now sixteen defines), the trim
-(now 22 objects, 115 files, since #51 added hardware AES and Stage 14a GCM; `aesce.c` is kept by hand because it
+decision it settled — the pinned release, the configuration (now thirty-three defines), the trim
+(now 37 objects, 144 files, since #51 added hardware AES, Stage 14a GCM and Stage 15a RSA and PK; `aesce.c` is kept by hand because it
 has symbols only on Arm) and how to re-derive it, the external-RNG choice, and the measurements. Read it before touching
 `src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.
 
@@ -266,7 +281,10 @@ Three surfaces are exposed:
 1. A small R surface: `crypt_info()`, `crypt_hash()`, `crypt_hmac()`, `crypt_hex()`,
    `crypt_equal()`, `crypt_rand_bytes()`, `crypt_aes_cbc_encrypt_nopad()` /
    `crypt_aes_cbc_decrypt_nopad()`, `crypt_aes_gcm_encrypt()` / `crypt_aes_gcm_decrypt()`,
-   `crypt_pbkdf2()`.
+   `crypt_pbkdf2()`; and the openssl-style layer so far: `crypt_read_key()`,
+   `crypt_read_pubkey()`, `crypt_write_pem()`, `crypt_write_der()`, `crypt_write_pkcs1()`,
+   `crypt_rsa_keygen()`, `crypt_rsa_key()`, `crypt_signature_create()` / `_verify()`,
+   `crypt_rsa_encrypt()` / `_decrypt()` and `crypt_sha1/256/384/512()`.
 2. A registered function table (`inst/include/zucrypt-r.h`, `zucrypt_api_v1`, resolved lazily
    via `zucrypt_get_api`) for consumers that can carry `Imports:` + `LinkingTo:` + a real
    `importFrom()`. `zuhttp` is the consumer this was *hoped* for, not a real one: its

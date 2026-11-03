@@ -114,7 +114,8 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 13b — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #16 | Stage 13a | |
 | 14a — AES-GCM and PBKDF2 | v0.3.0 | #10, #12 | Stage 13a | **done**, 2026-11-03 |
 | 14b — Tranche 2: the rest | v0.3.0 | new | Stages 13b and 14a | |
-| 15 — Tranche 3: key objects, PEM and DER, RSA | v0.4.0 | new | Stage 14 | |
+| 15a — RSA and key I/O | v0.4.0 | #80 | Stage 14a | **done**, 2026-11-03 |
+| 15b — Tranche 3: the rest | v0.4.0 | new | Stage 15a | |
 | 16 — Tranche 4: EC keys, ECDSA, ECDH, X25519 | v0.5.0 | new | Stage 15 | |
 | 17 — Tranche 5: certificates | v0.6.0 | new | Stage 16 | |
 | 18 — The TLS engine for zuhttp | next minor | new | Stage 17, and `zuhttp`'s trigger | |
@@ -618,6 +619,37 @@ each an error, no plaintext); the sweep reaches the AEAD adapter; `tools/zucrypt
 every new table entry; the archive fixture links the new `zuc_*` functions; CRAN 0.3.0.
 
 ## Stage 15 — Tranche 3 (candidate): key objects, PEM and DER, RSA
+
+**Admitted 2026-11-03** (design §6, criterion 5), ahead of the "once 0.3.0 has
+shipped" entry it states, and with the maintainer's agreement. The
+demonstrated workflow is `zujwt`: JOSE tokens for OAuth 2.0 and OpenID
+Connect, where `RS256` dominates, need RSA keys from JWK integers, PEM,
+PKCS#1 v1.5 and PSS signatures, and OAEP over SHA-1 and SHA-256 (#80
+lists them). Criteria 1–4 hold: RFC 8017, RFC 7515/7516 vectors, `openssl`
+and Python's `cryptography` as oracles, and the contract in `zucrypt.h`.
+
+**Split 2026-11-03 into 15a and 15b**, as Stages 13 and 14 were. 15a is what
+`zujwt` needs, and it shipped first:
+- the RSA and PK/PEM/ASN.1/Base64 defines, with the trim re-derived (15
+  sources and 14 headers added; 144 files) and measured (tarball 730 KB);
+- an opaque `zuc_pkey` holding key material, imported into the backend per
+  operation, so one key serves every scheme and digest; twelve `zuc_pkey_*`
+  functions, five `zuc_alg` values, twelve table fields;
+- `crypt_read_key()`, `crypt_read_pubkey()`, `crypt_write_pem()`,
+  `crypt_write_der()`, `crypt_write_pkcs1()`, `crypt_rsa_keygen()`,
+  `crypt_signature_create()`/`_verify()` and `crypt_rsa_encrypt()`/
+  `_decrypt()` with `openssl`'s arguments plus `pss` and `oaep_hash`; and
+  `crypt_rsa_key()` with `as.list()` for JWK integers, raw rather than
+  `bignum`;
+- `crypt_sha1/256/384/512()` pulled forward from 13b, raw input only, so
+  that `hash = crypt_sha256` mirrors openssl;
+- `tools/make-rsa-kat.py` and `rsa.tsv`, cross-reading and
+  cross-verification with `openssl`, and the allocation sweep over RSA
+  (its `max-allocations` raised to 4000).
+
+15b keeps envelopes, SSH formats, fingerprints, `crypt_bignum()`,
+password-encrypted PEM, and the gate and migration-article rows for the
+RSA functions. Nothing is released until 15b: 0.4.0 carries the tranche.
 
 Entry: the admission decision (design §6, criterion 5), recorded once 0.3.0 has shipped. The
 same holds for Stages 16 and 17, each after the stage before it.
