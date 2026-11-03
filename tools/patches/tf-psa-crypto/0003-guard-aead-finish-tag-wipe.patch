@@ -1,0 +1,42 @@
+Guard the tag wipe in psa_aead_finish() against a failed buffer copy
+
+psa_aead_finish() copies its two output buffers locally (LOCAL_OUTPUT_ALLOC)
+before doing anything else. When either allocation fails it jumps to `exit:`
+with the local `tag` pointer still NULL, and there calls
+
+    psa_wipe_tag_output_buffer(tag, status, tag_size, *tag_length);
+
+which returns early only for a zero `tag_size`, and otherwise memsets
+`tag_size` bytes at NULL. The result is a segfault instead of
+PSA_ERROR_INSUFFICIENT_MEMORY.
+
+zucrypt's allocation-failure sweep found it on its first run over AES-GCM
+(Stage 14a): failing the ninth allocation of a GCM encryption killed R with
+"address (nil), cause 'memory not mapped'", reproduced on macOS with an
+interposer whose backtrace put the failed calloc in
+psa_crypto_local_output_alloc() under psa_aead_finish().
+
+psa_mac_sign_finish() in the same file already guards its identical call with
+`if (mac != NULL)`. This patch adds the same guard here and nothing else.
+With it, that allocation failure returns PSA_ERROR_INSUFFICIENT_MEMORY, which
+the adapter reports as ZUC_ERR_MEMORY.
+
+Local, until upstream fixes it. Re-check on every release bump whether
+psa_aead_finish() still needs it.
+
+--- a/lib/psa_crypto.c
++++ b/lib/psa_crypto.c
+@@ -5606,7 +5606,12 @@
+      * Even if the operation succeeds, make sure we clear the rest of the
+      * buffer to prevent potential leakage of anything previously placed in
+      * the same buffer.*/
+-    psa_wipe_tag_output_buffer(tag, status, tag_size, *tag_length);
++    /* zucrypt: guarded as psa_mac_sign_finish() guards its own call. If a
++     * LOCAL_OUTPUT_ALLOC above fails, `tag` is still NULL here, and the
++     * unguarded wipe wrote tag_size bytes through it (0003). */
++    if (tag != NULL) {
++        psa_wipe_tag_output_buffer(tag, status, tag_size, *tag_length);
++    }
+ 
+     psa_aead_abort(operation);
+ 

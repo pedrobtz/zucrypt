@@ -71,7 +71,7 @@ applied by tools/vendor/fetch; no upstream file is edited in place. Each patch
 is listed in the manifest's `patches` column and named here, and
 tools/vendor/verify fails if those three records disagree.
 
-Two patches are applied:
+Three patches are applied:
 
     tools/patches/tf-psa-crypto/0001-avoid-zero-size-pubkey-array.patch
 
@@ -91,3 +91,11 @@ Two patches are applied:
         -Wextra or -pedantic, so the patch removes the pragmas and nothing
         else; the constant-time code and the zeroisation barrier are
         unchanged. The patch file carries the measurements.
+
+    tools/patches/tf-psa-crypto/0003-guard-aead-finish-tag-wipe.patch
+
+        lib/psa_crypto.c: when psa_aead_finish() cannot allocate its local
+        output copies, its cleanup wiped the tag through a NULL pointer. The
+        patch adds the NULL check that psa_mac_sign_finish() in the same file
+        already has, and nothing else. The patch file carries how it was
+        found.

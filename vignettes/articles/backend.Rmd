@@ -130,7 +130,7 @@ disagree.
 
 ## The patches
 
-`src/vendor/` is never edited in place. Two changes are applied as patches
+`src/vendor/` is never edited in place. Three changes are applied as patches
 from `tools/patches/tf-psa-crypto/`, each with its reason in its header:
 
 - **`0001-avoid-zero-size-pubkey-array.patch`.** With no public-key algorithm
@@ -143,6 +143,12 @@ from `tools/patches/tf-psa-crypto/`, each with its reason in its header:
   warning fires under the flags CRAN compiles with. The code they surround,
   including the constant-time functions and the zeroisation barrier, is
   unchanged.
+- **`0003-guard-aead-finish-tag-wipe.patch`.** When `psa_aead_finish()`
+  cannot allocate memory, its cleanup wrote through a NULL pointer, so an
+  out-of-memory condition during AES-GCM encryption crashed R instead of
+  raising `zucrypt_memory_error`. The patch adds the NULL check the same file
+  already has in `psa_mac_sign_finish()`. zucrypt's allocation-failure sweep
+  found it. It should go when upstream fixes the function.
 
 `lib/gcm.c`, vendored for AES-GCM, keeps one upstream
 `#pragma GCC diagnostic warning` block, around an XOR. R CMD check reports
