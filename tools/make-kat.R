@@ -254,6 +254,119 @@ aes_vectors <- function() {
   )
 }
 
+## AES-GCM: the test cases of McGrew and Viega, "The Galois/Counter Mode of
+## Operation (GCM)", revised 2005, appendix B, which NIST SP 800-38D cites --
+## every case with a 96-bit IV, the only length this package accepts. `tag`
+## is the full 128-bit tag. openssl's R GCM returns no tag and takes no
+## associated data, so cross_check() compares only the ciphertext of the
+## cases without it; tools/check-kat.py checks every tag against Python's
+## `cryptography`.
+GCM_K <- "feffe9928665731c6d6a8f9467308308"
+GCM_IV <- "cafebabefacedbaddecaf888"
+GCM_P <- paste0("d9313225f88406e5a55909c5aff5269a",
+                "86a7a9531534f7da2e4c303d8a318a72",
+                "1c3c0c95956809532fcf0e2449a6b525",
+                "b16aedf5aa0de657ba637b391aafd255")
+GCM_P60 <- substr(GCM_P, 1, 120)
+GCM_A <- "feedfacedeadbeeffeedfacedeadbeefabaddad2"
+
+aead_vectors <- function() {
+  z12 <- strrep("00", 12)
+  row <- function(algorithm, key, iv, aad, input, output, tag, case) {
+    data.frame(family = "aead", algorithm = algorithm, key = key, iv = iv,
+               aad = aad, input = input, output = output, tag = tag,
+               source = sprintf("GCM specification (McGrew-Viega), test case %d",
+                                case))
+  }
+  rbind(
+    row("aes-gcm", strrep("00", 16), z12, "", "", "",
+        "58e2fccefa7e3061367f1d57a4e7455a", 1),
+    row("aes-gcm", strrep("00", 16), z12, "", strrep("00", 16),
+        "0388dace60b6a392f328c2b971b2fe78",
+        "ab6e47d42cec13bdf53a67b21257bddf", 2),
+    row("aes-gcm", GCM_K, GCM_IV, "", GCM_P,
+        paste0("42831ec2217774244b7221b784d0d49c",
+               "e3aa212f2c02a4e035c17e2329aca12e",
+               "21d514b25466931c7d8f6a5aac84aa05",
+               "1ba30b396a0aac973d58e091473f5985"),
+        "4d5c2af327cd64a62cf35abd2ba6fab4", 3),
+    row("aes-gcm", GCM_K, GCM_IV, GCM_A, GCM_P60,
+        paste0("42831ec2217774244b7221b784d0d49c",
+               "e3aa212f2c02a4e035c17e2329aca12e",
+               "21d514b25466931c7d8f6a5aac84aa05",
+               "1ba30b396a0aac973d58e091"),
+        "5bc94fbc3221a5db94fae95ae7121a47", 4),
+    row("aes-gcm", strrep("00", 24), z12, "", "", "",
+        "cd33b28ac773f74ba00ed1f312572435", 7),
+    row("aes-gcm", strrep("00", 24), z12, "", strrep("00", 16),
+        "98e7247c07f0fe411c267e4384b0f600",
+        "2ff58d80033927ab8ef4d4587514f0fb", 8),
+    row("aes-gcm", strrep("00", 32), z12, "", "", "",
+        "530f8afbc74536b9a963b4f1c4cb738b", 13),
+    row("aes-gcm", strrep("00", 32), z12, "", strrep("00", 16),
+        "cea7403d4d606b6e074ec5d3baf39d18",
+        "d0d1c8a799996bf0265b98b5d48ab919", 14),
+    row("aes-gcm", paste0(GCM_K, GCM_K), GCM_IV, "", GCM_P,
+        paste0("522dc1f099567d07f47f37a32a84427d",
+               "643a8cdcbfe5c0c97598a2bd2555d1aa",
+               "8cb08e48590dbb3da7b08b1056828838",
+               "c5f61e6393ba7a0abcc9f662898015ad"),
+        "b094dac5d93471bdec1a502270e3cc6c", 15),
+    row("aes-gcm", paste0(GCM_K, GCM_K), GCM_IV, GCM_A, GCM_P60,
+        paste0("522dc1f099567d07f47f37a32a84427d",
+               "643a8cdcbfe5c0c97598a2bd2555d1aa",
+               "8cb08e48590dbb3da7b08b1056828838",
+               "c5f61e6393ba7a0abcc9f662"),
+        "76fc6ece0f4e1768cddf8853bb2d551b", 16)
+  )
+}
+
+## PBKDF2-HMAC. SHA-1 from RFC 6070 (all but case 4, whose 16,777,216
+## iterations take too long for a test suite), SHA-256 from RFC 7914
+## section 11. No standard publishes SHA-384 or SHA-512 vectors; those two
+## rows are computed with Python's hashlib.pbkdf2_hmac, an implementation
+## that shares no code with the backend, and say so in their source.
+PBKDF2_SHA384 <- paste0("559726be38db125bc85ed7895f6e3cf574c7a01c080c3447",
+                        "db1e8a76764deb3c307b94853fbe424f6488c5f4f1289626")
+PBKDF2_SHA512 <- paste0("d197b1b33db0143e018b12f3d1d1479e6cdebdcc97c5c0f87f6902e072f457b5",
+                        "143f30602641b3d55cd335988cb36b84376060ecd532e039b742a239434af2d5")
+
+kdf_vectors <- function() {
+  row <- function(algorithm, password, salt, iterations, output, source) {
+    data.frame(family = "pbkdf2", algorithm = algorithm, password = password,
+               salt = salt, iterations = iterations, output = output,
+               source = source)
+  }
+  pw <- hex("password")
+  salt <- hex("salt")
+  rbind(
+    row("sha1", pw, salt, 1, "0c60c80f961f0e71f3a9b524af6012062fe037a6",
+        "RFC 6070 test case 1"),
+    row("sha1", pw, salt, 2, "ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957",
+        "RFC 6070 test case 2"),
+    row("sha1", pw, salt, 4096, "4b007901b765489abead49d926f721d065a429c1",
+        "RFC 6070 test case 3"),
+    row("sha1", hex("passwordPASSWORDpassword"),
+        hex("saltSALTsaltSALTsaltSALTsaltSALTsalt"), 4096,
+        "3d2eec4fe41c849b80c8d83662c0e44a8b291a964cf2f07038",
+        "RFC 6070 test case 5"),
+    row("sha1", "7061737300776f7264", "7361006c74", 4096,
+        "56fa6aa75548099dcc37d7f03425e0c3", "RFC 6070 test case 6"),
+    row("sha256", hex("passwd"), salt, 1,
+        paste0("55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc",
+               "49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783"),
+        "RFC 7914 section 11, first PBKDF2-HMAC-SHA256 vector"),
+    row("sha256", hex("Password"), hex("NaCl"), 80000,
+        paste0("4ddcd8f60b98be21830cee5ef22701f9641a4418d04c0414aeff08876b34ab56",
+               "a1d425a1225833549adb841b51c9b3176a272bdebba1d078478f62b397f33c8d"),
+        "RFC 7914 section 11, second PBKDF2-HMAC-SHA256 vector"),
+    row("sha384", pw, salt, 4096, PBKDF2_SHA384,
+        "Python hashlib.pbkdf2_hmac (no published vector)"),
+    row("sha512", pw, salt, 4096, PBKDF2_SHA512,
+        "Python hashlib.pbkdf2_hmac (no published vector)")
+  )
+}
+
 ## --- helpers --------------------------------------------------------------
 
 hex <- function(x) paste(format(as.raw(utf8ToInt(x)), width = 2), collapse = "")
@@ -269,13 +382,23 @@ unhex <- function(x) {
   as.raw(strtoi(substring(x, seq(1, nchar(x), 2), seq(2, nchar(x), 2)), 16L))
 }
 
-all_vectors <- function() {
-  out <- rbind(hash_vectors(), hmac_vectors(), aes_vectors())
+with_ids <- function(out) {
   out$id <- sprintf("%s-%s-%02d", out$family, out$algorithm,
                     ave(seq_len(nrow(out)), out$family, out$algorithm,
                         FUN = seq_along))
+  out
+}
+
+all_vectors <- function() {
+  out <- with_ids(rbind(hash_vectors(), hmac_vectors(), aes_vectors()))
   out[, c("id", "family", "algorithm", "key", "iv", "input", "output", "source")]
 }
+
+## Each of these files has its own columns, so each is its own table.
+AEAD_COLUMNS <- c("id", "algorithm", "key", "iv", "aad", "input", "output",
+                  "tag")
+KDF_COLUMNS <- c("id", "algorithm", "password", "salt", "iterations",
+                 "output")
 
 ## Recompute every vector with openssl, which shares no code with the backend
 ## this package vendors. A wrong transcription fails here rather than looking
@@ -326,16 +449,48 @@ cross_check <- function(v) {
   invisible(checked)
 }
 
-write_fixtures <- function(v, dir) {
+## openssl's GCM returns the ciphertext without a tag and takes no
+## associated data, so only the ciphertext of the cases with no associated
+## data can be compared. The tags are tools/check-kat.py's.
+cross_check_aead <- function(v) {
+  if (!requireNamespace("openssl", quietly = TRUE)) {
+    return(invisible(0L))
+  }
+  checked <- 0L
+  for (i in seq_len(nrow(v))) {
+    row <- v[i, ]
+    if (nzchar(row$aad) || !nzchar(row$input)) next
+    got <- openssl::aes_gcm_encrypt(unhex(row$input), key = unhex(row$key),
+                                    iv = unhex(row$iv))
+    got <- paste(format(as.raw(got), width = 2), collapse = "")
+    if (!identical(got, row$output)) {
+      stop(sprintf("cross-check FAILED for %s\n  openssl:   %s\n  fixture:   %s",
+                   row$id, got, row$output), call. = FALSE)
+    }
+    checked <- checked + 1L
+  }
+  message(sprintf(paste0("cross-checked the ciphertext of %d of %d AEAD ",
+                         "vectors against openssl."), checked, nrow(v)))
+  invisible(checked)
+}
+
+write_fixtures <- function(v, aead, kdf, dir) {
   dir.create(dir, recursive = TRUE, showWarnings = FALSE)
-  utils::write.table(v[, c("id", "family", "algorithm", "key", "iv", "input",
-                           "output")],
-                     file.path(dir, "kat.tsv"),
-                     sep = "\t", quote = FALSE, row.names = FALSE)
-  manifest <- data.frame(file = "kat.tsv", id = v$id, source = v$source,
-                         generator = "tools/make-kat.R")
-  utils::write.table(manifest, file.path(dir, "MANIFEST.tsv"),
-                     sep = "\t", quote = FALSE, row.names = FALSE)
+  tsv <- function(x, file) {
+    utils::write.table(x, file.path(dir, file),
+                       sep = "\t", quote = FALSE, row.names = FALSE)
+  }
+  tsv(v[, c("id", "family", "algorithm", "key", "iv", "input", "output")],
+      "kat.tsv")
+  tsv(aead[, AEAD_COLUMNS], "aead.tsv")
+  tsv(kdf[, KDF_COLUMNS], "kdf.tsv")
+  manifest <- rbind(
+    data.frame(file = "kat.tsv", id = v$id, source = v$source),
+    data.frame(file = "aead.tsv", id = aead$id, source = aead$source),
+    data.frame(file = "kdf.tsv", id = kdf$id, source = kdf$source)
+  )
+  manifest$generator <- "tools/make-kat.R"
+  tsv(manifest, "MANIFEST.tsv")
 }
 
 ## --- main -----------------------------------------------------------------
@@ -343,19 +498,23 @@ write_fixtures <- function(v, dir) {
 main <- function(args) {
   check <- "--check" %in% args
   v <- all_vectors()
+  aead <- with_ids(aead_vectors())
+  kdf <- with_ids(kdf_vectors())
   cross_check(v)
+  cross_check_aead(aead)
 
   if (!check) {
-    write_fixtures(v, FIXTURES)
-    message(sprintf("wrote %s/kat.tsv (%d vectors) and MANIFEST.tsv",
-                    FIXTURES, nrow(v)))
+    write_fixtures(v, aead, kdf, FIXTURES)
+    message(sprintf(paste0("wrote %s/kat.tsv (%d vectors), aead.tsv (%d), ",
+                           "kdf.tsv (%d) and MANIFEST.tsv"),
+                    FIXTURES, nrow(v), nrow(aead), nrow(kdf)))
     return(invisible(TRUE))
   }
 
   tmp <- tempfile("kat-check-")
-  write_fixtures(v, tmp)
+  write_fixtures(v, aead, kdf, tmp)
   ok <- TRUE
-  for (f in c("kat.tsv", "MANIFEST.tsv")) {
+  for (f in c("kat.tsv", "aead.tsv", "kdf.tsv", "MANIFEST.tsv")) {
     a <- file.path(FIXTURES, f)
     if (!file.exists(a)) {
       message("MISSING ", a); ok <- FALSE; next

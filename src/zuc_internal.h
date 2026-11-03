@@ -30,6 +30,11 @@ zuc_status zuc_int_from_psa(psa_status_t status);
  * does that. */
 psa_algorithm_t zuc_int_psa_hash(zuc_alg alg);
 
+/* Non-zero if `alg` is a digest this build can run. The hash, HMAC and
+ * PBKDF2 functions check this rather than zuc_alg_available(), which is
+ * also true of ciphers. */
+int zuc_int_digest_available(zuc_alg alg);
+
 /* Do these two buffers overlap in a way that would corrupt the result?
  *
  * Returns 0 for disjoint buffers and for the exactly-equal case, which the

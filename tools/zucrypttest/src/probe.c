@@ -257,11 +257,14 @@ SEXP zucrypttest_exercise(void)
     }
 
     /* Utilities. ZUCRYPT_API_HAS is how a consumer tests for a field before
-     * calling it; random_bytes is the table's last field, so the test covers
+     * calling it; pbkdf2_hmac is the table's last field, so the test covers
      * the whole struct_size arithmetic. Every field this fixture calls is
      * present in the table it was built against, so it must say yes. */
     check(&f, ZUCRYPT_API_HAS(api, equal) && ZUCRYPT_API_HAS(api, secure_zero) &&
-              ZUCRYPT_API_HAS(api, random_bytes),
+              ZUCRYPT_API_HAS(api, random_bytes) &&
+              ZUCRYPT_API_HAS(api, aead_encrypt) &&
+              ZUCRYPT_API_HAS(api, aead_decrypt) &&
+              ZUCRYPT_API_HAS(api, pbkdf2_hmac),
           "ZUCRYPT_API_HAS denies a field the table has");
     check(&f, !ZUCRYPT_API_HAS((const zucrypt_api_v1 *) NULL, equal),
           "ZUCRYPT_API_HAS accepted a NULL table");
@@ -292,6 +295,49 @@ SEXP zucrypttest_exercise(void)
               "random_bytes returned the same bytes twice");
         check(&f, api->random_bytes(NULL, 16) == ZUC_ERR_INVALID_ARGUMENT,
               "random_bytes accepted a NULL buffer");
+    }
+
+    /* AES-GCM and PBKDF2, appended after ABI 1 (Stage 14a). The GCM
+     * specification's test case 2 (all-zero key, nonce and block) and
+     * RFC 6070's test case 2; then a flipped tag bit must be refused and the
+     * output wiped. */
+    {
+        static const uint8_t ct2[16] = {
+            0x03, 0x88, 0xda, 0xce, 0x60, 0xb6, 0xa3, 0x92,
+            0xf3, 0x28, 0xc2, 0xb9, 0x71, 0xb2, 0xfe, 0x78
+        };
+        static const uint8_t tag2[16] = {
+            0xab, 0x6e, 0x47, 0xd4, 0x2c, 0xec, 0x13, 0xbd,
+            0xf5, 0x3a, 0x67, 0xb2, 0x12, 0x57, 0xbd, 0xdf
+        };
+        static const uint8_t dk2[20] = {
+            0xea, 0x6c, 0x01, 0x4d, 0xc7, 0x2d, 0x6f, 0x8c, 0xcd, 0x1e,
+            0xd9, 0x2a, 0xce, 0x1d, 0x41, 0xf0, 0xd8, 0xde, 0x89, 0x57
+        };
+        uint8_t key[16] = {0}, nonce[12] = {0}, pt[16] = {0};
+        uint8_t ct[16], tag[16], back[16], dk[20];
+
+        check(&f, api->aead_encrypt(ZUC_ALG_AES_GCM, key, 16, nonce, 12,
+                                    NULL, 0, pt, 16, ct, tag, 16) == ZUC_OK &&
+                  memcmp(ct, ct2, 16) == 0 && memcmp(tag, tag2, 16) == 0,
+              "aead_encrypt does not reproduce GCM test case 2");
+        check(&f, api->aead_decrypt(ZUC_ALG_AES_GCM, key, 16, nonce, 12,
+                                    NULL, 0, ct, 16, tag, 16, back) == ZUC_OK &&
+                  memcmp(back, pt, 16) == 0,
+              "aead_decrypt does not reverse GCM test case 2");
+        tag[0] ^= 1;
+        memset(back, 0xA5, sizeof back);
+        check(&f, api->aead_decrypt(ZUC_ALG_AES_GCM, key, 16, nonce, 12,
+                                    NULL, 0, ct, 16, tag, 16, back) ==
+                      ZUC_ERR_AUTH &&
+                  back[0] == 0 && back[15] == 0,
+              "aead_decrypt accepted a flipped tag bit or left output behind");
+        check(&f, api->pbkdf2_hmac(ZUC_ALG_SHA1,
+                                   (const uint8_t *) "password", 8,
+                                   (const uint8_t *) "salt", 4, 2,
+                                   dk, sizeof dk) == ZUC_OK &&
+                  memcmp(dk, dk2, sizeof dk) == 0,
+              "pbkdf2_hmac does not reproduce RFC 6070 test case 2");
     }
 
     result = PROTECT(Rf_allocVector(STRSXP, f.n));

@@ -33,3 +33,22 @@ kat.tsv	hmac-sha512-04	RFC 4231 test case 7	tools/make-kat.R
 kat.tsv	aes-cbc-aes128-01	NIST SP 800-38A F.2.1 (CBC-AES128.Encrypt)	tools/make-kat.R
 kat.tsv	aes-cbc-aes192-01	NIST SP 800-38A F.2.3 (CBC-AES192.Encrypt)	tools/make-kat.R
 kat.tsv	aes-cbc-aes256-01	NIST SP 800-38A F.2.5 (CBC-AES256.Encrypt)	tools/make-kat.R
+aead.tsv	aead-aes-gcm-01	GCM specification (McGrew-Viega), test case 1	tools/make-kat.R
+aead.tsv	aead-aes-gcm-02	GCM specification (McGrew-Viega), test case 2	tools/make-kat.R
+aead.tsv	aead-aes-gcm-03	GCM specification (McGrew-Viega), test case 3	tools/make-kat.R
+aead.tsv	aead-aes-gcm-04	GCM specification (McGrew-Viega), test case 4	tools/make-kat.R
+aead.tsv	aead-aes-gcm-05	GCM specification (McGrew-Viega), test case 7	tools/make-kat.R
+aead.tsv	aead-aes-gcm-06	GCM specification (McGrew-Viega), test case 8	tools/make-kat.R
+aead.tsv	aead-aes-gcm-07	GCM specification (McGrew-Viega), test case 13	tools/make-kat.R
+aead.tsv	aead-aes-gcm-08	GCM specification (McGrew-Viega), test case 14	tools/make-kat.R
+aead.tsv	aead-aes-gcm-09	GCM specification (McGrew-Viega), test case 15	tools/make-kat.R
+aead.tsv	aead-aes-gcm-10	GCM specification (McGrew-Viega), test case 16	tools/make-kat.R
+kdf.tsv	pbkdf2-sha1-01	RFC 6070 test case 1	tools/make-kat.R
+kdf.tsv	pbkdf2-sha1-02	RFC 6070 test case 2	tools/make-kat.R
+kdf.tsv	pbkdf2-sha1-03	RFC 6070 test case 3	tools/make-kat.R
+kdf.tsv	pbkdf2-sha1-04	RFC 6070 test case 5	tools/make-kat.R
+kdf.tsv	pbkdf2-sha1-05	RFC 6070 test case 6	tools/make-kat.R
+kdf.tsv	pbkdf2-sha256-01	RFC 7914 section 11, first PBKDF2-HMAC-SHA256 vector	tools/make-kat.R
+kdf.tsv	pbkdf2-sha256-02	RFC 7914 section 11, second PBKDF2-HMAC-SHA256 vector	tools/make-kat.R
+kdf.tsv	pbkdf2-sha384-01	Python hashlib.pbkdf2_hmac (no published vector)	tools/make-kat.R
+kdf.tsv	pbkdf2-sha512-01	Python hashlib.pbkdf2_hmac (no published vector)	tools/make-kat.R

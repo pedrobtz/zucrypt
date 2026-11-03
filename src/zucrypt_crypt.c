@@ -496,6 +496,83 @@ SEXP zucrypt_rand_bytes(SEXP n)
     return res;
 }
 
+/* ------------------------------------------------------------------ *
+ * Authenticated encryption and key derivation (Stage 14a)
+ * ------------------------------------------------------------------ */
+
+/* AES-GCM, one-shot. R has checked every type and length: `data`, `key`
+ * and `iv` are raw with valid lengths, `aad` is raw or NULL, and for
+ * decryption `tag` is raw (any length; a wrong one is an authentication
+ * failure, which the adapter reports).
+ *
+ * There is no loop and no interrupt check: the adapter has no incremental
+ * AEAD (design.md section 6, "one-shot first"), so there is no native state
+ * to strand and nothing to own with an external pointer. The outputs are
+ * allocated before the call. On encryption the value is list(ciphertext,
+ * tag); on decryption the plaintext. On a failure the adapter has already
+ * zeroed what it wrote, and the value is NULL. */
+SEXP zucrypt_aes_gcm(SEXP data, SEXP key, SEXP iv, SEXP aad, SEXP tag,
+                     SEXP encrypt)
+{
+    size_t len = (size_t) XLENGTH(data);
+    const uint8_t *a = Rf_isNull(aad) ? NULL : (const uint8_t *) RAW(aad);
+    size_t aad_len = Rf_isNull(aad) ? 0 : (size_t) XLENGTH(aad);
+    SEXP out, value, res;
+    zuc_status st;
+
+    out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) len));
+    if (Rf_asLogical(encrypt) == TRUE) {
+        SEXP t = PROTECT(Rf_allocVector(RAWSXP, ZUC_GCM_TAG_SIZE));
+        st = zuc_aead_encrypt(ZUC_ALG_AES_GCM,
+                              RAW(key), (size_t) XLENGTH(key),
+                              RAW(iv), (size_t) XLENGTH(iv),
+                              a, aad_len,
+                              len ? RAW(data) : NULL, len,
+                              len ? RAW(out) : NULL,
+                              RAW(t), ZUC_GCM_TAG_SIZE);
+        value = PROTECT(Rf_allocVector(VECSXP, 2));
+        SET_VECTOR_ELT(value, 0, out);
+        SET_VECTOR_ELT(value, 1, t);
+        res = result(st, st == ZUC_OK ? value : R_NilValue);
+        UNPROTECT(3);
+        return res;
+    }
+    st = zuc_aead_decrypt(ZUC_ALG_AES_GCM,
+                          RAW(key), (size_t) XLENGTH(key),
+                          RAW(iv), (size_t) XLENGTH(iv),
+                          a, aad_len,
+                          len ? RAW(data) : NULL, len,
+                          RAW(tag), (size_t) XLENGTH(tag),
+                          len ? RAW(out) : NULL);
+    res = result(st, st == ZUC_OK ? out : R_NilValue);
+    UNPROTECT(1);
+    return res;
+}
+
+/* PBKDF2-HMAC. R has checked the types and ranges: `password` and `salt`
+ * raw, `iterations` a double holding a whole number in [1, 2^32 - 1],
+ * `size` a double holding a whole number >= 1, `algorithm` a digest name.
+ * One uninterruptible call; the documentation says so. */
+SEXP zucrypt_pbkdf2(SEXP password, SEXP salt, SEXP iterations, SEXP size,
+                    SEXP algorithm)
+{
+    size_t n = (size_t) REAL(size)[0];
+    zuc_alg alg = zuc_alg_by_name(CHAR(STRING_ELT(algorithm, 0)));
+    size_t plen = (size_t) XLENGTH(password), slen = (size_t) XLENGTH(salt);
+    SEXP out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) n));
+    SEXP res;
+    zuc_status st;
+
+    st = zuc_pbkdf2_hmac(alg,
+                         plen ? RAW(password) : NULL, plen,
+                         slen ? RAW(salt) : NULL, slen,
+                         (uint32_t) REAL(iterations)[0],
+                         RAW(out), n);
+    res = result(st, st == ZUC_OK ? out : R_NilValue);
+    UNPROTECT(1);
+    return res;
+}
+
 const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_hash",        (DL_FUNC) &zucrypt_hash,        2},
     {"zucrypt_hmac",        (DL_FUNC) &zucrypt_hmac,        3},
@@ -508,5 +585,7 @@ const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_stream_finish",   (DL_FUNC) &zucrypt_stream_finish,   1},
     {"zucrypt_algorithms",  (DL_FUNC) &zucrypt_algorithms,  0},
     {"zucrypt_rand_bytes",  (DL_FUNC) &zucrypt_rand_bytes,  1},
+    {"zucrypt_aes_gcm",     (DL_FUNC) &zucrypt_aes_gcm,     6},
+    {"zucrypt_pbkdf2",      (DL_FUNC) &zucrypt_pbkdf2,      5},
     {NULL, NULL, 0}
 };

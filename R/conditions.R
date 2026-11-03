@@ -79,7 +79,11 @@ zuc_status_class <- c(
   # The operating system's random source failed (#9). Its own class, not
   # zucrypt_backend_error: the cause is the machine, not this package, and a
   # caller may reasonably retry or report it differently.
-  ZUC_ERR_ENTROPY          = "zucrypt_entropy_error"
+  ZUC_ERR_ENTROPY          = "zucrypt_entropy_error",
+  # Authenticated decryption failed (Stage 14a). Its own class: it means the
+  # message, its tag, nonce, associated data or the key is wrong, and no
+  # plaintext was released.
+  ZUC_ERR_AUTH             = "zucrypt_auth_error"
 )
 
 # Raise the condition a native status maps to. Called only with a failing

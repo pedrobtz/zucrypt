@@ -67,4 +67,17 @@ stopifnot(identical(crypt_aes_cbc_decrypt_nopad(ciphertext, key, iv), data))
 
 stopifnot(crypt_equal(crypt_hash(data), crypt_hash(data)))
 
+## AES-GCM and PBKDF2 (Stage 14a). Neither keeps a handle, but each imports a
+## volatile key or builds a derivation in the backend per call, so a failure
+## can land in the key store, the AEAD setup or the derivation's HMAC, and
+## must come back as ZUC_ERR_MEMORY, never as a wrong ciphertext or key.
+nonce <- iv[1:12]
+sealed <- crypt_aes_gcm_encrypt(data, key, nonce, aad = iv)
+stopifnot(identical(crypt_aes_gcm_decrypt(sealed, key, aad = iv), data))
+derived <- crypt_pbkdf2(key, iv, iterations = 2, length = 40)
+stopifnot(identical(
+  derived,
+  crypt_pbkdf2(key, iv, iterations = 2, length = 40)
+))
+
 cat("ok\n")

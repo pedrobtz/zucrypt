@@ -12,9 +12,9 @@
  * disagree. Adding a line here without adding it there is the way a feature
  * silently joins the supported profile.
  *
- * Scope is design.md section 6: hashes, HMAC, and unauthenticated AES-CBC,
- * in hardware where the CPU allows (below).
- * No public-key cryptography, no AEAD, no key derivation, no X.509, no TLS.
+ * Scope is design.md section 6: hashes, HMAC, unauthenticated AES-CBC, in
+ * hardware where the CPU allows (below), and from Stage 14a AES-GCM and
+ * PBKDF2-HMAC. No public-key cryptography, no X.509, no TLS.
  * SHA-1 is present for Office compatibility only and is never a default for
  * a new format. ECB was here too, for Office Standard encryption; it left in
  * design revision 3 (#29) when that format left zuxlsx's scope.
@@ -40,6 +40,16 @@
  * tests would never reach. */
 #define PSA_WANT_ALG_CBC_NO_PADDING      1
 #define PSA_WANT_KEY_TYPE_AES            1
+
+/* AES-GCM, the AEAD of tranche 2 (design.md section 6, #10). The mode is
+ * GCM over the AES key type above; the adapter exposes it one-shot only,
+ * with the tag returned on encryption and verified before any plaintext is
+ * released on decryption (src/zuc_aead.c). */
+#define PSA_WANT_ALG_GCM                 1
+
+/* PBKDF2 with HMAC as the PRF (RFC 8018, #12), over the digests above,
+ * through the backend's key-derivation interface. */
+#define PSA_WANT_ALG_PBKDF2_HMAC         1
 
 #define MBEDTLS_PSA_CRYPTO_C             1
 
