@@ -64,7 +64,11 @@ openssl-shaped: `crypt_read_key()`, `crypt_write_pem()`, `crypt_rsa_keygen()`,
 forward from 13b, raw input only). Key objects are tagged external pointers;
 never strip their attributes, since an external pointer is not duplicated.
 `tools/make-rsa-kat.py` owns `rsa.tsv` and `rsa-keys.tsv` and their manifest
-rows; `make-kat.R` keeps rows other generators own. 15b (envelopes, SSH,
+rows; `make-kat.R` keeps rows other generators own. The backend allocates
+through `zuc_int_calloc()` (`MBEDTLS_PLATFORM_CALLOC_MACRO`), which records a
+NULL return; the `zuc_pkey_*` entry points report any failure after one as
+`ZUC_ERR_MEMORY`, because bignum and ASN.1 code turns allocation failures into
+"invalid key" and the like. 15b (envelopes, SSH,
 fingerprints, bignum, encrypted PEM) follows.
 
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`); `readme.yaml` re-renders
@@ -149,7 +153,7 @@ provenance in `MANIFEST.tsv`; `Rscript tools/make-kat.R --check` recomputes ever
 `openssl` and fails on a mismatch.
 
 [.agents/stage-1-spike.md](.agents/stage-1-spike.md) records what the spike measured and every
-decision it settled — the pinned release, the configuration (now thirty-three defines), the trim
+decision it settled — the pinned release, the configuration (now thirty-six defines), the trim
 (now 37 objects, 144 files, since #51 added hardware AES, Stage 14a GCM and Stage 15a RSA and PK; `aesce.c` is kept by hand because it
 has symbols only on Arm) and how to re-derive it, the external-RNG choice, and the measurements. Read it before touching
 `src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.

@@ -83,6 +83,21 @@
 
 #define MBEDTLS_PSA_CRYPTO_C             1
 
+/* The backend allocates through zuc_int_calloc() (src/zuc_util.c), which is
+ * calloc() that remembers whether it returned NULL. The adapter needs that
+ * because the backend does not reliably say so itself: inside bignum, ASN.1
+ * and RSA code an allocation failure can surface as "invalid key",
+ * "invalid argument" or "RNG failed" (Stage 15a's allocation sweep showed
+ * 669 of 2,000 that way). The RSA functions in src/zuc_pkey.c report any
+ * failure that followed a failed allocation as ZUC_ERR_MEMORY instead. Free
+ * is the C library's. Defining these replaces no upstream file: platform.h
+ * maps mbedtls_calloc and mbedtls_free onto the two macros. */
+#include <stddef.h>
+void *zuc_int_calloc(size_t n, size_t size);
+#define MBEDTLS_PLATFORM_MEMORY
+#define MBEDTLS_PLATFORM_CALLOC_MACRO    zuc_int_calloc
+#define MBEDTLS_PLATFORM_FREE_MACRO      free
+
 /* A key store that grows. Without this, upstream's static store has 32 slots
  * (MBEDTLS_PSA_KEY_SLOT_COUNT), shared by every live zuc_aes and zuc_hmac in
  * the process -- including, in zucrypt.so, every table consumer's -- and the

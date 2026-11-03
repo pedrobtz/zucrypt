@@ -68,6 +68,10 @@
   15 upstream sources and 14 headers: 144 vendored files, 37 compiled.
   Measured on macOS x86-64, the source tarball grew to 730 KB, `zucrypt.so`
   to 536 KB and `libzucrypt.a` to 1.3 MB.
+* The backend allocates through `zuc_int_calloc()`, which records a failed
+  allocation. The RSA functions report any failure that followed one as
+  `ZUC_ERR_MEMORY`: inside bignum and ASN.1 code an allocation failure
+  otherwise surfaced as an invalid key, a bad argument or an RNG failure.
 * `tools/make-rsa-kat.py` extracts the RFC 7515 A.2 and RFC 7516 A.1 and A.2
   vectors and generates PSS and OAEP ones, and checks them all against
   Python's `cryptography`; the tests cross-verify with `openssl` 2.4.2.

@@ -59,6 +59,7 @@ Upstream's configuration header is replaced entirely by
 | `PSA_WANT_ALG_RSA_PKCS1V15_SIGN`, `_RSA_PSS` | `crypt_signature_create()` and `_verify()` |
 | `PSA_WANT_ALG_RSA_OAEP`, `_RSA_PKCS1V15_CRYPT` | `crypt_rsa_encrypt()` and `_decrypt()` |
 | `MBEDTLS_PK_C`, `_PK_PARSE_C`, `_PK_WRITE_C`, `_ASN1_PARSE_C`, `_ASN1_WRITE_C`, `_BASE64_C`, `_PEM_PARSE_C`, `_PEM_WRITE_C` | Reading and writing keys as PEM and DER |
+| `MBEDTLS_PLATFORM_MEMORY`, `_PLATFORM_CALLOC_MACRO`, `_PLATFORM_FREE_MACRO` | The backend allocates through zucrypt's `calloc()` wrapper, which notices a failed allocation, so that running out of memory is reported as `zucrypt_memory_error` rather than as whatever error the backend turned it into |
 | `MBEDTLS_PSA_CRYPTO_C` | The PSA API everything above goes through |
 | `MBEDTLS_PSA_KEY_STORE_DYNAMIC` | A key store that grows with the number of live handles, rather than failing at a fixed slot count |
 | `MBEDTLS_AESNI_C`, `MBEDTLS_AESCE_C`, `MBEDTLS_HAVE_ASM` | Hardware AES where the CPU has it (below) |

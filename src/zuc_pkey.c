@@ -34,6 +34,30 @@ struct zuc_pkey {
     size_t   der_len;
 };
 
+/* The operations, defined below and exported through the wrappers at the
+ * end of this file. */
+static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key,
+                                  zuc_pkey **out);
+static zuc_status pkey_generate_impl(zuc_alg type, size_t bits, zuc_pkey **out);
+static zuc_status pkey_public_impl(const zuc_pkey *key, zuc_pkey **out);
+static zuc_status pkey_write_impl(const zuc_pkey *key, zuc_pkey_format format,
+                                  int public_only,
+                                  uint8_t *out, size_t out_size, size_t *out_len);
+static zuc_status pkey_sign_hash_impl(const zuc_pkey *key, zuc_alg scheme,
+                                      zuc_alg hash,
+                                      const uint8_t *digest, size_t digest_len,
+                                      uint8_t *sig, size_t sig_size, size_t *sig_len);
+static zuc_status pkey_verify_hash_impl(const zuc_pkey *key, zuc_alg scheme,
+                                        zuc_alg hash,
+                                        const uint8_t *digest, size_t digest_len,
+                                        const uint8_t *sig, size_t sig_len);
+static zuc_status pkey_encrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
+                                    const uint8_t *in, size_t len,
+                                    uint8_t *out, size_t out_size, size_t *out_len);
+static zuc_status pkey_decrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
+                                    const uint8_t *in, size_t len,
+                                    uint8_t *out, size_t out_size, size_t *out_len);
+
 /* ------------------------------------------------------------------ *
  * Handles
  * ------------------------------------------------------------------ */
@@ -182,8 +206,8 @@ static zuc_status parse_status(int ret)
     }
 }
 
-zuc_status zuc_pkey_parse(const uint8_t *in, size_t len, int private_key,
-                          zuc_pkey **out)
+static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key,
+                                  zuc_pkey **out)
 {
     mbedtls_pk_context pk;
     psa_key_attributes_t attr = psa_key_attributes_init();
@@ -274,7 +298,7 @@ zuc_status zuc_pkey_parse(const uint8_t *in, size_t len, int private_key,
     return st;
 }
 
-zuc_status zuc_pkey_generate(zuc_alg type, size_t bits, zuc_pkey **out)
+static zuc_status pkey_generate_impl(zuc_alg type, size_t bits, zuc_pkey **out)
 {
     psa_key_attributes_t attr = psa_key_attributes_init();
     psa_key_id_t id = 0;
@@ -307,7 +331,7 @@ zuc_status zuc_pkey_generate(zuc_alg type, size_t bits, zuc_pkey **out)
     return st;
 }
 
-zuc_status zuc_pkey_public(const zuc_pkey *key, zuc_pkey **out)
+static zuc_status pkey_public_impl(const zuc_pkey *key, zuc_pkey **out)
 {
     psa_key_id_t id = 0;
     zuc_status st;
@@ -351,7 +375,7 @@ static zuc_status public_der(const zuc_pkey *key, uint8_t **der,
         *der_len = key->der_len;
         return ZUC_OK;
     }
-    st = zuc_pkey_public(key, &pub);
+    st = pkey_public_impl(key, &pub);
     if (st != ZUC_OK) {
         return st;
     }
@@ -464,9 +488,9 @@ static zuc_status spki_der(const zuc_pkey *key, uint8_t **out,
     return ZUC_OK;
 }
 
-zuc_status zuc_pkey_write(const zuc_pkey *key, zuc_pkey_format format,
-                          int public_only,
-                          uint8_t *out, size_t out_size, size_t *out_len)
+static zuc_status pkey_write_impl(const zuc_pkey *key, zuc_pkey_format format,
+                                  int public_only,
+                                  uint8_t *out, size_t out_size, size_t *out_len)
 {
     const int private_out = key != NULL && key->is_private && !public_only;
     const char *label;
@@ -575,10 +599,10 @@ static psa_algorithm_t sign_alg(zuc_alg scheme, zuc_alg hash)
     return 0;
 }
 
-zuc_status zuc_pkey_sign_hash(const zuc_pkey *key, zuc_alg scheme,
-                              zuc_alg hash,
-                              const uint8_t *digest, size_t digest_len,
-                              uint8_t *sig, size_t sig_size, size_t *sig_len)
+static zuc_status pkey_sign_hash_impl(const zuc_pkey *key, zuc_alg scheme,
+                                      zuc_alg hash,
+                                      const uint8_t *digest, size_t digest_len,
+                                      uint8_t *sig, size_t sig_size, size_t *sig_len)
 {
     psa_algorithm_t alg;
     psa_key_id_t id = 0;
@@ -618,10 +642,10 @@ zuc_status zuc_pkey_sign_hash(const zuc_pkey *key, zuc_alg scheme,
     return ZUC_OK;
 }
 
-zuc_status zuc_pkey_verify_hash(const zuc_pkey *key, zuc_alg scheme,
-                                zuc_alg hash,
-                                const uint8_t *digest, size_t digest_len,
-                                const uint8_t *sig, size_t sig_len)
+static zuc_status pkey_verify_hash_impl(const zuc_pkey *key, zuc_alg scheme,
+                                        zuc_alg hash,
+                                        const uint8_t *digest, size_t digest_len,
+                                        const uint8_t *sig, size_t sig_len)
 {
     psa_algorithm_t alg;
     psa_key_id_t id = 0;
@@ -680,9 +704,9 @@ static psa_algorithm_t crypt_alg(zuc_alg scheme, zuc_alg hash)
     return 0;
 }
 
-zuc_status zuc_pkey_encrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
-                            const uint8_t *in, size_t len,
-                            uint8_t *out, size_t out_size, size_t *out_len)
+static zuc_status pkey_encrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
+                                    const uint8_t *in, size_t len,
+                                    uint8_t *out, size_t out_size, size_t *out_len)
 {
     static const uint8_t none = 0;
     psa_algorithm_t alg;
@@ -725,9 +749,9 @@ zuc_status zuc_pkey_encrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
     return ZUC_OK;
 }
 
-zuc_status zuc_pkey_decrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
-                            const uint8_t *in, size_t len,
-                            uint8_t *out, size_t out_size, size_t *out_len)
+static zuc_status pkey_decrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
+                                    const uint8_t *in, size_t len,
+                                    uint8_t *out, size_t out_size, size_t *out_len)
 {
     psa_algorithm_t alg;
     psa_key_id_t id = 0;
@@ -768,4 +792,75 @@ zuc_status zuc_pkey_decrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
                                                    : ZUC_ERR_AUTH;
     }
     return ZUC_OK;
+}
+
+/* ------------------------------------------------------------------ *
+ * The public entry points
+ * ------------------------------------------------------------------ */
+
+/* Each operation runs under the allocation watch (zuc_internal.h): a
+ * failure that followed a failed allocation inside the backend is
+ * ZUC_ERR_MEMORY, never the "invalid key" or "bad padding" the backend may
+ * have turned it into. Internal calls use the _impl functions, so that a
+ * nested call does not clear the watch. */
+
+zuc_status zuc_pkey_parse(const uint8_t *in, size_t len, int private_key,
+                          zuc_pkey **out)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_parse_impl(in, len, private_key, out));
+}
+
+zuc_status zuc_pkey_generate(zuc_alg type, size_t bits, zuc_pkey **out)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_generate_impl(type, bits, out));
+}
+
+zuc_status zuc_pkey_public(const zuc_pkey *key, zuc_pkey **out)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_public_impl(key, out));
+}
+
+zuc_status zuc_pkey_write(const zuc_pkey *key, zuc_pkey_format format,
+                          int public_only,
+                          uint8_t *out, size_t out_size, size_t *out_len)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_write_impl(key, format, public_only, out, out_size, out_len));
+}
+
+zuc_status zuc_pkey_sign_hash(const zuc_pkey *key, zuc_alg scheme,
+                              zuc_alg hash,
+                              const uint8_t *digest, size_t digest_len,
+                              uint8_t *sig, size_t sig_size, size_t *sig_len)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_sign_hash_impl(key, scheme, hash, digest, digest_len, sig, sig_size, sig_len));
+}
+
+zuc_status zuc_pkey_verify_hash(const zuc_pkey *key, zuc_alg scheme,
+                                zuc_alg hash,
+                                const uint8_t *digest, size_t digest_len,
+                                const uint8_t *sig, size_t sig_len)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_verify_hash_impl(key, scheme, hash, digest, digest_len, sig, sig_len));
+}
+
+zuc_status zuc_pkey_encrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
+                            const uint8_t *in, size_t len,
+                            uint8_t *out, size_t out_size, size_t *out_len)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_encrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
+}
+
+zuc_status zuc_pkey_decrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
+                            const uint8_t *in, size_t len,
+                            uint8_t *out, size_t out_size, size_t *out_len)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_decrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
 }

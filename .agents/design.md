@@ -377,13 +377,15 @@ of Mbed TLS 4.1 LTS, which upstream supports until March 2029
   can be restricted to a tag pattern. That restriction is a follow-up in `r-actions` (#19).
 
 **The configuration** is `src/zuc_crypto_config.h`, which replaces upstream's configuration. It
-holds thirty-three defines, each recorded in the manifest's `defines` column and cross-checked by
+holds thirty-six defines, each recorded in the manifest's `defines` column and cross-checked by
 `tools/vendor/verify`:
 - SHA-1, SHA-256, SHA-384 and SHA-512;
 - HMAC and the HMAC key type;
 - CBC without padding, and the AES key type;
 - GCM and PBKDF2-HMAC (Stage 14a, #10, #12);
 - RSA keys and its four schemes, and the PK, PEM, ASN.1 and Base64 modules (Stage 15a, #80);
+- the backend's allocator, `zuc_int_calloc()`, which records a failed allocation so that the
+  adapter can report it as `ZUC_ERR_MEMORY` (Stage 15a);
 - the PSA core;
 - external RNG;
 - `MBEDTLS_PSA_KEY_STORE_DYNAMIC`;
