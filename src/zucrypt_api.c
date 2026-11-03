@@ -72,6 +72,19 @@ static void fill_api(void)
     api.aead_decrypt = zuc_aead_decrypt;
     api.pbkdf2_hmac  = zuc_pbkdf2_hmac;
 
+    api.pkey_parse       = zuc_pkey_parse;
+    api.pkey_generate    = zuc_pkey_generate;
+    api.pkey_public      = zuc_pkey_public;
+    api.pkey_free        = zuc_pkey_free;
+    api.pkey_type        = zuc_pkey_type;
+    api.pkey_bits        = zuc_pkey_bits;
+    api.pkey_is_private  = zuc_pkey_is_private;
+    api.pkey_write       = zuc_pkey_write;
+    api.pkey_sign_hash   = zuc_pkey_sign_hash;
+    api.pkey_verify_hash = zuc_pkey_verify_hash;
+    api.pkey_encrypt     = zuc_pkey_encrypt;
+    api.pkey_decrypt     = zuc_pkey_decrypt;
+
     api_ready = 1;
 }
 

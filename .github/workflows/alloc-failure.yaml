@@ -31,8 +31,11 @@ jobs:
       baseline-run: R_ENABLE_JIT=0 Rscript tools/alloc-exercise.R --baseline
 
       # The whole window. It was 192 allocations when measured on 2026-09-25
-      # (rocker/r-ver, R 4.6.1); the cap is headroom, not a sample.
-      max-allocations: 2000
+      # (rocker/r-ver, R 4.6.1); the cap is headroom, not a sample. RSA
+      # (Stage 15a) took it to about 2,000 on macOS, 2026-11-03, and Linux
+      # allocates more for the same work, so the cap is 4000: a window cut
+      # short would leave the workload's tail unswept and say nothing.
+      max-allocations: 4000
 
       # What makes this "behaved" rather than "did not crash". Surviving a
       # failed allocation while returning a truncated digest would pass a

@@ -44,6 +44,20 @@ data <- as.raw(rep(seq.int(0L, 255L), length.out = 4096L))
 key <- as.raw(rep(0x2b, 32))
 iv <- as.raw(seq.int(0L, 15L))
 
+## RSA (Stage 15a): a fixed key's integers from the fixtures, never a
+## generated one. Generation searches for primes, so its allocation count
+## differs from run to run, and every sweep position would shift with it.
+rsa_parts <- utils::read.delim(
+  file.path("tests", "testthat", "fixtures", "rsa-keys.tsv"),
+  colClasses = "character"
+)
+rsa_parts <- rsa_parts[rsa_parts$id == "rfc7515-a2", ]
+unhex <- function(x) {
+  as.raw(strtoi(substring(x, seq(1, nchar(x), 2), seq(2, nchar(x), 2)), 16L))
+}
+rsa_parts <- lapply(rsa_parts[c("n", "e", "d", "p", "q", "dp", "dq", "qi")],
+                    unhex)
+
 if (baseline) quit(save = "no")
 
 ## --- workload: what the sweep fails allocations in -------------------------
@@ -74,6 +88,20 @@ stopifnot(crypt_equal(crypt_hash(data), crypt_hash(data)))
 nonce <- iv[1:12]
 sealed <- crypt_aes_gcm_encrypt(data, key, nonce, aad = iv)
 stopifnot(identical(crypt_aes_gcm_decrypt(sealed, key, aad = iv), data))
+## RSA (Stage 15a): building, encoding and reading a key, both signature
+## schemes and OAEP. Every bignum the backend allocates is in the window.
+rsa <- do.call(crypt_rsa_key, unname(rsa_parts))
+pem <- crypt_write_pem(rsa)
+stopifnot(identical(crypt_write_der(crypt_read_key(pem)), crypt_write_der(rsa)))
+for (pss in c(FALSE, TRUE)) {
+  sig <- crypt_signature_create(data, crypt_sha256, rsa, pss = pss)
+  stopifnot(crypt_signature_verify(data, sig, crypt_sha256, rsa, pss = pss))
+}
+sealed_key <- crypt_rsa_encrypt(key, rsa, oaep = TRUE, oaep_hash = "sha256")
+stopifnot(identical(
+  crypt_rsa_decrypt(sealed_key, rsa, oaep = TRUE, oaep_hash = "sha256"),
+  key
+))
 derived <- crypt_pbkdf2(key, iv, iterations = 2, length = 40)
 stopifnot(identical(
   derived,

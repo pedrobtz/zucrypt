@@ -490,6 +490,14 @@ write_fixtures <- function(v, aead, kdf, dir) {
     data.frame(file = "kdf.tsv", id = kdf$id, source = kdf$source)
   )
   manifest$generator <- "tools/make-kat.R"
+  # Rows other generators own (tools/make-rsa-kat.py) are kept as they are,
+  # after this generator's.
+  current <- file.path(FIXTURES, "MANIFEST.tsv")
+  if (file.exists(current)) {
+    others <- utils::read.delim(current, colClasses = "character")
+    others <- others[others$generator != "tools/make-kat.R", , drop = FALSE]
+    manifest <- rbind(manifest, others)
+  }
   tsv(manifest, "MANIFEST.tsv")
 }
 

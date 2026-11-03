@@ -573,6 +573,205 @@ SEXP zucrypt_pbkdf2(SEXP password, SEXP salt, SEXP iterations, SEXP size,
     return res;
 }
 
+/* ------------------------------------------------------------------ *
+ * Public keys (Stage 15a)
+ * ------------------------------------------------------------------ */
+
+/* Key objects are external pointers tagged with this symbol, so a pointer
+ * from anywhere else is refused rather than dereferenced. The pointer is
+ * created first and owns the handle from the moment it exists; a key
+ * restored by readRDS() has a NULL address and is refused too. */
+static SEXP pkey_tag(void)
+{
+    static SEXP tag = NULL;
+    if (tag == NULL) tag = Rf_install("zucrypt_pkey");
+    return tag;
+}
+
+static void pkey_finalizer(SEXP ptr)
+{
+    zuc_pkey *key = (zuc_pkey *) R_ExternalPtrAddr(ptr);
+    if (key != NULL) {
+        zuc_pkey_free(key);
+        R_ClearExternalPtr(ptr);
+    }
+}
+
+static SEXP pkey_ptr(void)
+{
+    SEXP ptr = PROTECT(R_MakeExternalPtr(NULL, pkey_tag(), R_NilValue));
+    R_RegisterCFinalizerEx(ptr, pkey_finalizer, TRUE);
+    UNPROTECT(1);
+    return ptr;
+}
+
+static const zuc_pkey *pkey_get(SEXP ptr)
+{
+    if (TYPEOF(ptr) != EXTPTRSXP || R_ExternalPtrTag(ptr) != pkey_tag()) {
+        return NULL;
+    }
+    return (const zuc_pkey *) R_ExternalPtrAddr(ptr);
+}
+
+/* Finish a constructor: on success the handle moves into the pointer. */
+static SEXP pkey_result(zuc_status st, SEXP ptr, zuc_pkey *key)
+{
+    SEXP res;
+    if (st == ZUC_OK) {
+        R_SetExternalPtrAddr(ptr, key);
+    }
+    res = result(st, st == ZUC_OK ? ptr : R_NilValue);
+    return res;
+}
+
+SEXP zucrypt_pkey_parse(SEXP data, SEXP private_key)
+{
+    SEXP ptr = PROTECT(pkey_ptr()), res;
+    zuc_pkey *key = NULL;
+    zuc_status st = zuc_pkey_parse(RAW(data), (size_t) XLENGTH(data),
+                                   Rf_asLogical(private_key) == TRUE, &key);
+    res = pkey_result(st, ptr, key);
+    UNPROTECT(1);
+    return res;
+}
+
+SEXP zucrypt_pkey_generate(SEXP bits)
+{
+    SEXP ptr = PROTECT(pkey_ptr()), res;
+    zuc_pkey *key = NULL;
+    zuc_status st = zuc_pkey_generate(ZUC_ALG_RSA, (size_t) REAL(bits)[0],
+                                      &key);
+    res = pkey_result(st, ptr, key);
+    UNPROTECT(1);
+    return res;
+}
+
+SEXP zucrypt_pkey_public(SEXP ptr)
+{
+    const zuc_pkey *key = pkey_get(ptr);
+    SEXP out = PROTECT(pkey_ptr()), res;
+    zuc_pkey *pub = NULL;
+    zuc_status st = key == NULL ? ZUC_ERR_INVALID_ARGUMENT
+                                : zuc_pkey_public(key, &pub);
+    res = pkey_result(st, out, pub);
+    UNPROTECT(1);
+    return res;
+}
+
+/* list(status, value = list(type, bits, private)), so that a stale or
+ * foreign pointer is a condition like any other. */
+SEXP zucrypt_pkey_info(SEXP ptr)
+{
+    const zuc_pkey *key = pkey_get(ptr);
+    SEXP value, nms, res;
+
+    if (key == NULL) {
+        return result(ZUC_ERR_INVALID_ARGUMENT, R_NilValue);
+    }
+    value = PROTECT(Rf_allocVector(VECSXP, 3));
+    nms = PROTECT(Rf_allocVector(STRSXP, 3));
+    SET_VECTOR_ELT(value, 0, Rf_mkString(zuc_alg_name(zuc_pkey_type(key))));
+    SET_VECTOR_ELT(value, 1, Rf_ScalarReal((double) zuc_pkey_bits(key)));
+    SET_VECTOR_ELT(value, 2, Rf_ScalarLogical(zuc_pkey_is_private(key)));
+    SET_STRING_ELT(nms, 0, Rf_mkChar("type"));
+    SET_STRING_ELT(nms, 1, Rf_mkChar("bits"));
+    SET_STRING_ELT(nms, 2, Rf_mkChar("private"));
+    Rf_setAttrib(value, R_NamesSymbol, nms);
+    res = result(ZUC_OK, value);
+    UNPROTECT(2);
+    return res;
+}
+
+/* Output sized for the worst case, then trimmed to what was written. */
+static SEXP trimmed(zuc_status st, SEXP buf, size_t len)
+{
+    SEXP out, res;
+    if (st != ZUC_OK) {
+        zuc_secure_zero(RAW(buf), (size_t) XLENGTH(buf));
+        return result(st, R_NilValue);
+    }
+    out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) len));
+    if (len) memcpy(RAW(out), RAW(buf), len);
+    zuc_secure_zero(RAW(buf), (size_t) XLENGTH(buf));
+    res = result(st, out);
+    UNPROTECT(1);
+    return res;
+}
+
+SEXP zucrypt_pkey_write(SEXP ptr, SEXP format, SEXP public_only)
+{
+    const zuc_pkey *key = pkey_get(ptr);
+    SEXP buf = PROTECT(Rf_allocVector(RAWSXP, ZUC_PKEY_MAX_WRITE_SIZE)), res;
+    size_t len = 0;
+    zuc_status st = key == NULL
+        ? ZUC_ERR_INVALID_ARGUMENT
+        : zuc_pkey_write(key, (zuc_pkey_format) Rf_asInteger(format),
+                         Rf_asLogical(public_only) == TRUE,
+                         RAW(buf), (size_t) XLENGTH(buf), &len);
+    res = trimmed(st, buf, len);
+    UNPROTECT(1);
+    return res;
+}
+
+/* `scheme` and `hash` arrive as zuc_alg names R has checked. */
+static zuc_alg alg_arg(SEXP name)
+{
+    return Rf_isNull(name) ? ZUC_ALG_NONE
+                           : zuc_alg_by_name(CHAR(STRING_ELT(name, 0)));
+}
+
+SEXP zucrypt_pkey_sign(SEXP ptr, SEXP scheme, SEXP hash, SEXP digest)
+{
+    const zuc_pkey *key = pkey_get(ptr);
+    size_t cap = key == NULL ? 1 : zuc_pkey_bits(key) / 8 + 1, len = 0;
+    SEXP buf = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) cap)), res;
+    zuc_status st = key == NULL
+        ? ZUC_ERR_INVALID_ARGUMENT
+        : zuc_pkey_sign_hash(key, alg_arg(scheme), alg_arg(hash),
+                             RAW(digest), (size_t) XLENGTH(digest),
+                             RAW(buf), cap, &len);
+    res = trimmed(st, buf, len);
+    UNPROTECT(1);
+    return res;
+}
+
+SEXP zucrypt_pkey_verify(SEXP ptr, SEXP scheme, SEXP hash, SEXP digest,
+                         SEXP sig)
+{
+    const zuc_pkey *key = pkey_get(ptr);
+    size_t sig_len = (size_t) XLENGTH(sig);
+    zuc_status st = key == NULL
+        ? ZUC_ERR_INVALID_ARGUMENT
+        : zuc_pkey_verify_hash(key, alg_arg(scheme), alg_arg(hash),
+                               RAW(digest), (size_t) XLENGTH(digest),
+                               sig_len ? RAW(sig) : NULL, sig_len);
+    return result(st, st == ZUC_OK ? Rf_ScalarLogical(TRUE) : R_NilValue);
+}
+
+SEXP zucrypt_pkey_crypt(SEXP ptr, SEXP scheme, SEXP hash, SEXP data,
+                        SEXP encrypt)
+{
+    const zuc_pkey *key = pkey_get(ptr);
+    size_t cap = key == NULL ? 1 : zuc_pkey_bits(key) / 8 + 1, len = 0;
+    size_t n = (size_t) XLENGTH(data);
+    SEXP buf = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) cap)), res;
+    zuc_status st;
+
+    if (key == NULL) {
+        st = ZUC_ERR_INVALID_ARGUMENT;
+    } else if (Rf_asLogical(encrypt) == TRUE) {
+        st = zuc_pkey_encrypt(key, alg_arg(scheme), alg_arg(hash),
+                              n ? RAW(data) : NULL, n, RAW(buf), cap, &len);
+    } else {
+        st = zuc_pkey_decrypt(key, alg_arg(scheme), alg_arg(hash),
+                              n ? RAW(data) : RAW(buf), n,
+                              RAW(buf), cap, &len);
+    }
+    res = trimmed(st, buf, len);
+    UNPROTECT(1);
+    return res;
+}
+
 const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_hash",        (DL_FUNC) &zucrypt_hash,        2},
     {"zucrypt_hmac",        (DL_FUNC) &zucrypt_hmac,        3},
@@ -587,5 +786,13 @@ const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_rand_bytes",  (DL_FUNC) &zucrypt_rand_bytes,  1},
     {"zucrypt_aes_gcm",     (DL_FUNC) &zucrypt_aes_gcm,     6},
     {"zucrypt_pbkdf2",      (DL_FUNC) &zucrypt_pbkdf2,      5},
+    {"zucrypt_pkey_parse",    (DL_FUNC) &zucrypt_pkey_parse,    2},
+    {"zucrypt_pkey_generate", (DL_FUNC) &zucrypt_pkey_generate, 1},
+    {"zucrypt_pkey_public",   (DL_FUNC) &zucrypt_pkey_public,   1},
+    {"zucrypt_pkey_info",     (DL_FUNC) &zucrypt_pkey_info,     1},
+    {"zucrypt_pkey_write",    (DL_FUNC) &zucrypt_pkey_write,    3},
+    {"zucrypt_pkey_sign",     (DL_FUNC) &zucrypt_pkey_sign,     4},
+    {"zucrypt_pkey_verify",   (DL_FUNC) &zucrypt_pkey_verify,   5},
+    {"zucrypt_pkey_crypt",    (DL_FUNC) &zucrypt_pkey_crypt,    5},
     {NULL, NULL, 0}
 };

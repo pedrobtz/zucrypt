@@ -124,3 +124,21 @@ test_that("the archive's PBKDF2 reproduces RFC 6070", {
              0xb5, 0x24, 0xaf, 0x60, 0x12, 0x06, 0x2f, 0xe0, 0x37, 0xa6))
   )
 })
+
+test_that("the archive reads an RSA key, signs and verifies (RFC 7515 A.2)", {
+  # Added after ABI 1 (Stage 15a). The RFC's key is committed beside this
+  # test as PEM, because this fixture must run without zucrypt installed.
+  pem <- readBin(test_path("rfc7515-a2.pem"), "raw",
+                 file.size(test_path("rfc7515-a2.pem")))
+  # SHA-256 of the RFC's JWS Signing Input.
+  digest <- as.raw(c(
+    0xc8, 0x8a, 0x34, 0x84, 0x7b, 0x4f, 0xfb, 0x12, 0xa9, 0x32, 0x6e, 0x54,
+    0x0f, 0x14, 0x4b, 0x3d, 0xcc, 0x4d, 0x55, 0x15, 0xf1, 0x87, 0x01, 0xe7,
+    0xd6, 0xe0, 0xee, 0x78, 0x66, 0xc9, 0xc7, 0x05
+  ))
+  sig <- archive_rsa_sign(pem, digest)
+  # PKCS#1 v1.5 is deterministic: the RFC's signature begins 112, 46, 33,
+  # 137 and is 256 bytes.
+  expect_length(sig, 256L)
+  expect_identical(sig[1:4], as.raw(c(112, 46, 33, 137)))
+})

@@ -106,3 +106,18 @@ kdf_vectors <- function() {
 native_aead_contract <- function() {
   .Call(zucrypt:::zucrypt_test_aead_contract)
 }
+
+# The RSA fixtures (Stage 15a): keys as their integers, and vectors.
+rsa_vectors <- function() {
+  utils::read.delim(test_path("fixtures", "rsa.tsv"), colClasses = "character")
+}
+rsa_fixture_key <- function(id) {
+  k <- utils::read.delim(test_path("fixtures", "rsa-keys.tsv"),
+                         colClasses = "character")
+  k <- k[k$id == id, ]
+  args <- lapply(k[c("n", "e", "d", "p", "q", "dp", "dq", "qi")], unhex)
+  do.call(crypt_rsa_key, unname(args))
+}
+native_pkey_contract <- function(pem) {
+  .Call(zucrypt:::zucrypt_test_pkey_contract, pem)
+}

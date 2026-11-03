@@ -34,7 +34,11 @@ test_that("the archive defines every public entry point", {
     "zuc_aes_cbc_encrypt", "zuc_aes_cbc_decrypt",
     "zuc_equal", "zuc_secure_zero",
     "zuc_random_bytes",
-    "zuc_aead_encrypt", "zuc_aead_decrypt", "zuc_pbkdf2_hmac"
+    "zuc_aead_encrypt", "zuc_aead_decrypt", "zuc_pbkdf2_hmac",
+    "zuc_pkey_parse", "zuc_pkey_generate", "zuc_pkey_public",
+    "zuc_pkey_free", "zuc_pkey_type", "zuc_pkey_bits", "zuc_pkey_is_private",
+    "zuc_pkey_write", "zuc_pkey_sign_hash", "zuc_pkey_verify_hash",
+    "zuc_pkey_encrypt", "zuc_pkey_decrypt"
   )
   defined <- archive_defined()
 

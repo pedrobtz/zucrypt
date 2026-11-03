@@ -132,3 +132,14 @@ test_that("an interrupted connection hash frees its context once collected", {
     expect_identical(live_contexts(), before, info = name)
   }
 })
+
+test_that("key objects release their handles when collected", {
+  gc()
+  before <- live_contexts()
+  keys <- lapply(1:4, function(i) crypt_rsa_keygen(1024))
+  pubs <- lapply(keys, function(k) k$pubkey)
+  expect_gte(live_contexts(), before + 8L)
+  rm(keys, pubs)
+  gc()
+  expect_identical(live_contexts(), before)
+})
