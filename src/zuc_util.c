@@ -6,6 +6,8 @@
 #include <mbedtls/constant_time.h>
 #include <mbedtls/platform_util.h>
 
+#include <stdlib.h>
+
 #include "zuc_internal.h"
 
 int zuc_equal(const uint8_t *a, const uint8_t *b, size_t len)
@@ -62,4 +64,29 @@ int zuc_int_overlaps(const void *in, const void *out, size_t len)
         }
         return pb + n > pa;
     }
+}
+
+/* The backend's allocator (zuc_crypto_config.h): calloc(), remembering a
+ * failure until zuc_int_alloc_watch() clears it. Main thread only, as the
+ * whole library is. A zero-sized request may legitimately return NULL and
+ * is not a failure. */
+static int alloc_failed = 0;
+
+void *zuc_int_calloc(size_t n, size_t size)
+{
+    void *p = calloc(n, size);
+    if (p == NULL && n != 0 && size != 0) {
+        alloc_failed = 1;
+    }
+    return p;
+}
+
+void zuc_int_alloc_watch(void)
+{
+    alloc_failed = 0;
+}
+
+zuc_status zuc_int_memory_or(zuc_status st)
+{
+    return (st != ZUC_OK && alloc_failed) ? ZUC_ERR_MEMORY : st;
 }

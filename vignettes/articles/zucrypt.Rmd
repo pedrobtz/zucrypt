@@ -10,7 +10,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 library(zucrypt)
 ```
 
-zucrypt has eleven functions:
+zucrypt's core is eleven functions:
 
 | Function | What it is for |
 |---|---|
@@ -23,6 +23,12 @@ zucrypt has eleven functions:
 | `crypt_pbkdf2()` | A key derived from a password |
 | `crypt_info()` | What the installed build contains |
 | `crypt_aes_cbc_encrypt_nopad()`, `crypt_aes_cbc_decrypt_nopad()` | Unauthenticated AES-CBC, for formats that specify it |
+
+Beside the core, RSA keys and signatures follow the `openssl` package's
+names and arguments with a `crypt_` prefix: `crypt_read_key()`,
+`crypt_write_pem()`, `crypt_rsa_keygen()`, `crypt_signature_create()`,
+`crypt_rsa_encrypt()` and their partners, with the digests they take,
+`crypt_sha256()` and its siblings. The section on RSA below introduces them.
 
 This article walks through each of them. The short version is that there is
 not much to learn, on purpose: every function takes raw vectors and returns
@@ -269,6 +275,52 @@ matters because a vendored library is updated by updating the package, not by
 updating your operating system. `abi_version` is the version of the C
 interface that other packages link against (see `?zucrypt_c_api`).
 
+## RSA keys and signatures
+
+RSA keys are read and written as PEM or DER (PKCS#1, PKCS#8 and
+SubjectPublicKeyInfo), byte for byte as `openssl` writes them, and the
+functions are named as `openssl` names them:
+
+```{r}
+key <- crypt_rsa_keygen(2048)
+key
+cat(crypt_write_pem(key$pubkey))
+```
+
+A signature covers a digest of the data. `hash` names the digest function,
+as in `openssl`:
+
+```{r}
+msg <- charToRaw("pay 10 to Alice")
+sig <- crypt_signature_create(msg, crypt_sha256, key)
+crypt_signature_verify(msg, sig, crypt_sha256, key$pubkey)
+```
+
+`pss = TRUE` makes an RSASSA-PSS signature instead of PKCS#1 v1.5. A
+signature that does not verify is an error of class `zucrypt_auth_error`.
+
+RSA encryption is for short secrets, such as a key for AES-GCM. Use OAEP;
+`oaep_hash` chooses its digest:
+
+```{r}
+aes_key <- crypt_rand_bytes(32)
+wrapped <- crypt_rsa_encrypt(aes_key, key$pubkey, oaep = TRUE,
+                             oaep_hash = "sha256")
+identical(crypt_rsa_decrypt(wrapped, key, oaep = TRUE, oaep_hash = "sha256"),
+          aes_key)
+```
+
+A key also comes apart into its integers, and is built back from them, which
+is how a JSON Web Key carries one:
+
+```{r}
+names(as.list(key)$data)
+```
+
+Key objects live in C and do not survive `saveRDS()`; save the PEM instead.
+Elliptic-curve keys, password-protected keys and SSH formats are not in this
+version.
+
 ## AES-CBC: for formats that specify it
 
 `crypt_aes_cbc_encrypt_nopad()` and `crypt_aes_cbc_decrypt_nopad()` are **interoperability
@@ -417,7 +469,7 @@ e$algorithm
 | `zucrypt_connection_error` | A connection passed as `data` could not be opened, or ran dry before its end |
 | `zucrypt_memory_error` | An allocation failed |
 | `zucrypt_entropy_error` | The operating system's random source failed |
-| `zucrypt_auth_error` | Authenticated decryption failed: the ciphertext, tag, nonce, associated data or key is wrong. No plaintext is returned |
+| `zucrypt_auth_error` | Authenticated decryption failed: the ciphertext, tag, nonce, associated data or key is wrong, and no plaintext is returned. Also a signature that does not verify, and an RSA ciphertext that does not decrypt |
 | `zucrypt_backend_error`, `zucrypt_internal_error` | The cryptographic library refused, or an invariant broke; please report these |
 
 Every condition also carries `algorithm` and `native_status` fields. None of
@@ -445,7 +497,7 @@ choice:
 
 | You want | Reach for |
 |---|---|
-| Keys, certificates, signatures, broad algorithm coverage | [openssl](https://cran.r-project.org/package=openssl) |
+| Elliptic curves, certificates, SSH keys, broad algorithm coverage | [openssl](https://cran.r-project.org/package=openssl) |
 | Modern authenticated encryption that is hard to misuse | [sodium](https://cran.r-project.org/package=sodium), or [rmonocypher](https://cran.r-project.org/package=rmonocypher) with no system library |
 | A cache key for an R object, or a fast non-cryptographic hash | [digest](https://cran.r-project.org/package=digest) |
-| SHA-2, HMAC, AES-GCM or PBKDF2 with no system library, a constant-time compare, or cryptography callable from your package's C code | zucrypt |
+| SHA-2, HMAC, AES-GCM, PBKDF2 or RSA with no system library, a constant-time compare, or cryptography callable from your package's C code | zucrypt |

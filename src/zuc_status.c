@@ -72,6 +72,11 @@ psa_algorithm_t zuc_int_psa_hash(zuc_alg alg)
     case ZUC_ALG_SHA384: return PSA_ALG_SHA_384;
     case ZUC_ALG_SHA512: return PSA_ALG_SHA_512;
     case ZUC_ALG_AES_GCM:
+    case ZUC_ALG_RSA_OAEP:
+    case ZUC_ALG_RSA_PKCS1V15_CRYPT:
+    case ZUC_ALG_RSA:
+    case ZUC_ALG_RSA_PKCS1V15_SIGN:
+    case ZUC_ALG_RSA_PSS:
     case ZUC_ALG_NONE:   return 0;
     }
     return 0;
@@ -85,6 +90,11 @@ const char *zuc_alg_name(zuc_alg alg)
     case ZUC_ALG_SHA384: return "sha384";
     case ZUC_ALG_SHA512: return "sha512";
     case ZUC_ALG_AES_GCM: return "aes-gcm";
+    case ZUC_ALG_RSA_OAEP: return "rsa-oaep";
+    case ZUC_ALG_RSA_PKCS1V15_CRYPT: return "rsa-pkcs1v15-crypt";
+    case ZUC_ALG_RSA: return "rsa";
+    case ZUC_ALG_RSA_PKCS1V15_SIGN: return "rsa-pkcs1v15-sign";
+    case ZUC_ALG_RSA_PSS: return "rsa-pss";
     case ZUC_ALG_NONE:   return NULL;
     }
     return NULL;
@@ -97,7 +107,8 @@ zuc_alg zuc_alg_by_name(const char *name)
      * would make the accepted set impossible to document. */
     static const zuc_alg all[] = {
         ZUC_ALG_SHA1, ZUC_ALG_SHA256, ZUC_ALG_SHA384, ZUC_ALG_SHA512,
-        ZUC_ALG_AES_GCM
+        ZUC_ALG_AES_GCM, ZUC_ALG_RSA_OAEP, ZUC_ALG_RSA_PKCS1V15_CRYPT,
+        ZUC_ALG_RSA, ZUC_ALG_RSA_PKCS1V15_SIGN, ZUC_ALG_RSA_PSS
     };
     size_t i;
 
@@ -121,6 +132,11 @@ size_t zuc_alg_size(zuc_alg alg)
     case ZUC_ALG_SHA384: return 48;
     case ZUC_ALG_SHA512: return 64;
     case ZUC_ALG_AES_GCM:
+    case ZUC_ALG_RSA_OAEP:
+    case ZUC_ALG_RSA_PKCS1V15_CRYPT:
+    case ZUC_ALG_RSA:
+    case ZUC_ALG_RSA_PKCS1V15_SIGN:
+    case ZUC_ALG_RSA_PSS:
     case ZUC_ALG_NONE:   return 0;
     }
     return 0;
@@ -149,6 +165,21 @@ int zuc_alg_available(zuc_alg alg)
 #endif
 #if defined(PSA_WANT_ALG_GCM)
     case ZUC_ALG_AES_GCM: return 1;
+#endif
+#if defined(PSA_WANT_ALG_RSA_OAEP)
+    case ZUC_ALG_RSA_OAEP: return 1;
+#endif
+#if defined(PSA_WANT_ALG_RSA_PKCS1V15_CRYPT)
+    case ZUC_ALG_RSA_PKCS1V15_CRYPT: return 1;
+#endif
+#if defined(PSA_WANT_KEY_TYPE_RSA_KEY_PAIR_BASIC)
+    case ZUC_ALG_RSA: return 1;
+#endif
+#if defined(PSA_WANT_ALG_RSA_PKCS1V15_SIGN)
+    case ZUC_ALG_RSA_PKCS1V15_SIGN: return 1;
+#endif
+#if defined(PSA_WANT_ALG_RSA_PSS)
+    case ZUC_ALG_RSA_PSS: return 1;
 #endif
     default: return 0;
     }

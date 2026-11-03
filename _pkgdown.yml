@@ -36,6 +36,16 @@ reference:
   - crypt_aes_gcm
   - crypt_pbkdf2
 
+- title: RSA keys and signatures (openssl-style)
+  desc: >
+    Reading, writing and generating RSA keys, signatures and RSA encryption,
+    with openssl's names and arguments under a crypt_ prefix, and the
+    openssl-style digests they take.
+  contents:
+  - crypt_rsa_keys
+  - crypt_rsa_crypto
+  - crypt_sha
+
 - title: Ciphers (advanced)
   desc: >
     Unauthenticated AES-CBC, for reading and writing formats that specify it.

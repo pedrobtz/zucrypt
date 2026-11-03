@@ -52,3 +52,16 @@ kdf.tsv	pbkdf2-sha256-01	RFC 7914 section 11, first PBKDF2-HMAC-SHA256 vector	to
 kdf.tsv	pbkdf2-sha256-02	RFC 7914 section 11, second PBKDF2-HMAC-SHA256 vector	tools/make-kat.R
 kdf.tsv	pbkdf2-sha384-01	Python hashlib.pbkdf2_hmac (no published vector)	tools/make-kat.R
 kdf.tsv	pbkdf2-sha512-01	Python hashlib.pbkdf2_hmac (no published vector)	tools/make-kat.R
+rsa-keys.tsv	rfc7515-a2	RFC 7515 A.2 (RS256 signature)	tools/make-rsa-kat.py
+rsa-keys.tsv	rfc7516-a1	RFC 7516 A.1 (RSAES-OAEP encrypted CEK)	tools/make-rsa-kat.py
+rsa-keys.tsv	rfc7516-a2	RFC 7516 A.2 (RSAES-PKCS1-v1_5 encrypted CEK)	tools/make-rsa-kat.py
+rsa-keys.tsv	generated-2048	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
+rsa.tsv	rsa-rfc7515-a2	RFC 7515 A.2 (RS256 signature)	tools/make-rsa-kat.py
+rsa.tsv	rsa-rfc7516-a1	RFC 7516 A.1 (RSAES-OAEP encrypted CEK)	tools/make-rsa-kat.py
+rsa.tsv	rsa-rfc7516-a2	RFC 7516 A.2 (RSAES-PKCS1-v1_5 encrypted CEK)	tools/make-rsa-kat.py
+rsa.tsv	rsa-pss-sha256	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
+rsa.tsv	rsa-oaep-sha256	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
+rsa.tsv	rsa-pss-sha384	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
+rsa.tsv	rsa-oaep-sha384	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
+rsa.tsv	rsa-pss-sha512	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
+rsa.tsv	rsa-oaep-sha512	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py

@@ -156,6 +156,36 @@ typedef struct {
                                const uint8_t *salt, size_t salt_len,
                                uint32_t iterations,
                                uint8_t *out, size_t out_len);
+
+    /* Appended after ABI 1 (Stage 15a): RSA keys. Test with
+     * ZUCRYPT_API_HAS(api, pkey_decrypt), the last of them. */
+    zuc_status  (*pkey_parse)(const uint8_t *in, size_t len, int private_key,
+                              zuc_pkey **out);
+    zuc_status  (*pkey_generate)(zuc_alg type, size_t bits, zuc_pkey **out);
+    zuc_status  (*pkey_public)(const zuc_pkey *key, zuc_pkey **out);
+    void        (*pkey_free)(zuc_pkey *key);
+    zuc_alg     (*pkey_type)(const zuc_pkey *key);
+    size_t      (*pkey_bits)(const zuc_pkey *key);
+    int         (*pkey_is_private)(const zuc_pkey *key);
+    zuc_status  (*pkey_write)(const zuc_pkey *key, zuc_pkey_format format,
+                              int public_only, uint8_t *out, size_t out_size,
+                              size_t *out_len);
+    zuc_status  (*pkey_sign_hash)(const zuc_pkey *key, zuc_alg scheme,
+                                  zuc_alg hash, const uint8_t *digest,
+                                  size_t digest_len, uint8_t *sig,
+                                  size_t sig_size, size_t *sig_len);
+    zuc_status  (*pkey_verify_hash)(const zuc_pkey *key, zuc_alg scheme,
+                                    zuc_alg hash, const uint8_t *digest,
+                                    size_t digest_len, const uint8_t *sig,
+                                    size_t sig_len);
+    zuc_status  (*pkey_encrypt)(const zuc_pkey *key, zuc_alg scheme,
+                                zuc_alg hash, const uint8_t *in, size_t len,
+                                uint8_t *out, size_t out_size,
+                                size_t *out_len);
+    zuc_status  (*pkey_decrypt)(const zuc_pkey *key, zuc_alg scheme,
+                                zuc_alg hash, const uint8_t *in, size_t len,
+                                uint8_t *out, size_t out_size,
+                                size_t *out_len);
 } zucrypt_api_v1;
 
 /* Does this table have `field`? Fields are appended over time, and a

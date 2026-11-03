@@ -257,14 +257,15 @@ SEXP zucrypttest_exercise(void)
     }
 
     /* Utilities. ZUCRYPT_API_HAS is how a consumer tests for a field before
-     * calling it; pbkdf2_hmac is the table's last field, so the test covers
+     * calling it; pkey_decrypt is the table's last field, so the test covers
      * the whole struct_size arithmetic. Every field this fixture calls is
      * present in the table it was built against, so it must say yes. */
     check(&f, ZUCRYPT_API_HAS(api, equal) && ZUCRYPT_API_HAS(api, secure_zero) &&
               ZUCRYPT_API_HAS(api, random_bytes) &&
               ZUCRYPT_API_HAS(api, aead_encrypt) &&
               ZUCRYPT_API_HAS(api, aead_decrypt) &&
-              ZUCRYPT_API_HAS(api, pbkdf2_hmac),
+              ZUCRYPT_API_HAS(api, pbkdf2_hmac) &&
+              ZUCRYPT_API_HAS(api, pkey_decrypt),
           "ZUCRYPT_API_HAS denies a field the table has");
     check(&f, !ZUCRYPT_API_HAS((const zucrypt_api_v1 *) NULL, equal),
           "ZUCRYPT_API_HAS accepted a NULL table");
@@ -338,6 +339,48 @@ SEXP zucrypttest_exercise(void)
                                    dk, sizeof dk) == ZUC_OK &&
                   memcmp(dk, dk2, sizeof dk) == 0,
               "pbkdf2_hmac does not reproduce RFC 6070 test case 2");
+    }
+
+    /* RSA, appended after ABI 1 (Stage 15a): every pkey field, on a
+     * generated 1024-bit key. Sign and verify, a flipped signature
+     * refused, OAEP both ways, the encodings written and read back. */
+    {
+        zuc_pkey *key = NULL, *pub = NULL, *back = NULL;
+        uint8_t digest[32], sig[128], ct[128], pt[128], pem[ZUC_PKEY_MAX_WRITE_SIZE];
+        size_t sl = 0, cl = 0, pl = 0, wl = 0;
+
+        memcpy(digest, SHA256_ABC, 32);
+        check(&f, api->pkey_generate(ZUC_ALG_RSA, 1024, &key) == ZUC_OK &&
+                  api->pkey_type(key) == ZUC_ALG_RSA &&
+                  api->pkey_bits(key) == 1024 && api->pkey_is_private(key),
+              "pkey_generate did not make a 1024-bit RSA private key");
+        check(&f, api->pkey_public(key, &pub) == ZUC_OK &&
+                  !api->pkey_is_private(pub),
+              "pkey_public did not make a public key");
+        check(&f, api->pkey_sign_hash(key, ZUC_ALG_RSA_PSS, ZUC_ALG_SHA256,
+                                      digest, 32, sig, sizeof sig, &sl)
+                      == ZUC_OK &&
+                  api->pkey_verify_hash(pub, ZUC_ALG_RSA_PSS, ZUC_ALG_SHA256,
+                                        digest, 32, sig, sl) == ZUC_OK,
+              "pkey_sign_hash and pkey_verify_hash do not agree");
+        sig[0] ^= 1;
+        check(&f, api->pkey_verify_hash(pub, ZUC_ALG_RSA_PSS, ZUC_ALG_SHA256,
+                                        digest, 32, sig, sl) == ZUC_ERR_AUTH,
+              "pkey_verify_hash accepted a flipped signature");
+        check(&f, api->pkey_encrypt(pub, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256,
+                                    digest, 32, ct, sizeof ct, &cl) == ZUC_OK &&
+                  api->pkey_decrypt(key, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256,
+                                    ct, cl, pt, sizeof pt, &pl) == ZUC_OK &&
+                  pl == 32 && memcmp(pt, digest, 32) == 0,
+              "pkey_encrypt and pkey_decrypt do not round-trip");
+        check(&f, api->pkey_write(key, ZUC_PKEY_INFO_PEM, 0, pem, sizeof pem,
+                                  &wl) == ZUC_OK &&
+                  api->pkey_parse(pem, wl, 1, &back) == ZUC_OK &&
+                  api->pkey_bits(back) == 1024,
+              "pkey_write and pkey_parse do not round-trip");
+        api->pkey_free(back);
+        api->pkey_free(pub);
+        api->pkey_free(key);
     }
 
     result = PROTECT(Rf_allocVector(STRSXP, f.n));

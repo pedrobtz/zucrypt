@@ -231,6 +231,44 @@ SEXP zl_pbkdf2(SEXP password, SEXP salt, SEXP iterations, SEXP n)
     return out;
 }
 
+/* RSA through the archive (Stage 15a): read a private key (PEM or DER),
+ * sign a SHA-256 digest with PKCS#1 v1.5, and check it with the public
+ * half. Returns the signature. */
+SEXP zl_rsa_sign(SEXP pem, SEXP digest)
+{
+    zuc_pkey *key = NULL, *pub = NULL;
+    uint8_t sig[512];
+    size_t len = 0;
+    zuc_status st;
+    SEXP out;
+
+    require_backend();
+    raw_arg(pem, "pem");
+    raw_arg(digest, "digest");
+    st = zuc_pkey_parse(RAW(pem), (size_t) XLENGTH(pem), 1, &key);
+    if (st == ZUC_OK) st = zuc_pkey_public(key, &pub);
+    if (st == ZUC_OK) {
+        st = zuc_pkey_sign_hash(key, ZUC_ALG_RSA_PKCS1V15_SIGN, ZUC_ALG_SHA256,
+                                RAW(digest), (size_t) XLENGTH(digest),
+                                sig, sizeof sig, &len);
+    }
+    if (st == ZUC_OK) {
+        st = zuc_pkey_verify_hash(pub, ZUC_ALG_RSA_PKCS1V15_SIGN,
+                                  ZUC_ALG_SHA256, RAW(digest),
+                                  (size_t) XLENGTH(digest), sig, len);
+    }
+    zuc_pkey_free(pub);
+    zuc_pkey_free(key);
+    if (st != ZUC_OK) {
+        Rf_error("zucryptlink: RSA through the archive failed (%s)",
+                 zuc_status_name(st));
+    }
+    out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) len));
+    memcpy(RAW(out), sig, len);
+    UNPROTECT(1);
+    return out;
+}
+
 /* H_0 = hash(seed); H_n = hash(int32le(n - 1) || H_{n-1}), through one
  * reused incremental context -- the loop zuxlsx's agile decryption runs,
  * without anything Office-specific in it. The same rehearsal as
@@ -336,6 +374,7 @@ static const R_CallMethodDef call_methods[] = {
     {"zl_gcm_encrypt",        (DL_FUNC) &zl_gcm_encrypt,        3},
     {"zl_gcm_decrypt_status", (DL_FUNC) &zl_gcm_decrypt_status, 4},
     {"zl_pbkdf2",             (DL_FUNC) &zl_pbkdf2,             4},
+    {"zl_rsa_sign",           (DL_FUNC) &zl_rsa_sign,           2},
     {NULL, NULL, 0}
 };
 

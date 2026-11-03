@@ -156,9 +156,31 @@ typedef enum {
      * zuc_aead_decrypt(). The key length selects AES-128, -192 or -256.
      * Appended after ABI 1. zuc_alg_size() is 0 for it: it is not a
      * digest, and the hash and HMAC functions refuse it. */
-    ZUC_ALG_AES_GCM = 96
+    ZUC_ALG_AES_GCM = 96,
 
-    /* 97..159 reserved for further ciphers and AEAD modes. */
+    /* RSA encryption schemes (RFC 8017 section 7), for zuc_pkey_encrypt()
+     * and zuc_pkey_decrypt(). Appended after ABI 1. OAEP takes a digest
+     * for both its label hash and MGF1; PKCS#1 v1.5 is legacy, present for
+     * formats that specify it. */
+    ZUC_ALG_RSA_OAEP           = 97,
+    ZUC_ALG_RSA_PKCS1V15_CRYPT = 98,
+
+    /* 99..159 reserved for further ciphers and AEAD modes. */
+
+    /* RSA keys, for zuc_pkey_generate() and what zuc_pkey_type() reports.
+     * Appended after ABI 1. */
+    ZUC_ALG_RSA = 192,
+
+    /* 193..223 reserved for further key families. */
+
+    /* RSA signature schemes (RFC 8017 section 8), for zuc_pkey_sign_hash()
+     * and zuc_pkey_verify_hash(). PSS uses MGF1 with the message digest and
+     * a salt as long as the digest, and verification requires that salt
+     * length. Appended after ABI 1. */
+    ZUC_ALG_RSA_PKCS1V15_SIGN = 224,
+    ZUC_ALG_RSA_PSS           = 225
+
+    /* 226..255 reserved for further signature schemes. */
 } zuc_alg;
 
 #define ZUC_ALG_DIGEST_FIRST     1
@@ -461,6 +483,118 @@ zuc_status zuc_pbkdf2_hmac(zuc_alg hash,
                            const uint8_t *salt, size_t salt_len,
                            uint32_t iterations,
                            uint8_t *out, size_t out_len);
+
+/* ------------------------------------------------------------------ *
+ * Public-key cryptography: RSA (appended after ABI 1, Stage 15a)
+ * ------------------------------------------------------------------ */
+
+/* A public or private key. The handle is opaque and heap-allocated by the
+ * library; only zuc_pkey_free() may release it. It holds the key material
+ * itself, not a key in the backend's store: each operation loads the key
+ * for that one operation and removes it again. A private key's material is
+ * wiped when the handle is freed.
+ *
+ * RSA moduli from 1024 to 4096 bits are supported; the backend refuses
+ * anything larger. Generation produces 1024 to 4096 bits with e = 65537. */
+typedef struct zuc_pkey zuc_pkey;
+
+/* The encodings zuc_pkey_write() produces.
+ *
+ *   ZUC_PKEY_PKCS1_DER, _PEM  RSAPrivateKey or RSAPublicKey (RFC 8017
+ *                             appendix A.1); PEM labels "RSA PRIVATE KEY"
+ *                             and "RSA PUBLIC KEY".
+ *   ZUC_PKEY_INFO_DER, _PEM   a private key as PKCS#8 PrivateKeyInfo
+ *                             (RFC 5208), a public key as X.509
+ *                             SubjectPublicKeyInfo (RFC 5280); PEM labels
+ *                             "PRIVATE KEY" and "PUBLIC KEY" (RFC 7468).
+ *
+ * PEM output ends with a newline and has no terminating NUL. */
+typedef enum {
+    ZUC_PKEY_PKCS1_DER = 1,
+    ZUC_PKEY_PKCS1_PEM = 2,
+    ZUC_PKEY_INFO_DER  = 3,
+    ZUC_PKEY_INFO_PEM  = 4
+} zuc_pkey_format;
+
+/* Enough for any encoding of any key this version supports. */
+#define ZUC_PKEY_MAX_WRITE_SIZE 8192
+
+/* Read a key from DER or PEM, in any of the encodings above: PKCS#1,
+ * PKCS#8 (unencrypted) or SubjectPublicKeyInfo. PEM is recognised by its
+ * "-----BEGIN" line. With `private_key` non-zero the input must hold a
+ * private key; with 0 it may hold either, and only the public half is kept.
+ * Input that is not such a key is ZUC_ERR_INVALID_ARGUMENT; a well-formed
+ * key of another type (an EC key, say) is ZUC_ERR_UNSUPPORTED. The input is
+ * not retained. On failure *out is NULL. */
+zuc_status zuc_pkey_parse(const uint8_t *in, size_t len, int private_key,
+                          zuc_pkey **out);
+
+/* Generate a key pair. `type` is ZUC_ALG_RSA and `bits` 1024 to 4096.
+ * Uses the operating system's random source; its failure is
+ * ZUC_ERR_ENTROPY. */
+zuc_status zuc_pkey_generate(zuc_alg type, size_t bits, zuc_pkey **out);
+
+/* A new handle holding only the public half of `key`. */
+zuc_status zuc_pkey_public(const zuc_pkey *key, zuc_pkey **out);
+
+/* Free a handle, wiping a private key. NULL is accepted and ignored. */
+void zuc_pkey_free(zuc_pkey *key);
+
+/* What a handle holds: its type (ZUC_ALG_RSA), its size in bits (the
+ * modulus), and whether it is a private key. ZUC_ALG_NONE, 0 and 0 for
+ * NULL. */
+zuc_alg zuc_pkey_type(const zuc_pkey *key);
+size_t  zuc_pkey_bits(const zuc_pkey *key);
+int     zuc_pkey_is_private(const zuc_pkey *key);
+
+/* Encode a key. With `public_only` non-zero, or for a public key, the
+ * public half is written. *out_len receives the length written; a buffer
+ * of ZUC_PKEY_MAX_WRITE_SIZE always suffices, and a smaller one that does
+ * not is ZUC_ERR_BAD_LENGTH. */
+zuc_status zuc_pkey_write(const zuc_pkey *key, zuc_pkey_format format,
+                          int public_only,
+                          uint8_t *out, size_t out_size, size_t *out_len);
+
+/* Sign a message digest, or check a signature over one. `scheme` is
+ * ZUC_ALG_RSA_PKCS1V15_SIGN or ZUC_ALG_RSA_PSS; `hash` is the digest that
+ * produced `digest` (SHA-1 or SHA-2), and `digest_len` must be its size.
+ * Signing needs a private key; the signature is zuc_pkey_bits() / 8 bytes,
+ * and `sig_size` must be at least that. PSS signing draws its salt from
+ * the operating system's random source.
+ *
+ * Verification returns ZUC_OK for a valid signature and ZUC_ERR_AUTH for
+ * any other, including one of the wrong length. */
+zuc_status zuc_pkey_sign_hash(const zuc_pkey *key, zuc_alg scheme,
+                              zuc_alg hash,
+                              const uint8_t *digest, size_t digest_len,
+                              uint8_t *sig, size_t sig_size, size_t *sig_len);
+
+zuc_status zuc_pkey_verify_hash(const zuc_pkey *key, zuc_alg scheme,
+                                zuc_alg hash,
+                                const uint8_t *digest, size_t digest_len,
+                                const uint8_t *sig, size_t sig_len);
+
+/* RSA encryption and decryption. `scheme` is ZUC_ALG_RSA_OAEP, with `hash`
+ * the digest for OAEP's label hash and MGF1 (SHA-1 or SHA-2) and an empty
+ * label, or ZUC_ALG_RSA_PKCS1V15_CRYPT, with `hash` ZUC_ALG_NONE.
+ *
+ * Encryption takes either kind of key and draws its padding from the
+ * operating system's random source; the ciphertext is zuc_pkey_bits() / 8
+ * bytes. A plaintext too long for the key and scheme is ZUC_ERR_BAD_LENGTH.
+ *
+ * Decryption needs a private key. Any ciphertext that does not decrypt to
+ * a validly padded message is ZUC_ERR_AUTH, with the same status whatever
+ * the cause, and on any failure the whole output buffer is zeroed.
+ * PKCS#1 v1.5 decryption is exposed to Bleichenbacher-style attacks
+ * wherever a caller's behaviour reveals whether it succeeded; use OAEP for
+ * anything new. */
+zuc_status zuc_pkey_encrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
+                            const uint8_t *in, size_t len,
+                            uint8_t *out, size_t out_size, size_t *out_len);
+
+zuc_status zuc_pkey_decrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
+                            const uint8_t *in, size_t len,
+                            uint8_t *out, size_t out_size, size_t *out_len);
 
 /* ------------------------------------------------------------------ *
  * Randomness
