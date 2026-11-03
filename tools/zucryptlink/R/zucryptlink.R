@@ -31,6 +31,8 @@ archive_gcm_decrypt_status <- function(key, iv, data, tag) {
 }
 archive_rsa_sign <- function(pem, digest) .Call(zl_rsa_sign, pem, digest)
 
+archive_x25519 <- function(priv, pub) .Call(zl_x25519, priv, pub)
+
 archive_pbkdf2 <- function(password, salt, iterations, n) {
   .Call(zl_pbkdf2, password, salt, as.integer(iterations), as.integer(n))
 }

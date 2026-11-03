@@ -186,6 +186,18 @@ typedef struct {
                                 zuc_alg hash, const uint8_t *in, size_t len,
                                 uint8_t *out, size_t out_size,
                                 size_t *out_len);
+
+    /* Appended after ABI 1 (Stage 16a): raw key material and elliptic-
+     * curve key agreement. Test with ZUCRYPT_API_HAS(api, pkey_agree). */
+    zuc_status  (*pkey_import)(zuc_alg type, int private_key,
+                               const uint8_t *data, size_t len,
+                               zuc_pkey **out);
+    zuc_status  (*pkey_export)(const zuc_pkey *key, int public_only,
+                               uint8_t *out, size_t out_size,
+                               size_t *out_len);
+    zuc_status  (*pkey_agree)(const zuc_pkey *key, const zuc_pkey *peer,
+                              uint8_t *out, size_t out_size,
+                              size_t *out_len);
 } zucrypt_api_v1;
 
 /* Does this table have `field`? Fields are appended over time, and a

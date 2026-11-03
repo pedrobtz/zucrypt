@@ -635,12 +635,13 @@ SEXP zucrypt_pkey_parse(SEXP data, SEXP private_key)
     return res;
 }
 
-SEXP zucrypt_pkey_generate(SEXP bits)
+/* `type` is a zuc_alg name R has checked: "rsa", "p256", ..., "x25519". */
+SEXP zucrypt_pkey_generate(SEXP type, SEXP bits)
 {
     SEXP ptr = PROTECT(pkey_ptr()), res;
     zuc_pkey *key = NULL;
-    zuc_status st = zuc_pkey_generate(ZUC_ALG_RSA, (size_t) REAL(bits)[0],
-                                      &key);
+    zuc_status st = zuc_pkey_generate(zuc_alg_by_name(CHAR(STRING_ELT(type, 0))),
+                                      (size_t) REAL(bits)[0], &key);
     res = pkey_result(st, ptr, key);
     UNPROTECT(1);
     return res;
@@ -723,7 +724,8 @@ static zuc_alg alg_arg(SEXP name)
 SEXP zucrypt_pkey_sign(SEXP ptr, SEXP scheme, SEXP hash, SEXP digest)
 {
     const zuc_pkey *key = pkey_get(ptr);
-    size_t cap = key == NULL ? 1 : zuc_pkey_bits(key) / 8 + 1, len = 0;
+    /* Enough for any signature: 512 bytes for RSA-4096, 132 for P-521. */
+    size_t cap = 1024, len = 0;
     SEXP buf = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) cap)), res;
     zuc_status st = key == NULL
         ? ZUC_ERR_INVALID_ARGUMENT
@@ -772,6 +774,46 @@ SEXP zucrypt_pkey_crypt(SEXP ptr, SEXP scheme, SEXP hash, SEXP data,
     return res;
 }
 
+/* A key from its raw material (zucrypt.h, zuc_pkey_import()). */
+SEXP zucrypt_pkey_import(SEXP type, SEXP private_key, SEXP data)
+{
+    SEXP ptr = PROTECT(pkey_ptr()), res;
+    zuc_pkey *key = NULL;
+    zuc_status st = zuc_pkey_import(zuc_alg_by_name(CHAR(STRING_ELT(type, 0))),
+                                    Rf_asLogical(private_key) == TRUE,
+                                    RAW(data), (size_t) XLENGTH(data), &key);
+    res = pkey_result(st, ptr, key);
+    UNPROTECT(1);
+    return res;
+}
+
+SEXP zucrypt_pkey_export(SEXP ptr, SEXP public_only)
+{
+    const zuc_pkey *key = pkey_get(ptr);
+    SEXP buf = PROTECT(Rf_allocVector(RAWSXP, ZUC_PKEY_MAX_WRITE_SIZE)), res;
+    size_t len = 0;
+    zuc_status st = key == NULL
+        ? ZUC_ERR_INVALID_ARGUMENT
+        : zuc_pkey_export(key, Rf_asLogical(public_only) == TRUE,
+                          RAW(buf), (size_t) XLENGTH(buf), &len);
+    res = trimmed(st, buf, len);
+    UNPROTECT(1);
+    return res;
+}
+
+SEXP zucrypt_pkey_agree(SEXP ptr, SEXP peer)
+{
+    const zuc_pkey *key = pkey_get(ptr), *other = pkey_get(peer);
+    SEXP buf = PROTECT(Rf_allocVector(RAWSXP, 128)), res;
+    size_t len = 0;
+    zuc_status st = (key == NULL || other == NULL)
+        ? ZUC_ERR_INVALID_ARGUMENT
+        : zuc_pkey_agree(key, other, RAW(buf), (size_t) XLENGTH(buf), &len);
+    res = trimmed(st, buf, len);
+    UNPROTECT(1);
+    return res;
+}
+
 const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_hash",        (DL_FUNC) &zucrypt_hash,        2},
     {"zucrypt_hmac",        (DL_FUNC) &zucrypt_hmac,        3},
@@ -787,7 +829,10 @@ const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_aes_gcm",     (DL_FUNC) &zucrypt_aes_gcm,     6},
     {"zucrypt_pbkdf2",      (DL_FUNC) &zucrypt_pbkdf2,      5},
     {"zucrypt_pkey_parse",    (DL_FUNC) &zucrypt_pkey_parse,    2},
-    {"zucrypt_pkey_generate", (DL_FUNC) &zucrypt_pkey_generate, 1},
+    {"zucrypt_pkey_generate", (DL_FUNC) &zucrypt_pkey_generate, 2},
+    {"zucrypt_pkey_import",   (DL_FUNC) &zucrypt_pkey_import,   3},
+    {"zucrypt_pkey_export",   (DL_FUNC) &zucrypt_pkey_export,   2},
+    {"zucrypt_pkey_agree",    (DL_FUNC) &zucrypt_pkey_agree,    2},
     {"zucrypt_pkey_public",   (DL_FUNC) &zucrypt_pkey_public,   1},
     {"zucrypt_pkey_info",     (DL_FUNC) &zucrypt_pkey_info,     1},
     {"zucrypt_pkey_write",    (DL_FUNC) &zucrypt_pkey_write,    3},

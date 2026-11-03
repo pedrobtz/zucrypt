@@ -77,6 +77,13 @@ psa_algorithm_t zuc_int_psa_hash(zuc_alg alg)
     case ZUC_ALG_RSA:
     case ZUC_ALG_RSA_PKCS1V15_SIGN:
     case ZUC_ALG_RSA_PSS:
+    case ZUC_ALG_EC_P256:
+    case ZUC_ALG_EC_P384:
+    case ZUC_ALG_EC_P521:
+    case ZUC_ALG_X25519:
+    case ZUC_ALG_ECDH:
+    case ZUC_ALG_ECDSA:
+    case ZUC_ALG_ECDSA_DETERMINISTIC:
     case ZUC_ALG_NONE:   return 0;
     }
     return 0;
@@ -95,6 +102,13 @@ const char *zuc_alg_name(zuc_alg alg)
     case ZUC_ALG_RSA: return "rsa";
     case ZUC_ALG_RSA_PKCS1V15_SIGN: return "rsa-pkcs1v15-sign";
     case ZUC_ALG_RSA_PSS: return "rsa-pss";
+    case ZUC_ALG_EC_P256: return "p256";
+    case ZUC_ALG_EC_P384: return "p384";
+    case ZUC_ALG_EC_P521: return "p521";
+    case ZUC_ALG_X25519: return "x25519";
+    case ZUC_ALG_ECDH: return "ecdh";
+    case ZUC_ALG_ECDSA: return "ecdsa";
+    case ZUC_ALG_ECDSA_DETERMINISTIC: return "ecdsa-deterministic";
     case ZUC_ALG_NONE:   return NULL;
     }
     return NULL;
@@ -108,7 +122,9 @@ zuc_alg zuc_alg_by_name(const char *name)
     static const zuc_alg all[] = {
         ZUC_ALG_SHA1, ZUC_ALG_SHA256, ZUC_ALG_SHA384, ZUC_ALG_SHA512,
         ZUC_ALG_AES_GCM, ZUC_ALG_RSA_OAEP, ZUC_ALG_RSA_PKCS1V15_CRYPT,
-        ZUC_ALG_RSA, ZUC_ALG_RSA_PKCS1V15_SIGN, ZUC_ALG_RSA_PSS
+        ZUC_ALG_RSA, ZUC_ALG_RSA_PKCS1V15_SIGN, ZUC_ALG_RSA_PSS,
+        ZUC_ALG_EC_P256, ZUC_ALG_EC_P384, ZUC_ALG_EC_P521, ZUC_ALG_X25519,
+        ZUC_ALG_ECDH, ZUC_ALG_ECDSA, ZUC_ALG_ECDSA_DETERMINISTIC
     };
     size_t i;
 
@@ -137,6 +153,13 @@ size_t zuc_alg_size(zuc_alg alg)
     case ZUC_ALG_RSA:
     case ZUC_ALG_RSA_PKCS1V15_SIGN:
     case ZUC_ALG_RSA_PSS:
+    case ZUC_ALG_EC_P256:
+    case ZUC_ALG_EC_P384:
+    case ZUC_ALG_EC_P521:
+    case ZUC_ALG_X25519:
+    case ZUC_ALG_ECDH:
+    case ZUC_ALG_ECDSA:
+    case ZUC_ALG_ECDSA_DETERMINISTIC:
     case ZUC_ALG_NONE:   return 0;
     }
     return 0;
@@ -180,6 +203,27 @@ int zuc_alg_available(zuc_alg alg)
 #endif
 #if defined(PSA_WANT_ALG_RSA_PSS)
     case ZUC_ALG_RSA_PSS: return 1;
+#endif
+#if defined(PSA_WANT_ECC_SECP_R1_256)
+    case ZUC_ALG_EC_P256: return 1;
+#endif
+#if defined(PSA_WANT_ECC_SECP_R1_384)
+    case ZUC_ALG_EC_P384: return 1;
+#endif
+#if defined(PSA_WANT_ECC_SECP_R1_521)
+    case ZUC_ALG_EC_P521: return 1;
+#endif
+#if defined(PSA_WANT_ECC_MONTGOMERY_255)
+    case ZUC_ALG_X25519: return 1;
+#endif
+#if defined(PSA_WANT_ALG_ECDH)
+    case ZUC_ALG_ECDH: return 1;
+#endif
+#if defined(PSA_WANT_ALG_ECDSA)
+    case ZUC_ALG_ECDSA: return 1;
+#endif
+#if defined(PSA_WANT_ALG_DETERMINISTIC_ECDSA)
+    case ZUC_ALG_ECDSA_DETERMINISTIC: return 1;
 #endif
     default: return 0;
     }

@@ -58,6 +58,27 @@ unhex <- function(x) {
 rsa_parts <- lapply(rsa_parts[c("n", "e", "d", "p", "q", "dp", "dq", "qi")],
                     unhex)
 
+## EC (Stage 16a): fixed keys again, and only deterministic operations, so
+## the allocation count is the same on every run.
+ec_parts <- utils::read.delim(
+  file.path("tests", "testthat", "fixtures", "ec-keys.tsv"),
+  colClasses = "character"
+)
+ec_row <- function(id) ec_parts[ec_parts$id == id, ]
+
+## The EC keys are built here, in the prefix, so that the sweep's window
+## holds only the operations below. Measured on macOS, 2026-11-03: building
+## a P-256 key from its coordinates is about 7,600 allocations, deterministic
+## signing 7,500, verification 36,000, P-256 ECDH 21,000 and X25519 3,200 --
+## the backend's bignum code allocates as it goes. The window keeps signing
+## and X25519, which between them pass through every EC path of the adapter
+## (key import, sign, agree, the allocation watch); verification and P-256
+## ECDH would multiply the sweep's length by five for the same adapter code.
+p256 <- with(ec_row("rfc6979-p256"),
+             crypt_ec_key(curve, unhex(x), unhex(y), unhex(d)))
+alice <- crypt_read_x25519_key(unhex(ec_row("rfc7748-alice")$d))
+bob <- crypt_read_x25519_pubkey(unhex(ec_row("rfc7748-bob")$x))
+
 if (baseline) quit(save = "no")
 
 ## --- workload: what the sweep fails allocations in -------------------------
@@ -101,6 +122,15 @@ sealed_key <- crypt_rsa_encrypt(key, rsa, oaep = TRUE, oaep_hash = "sha256")
 stopifnot(identical(
   crypt_rsa_decrypt(sealed_key, rsa, oaep = TRUE, oaep_hash = "sha256"),
   key
+))
+## EC (Stage 16a): deterministic ECDSA, checked only for its shape (its value
+## is test-ec.R's concern), and X25519, checked against RFC 7748. See the
+## prefix for what is left out of the window, and why.
+ec_sig <- crypt_signature_create(data, crypt_sha256, p256, deterministic = TRUE)
+stopifnot(is.raw(ec_sig), length(ec_sig) >= 70L)
+stopifnot(identical(
+  crypt_x25519_diffie_hellman(alice, bob),
+  unhex("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742")
 ))
 derived <- crypt_pbkdf2(key, iv, iterations = 2, length = 40)
 stopifnot(identical(

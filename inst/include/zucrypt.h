@@ -171,16 +171,32 @@ typedef enum {
      * Appended after ABI 1. */
     ZUC_ALG_RSA = 192,
 
-    /* 193..223 reserved for further key families. */
+    /* Elliptic-curve keys (Stage 16a, appended after ABI 1): the NIST
+     * curves for ECDSA and ECDH (FIPS 186-5, SP 800-186), and Curve25519
+     * for X25519 key agreement (RFC 7748). ZUC_ALG_ECDH names the key
+     * agreement zuc_pkey_agree() performs. There is no Ed25519. */
+    ZUC_ALG_EC_P256 = 193,
+    ZUC_ALG_EC_P384 = 194,
+    ZUC_ALG_EC_P521 = 195,
+    ZUC_ALG_X25519  = 196,
+    ZUC_ALG_ECDH    = 197,
+
+    /* 198..223 reserved for further key families and agreements. */
 
     /* RSA signature schemes (RFC 8017 section 8), for zuc_pkey_sign_hash()
      * and zuc_pkey_verify_hash(). PSS uses MGF1 with the message digest and
      * a salt as long as the digest, and verification requires that salt
      * length. Appended after ABI 1. */
     ZUC_ALG_RSA_PKCS1V15_SIGN = 224,
-    ZUC_ALG_RSA_PSS           = 225
+    ZUC_ALG_RSA_PSS           = 225,
 
-    /* 226..255 reserved for further signature schemes. */
+    /* ECDSA (FIPS 186-5) on the NIST curves (Stage 16a, appended after
+     * ABI 1): randomised, and deterministic after RFC 6979. Signatures are
+     * the raw r || s, each half the size of the curve's order. */
+    ZUC_ALG_ECDSA               = 226,
+    ZUC_ALG_ECDSA_DETERMINISTIC = 227
+
+    /* 228..255 reserved for further signature schemes. */
 } zuc_alg;
 
 #define ZUC_ALG_DIGEST_FIRST     1
@@ -485,7 +501,8 @@ zuc_status zuc_pbkdf2_hmac(zuc_alg hash,
                            uint8_t *out, size_t out_len);
 
 /* ------------------------------------------------------------------ *
- * Public-key cryptography: RSA (appended after ABI 1, Stage 15a)
+ * Public-key cryptography: RSA and elliptic curves (appended after ABI 1,
+ * Stages 15a and 16a)
  * ------------------------------------------------------------------ */
 
 /* A public or private key. The handle is opaque and heap-allocated by the
@@ -495,18 +512,25 @@ zuc_status zuc_pbkdf2_hmac(zuc_alg hash,
  * wiped when the handle is freed.
  *
  * RSA moduli from 1024 to 4096 bits are supported; the backend refuses
- * anything larger. Generation produces 1024 to 4096 bits with e = 65537. */
+ * anything larger. Generation produces 1024 to 4096 bits with e = 65537.
+ * EC keys are on P-256, P-384 or P-521, or are X25519 keys. */
 typedef struct zuc_pkey zuc_pkey;
 
 /* The encodings zuc_pkey_write() produces.
  *
  *   ZUC_PKEY_PKCS1_DER, _PEM  RSAPrivateKey or RSAPublicKey (RFC 8017
- *                             appendix A.1); PEM labels "RSA PRIVATE KEY"
- *                             and "RSA PUBLIC KEY".
+ *                             appendix A.1), PEM "RSA PRIVATE KEY" and "RSA
+ *                             PUBLIC KEY"; for an EC private key the SEC1
+ *                             ECPrivateKey with its curve (RFC 5915), PEM
+ *                             "EC PRIVATE KEY". There is no such encoding of
+ *                             an EC public key or of an X25519 key:
+ *                             ZUC_ERR_UNSUPPORTED.
  *   ZUC_PKEY_INFO_DER, _PEM   a private key as PKCS#8 PrivateKeyInfo
  *                             (RFC 5208), a public key as X.509
  *                             SubjectPublicKeyInfo (RFC 5280); PEM labels
  *                             "PRIVATE KEY" and "PUBLIC KEY" (RFC 7468).
+ *                             EC keys use RFC 5480 and 5915, X25519 keys
+ *                             RFC 8410.
  *
  * PEM output ends with a newline and has no terminating NUL. */
 typedef enum {
@@ -529,10 +553,29 @@ typedef enum {
 zuc_status zuc_pkey_parse(const uint8_t *in, size_t len, int private_key,
                           zuc_pkey **out);
 
-/* Generate a key pair. `type` is ZUC_ALG_RSA and `bits` 1024 to 4096.
- * Uses the operating system's random source; its failure is
- * ZUC_ERR_ENTROPY. */
+/* Generate a key pair. For ZUC_ALG_RSA `bits` is 1024 to 4096; for an EC
+ * or X25519 type it is 0 or the curve's size (256, 384, 521, 255). Uses the
+ * operating system's random source; its failure is ZUC_ERR_ENTROPY. */
 zuc_status zuc_pkey_generate(zuc_alg type, size_t bits, zuc_pkey **out);
+
+/* A key from, or to, the backend's own raw form:
+ *
+ *   ZUC_ALG_RSA         RSAPrivateKey or RSAPublicKey DER, as above;
+ *   ZUC_ALG_EC_P*       the private scalar d, big-endian and exactly as
+ *                       long as the curve's order; or the public point,
+ *                       uncompressed: 0x04 || x || y;
+ *   ZUC_ALG_X25519      the 32-byte private or public key (RFC 7748).
+ *
+ * zuc_pkey_import() reads `data` as a private key when `private_key` is
+ * non-zero and as a public key otherwise, and validates it: a point not on
+ * the curve, or a scalar out of range, is ZUC_ERR_INVALID_ARGUMENT.
+ * zuc_pkey_export() writes the private form of a private key, or with
+ * `public_only` (or for a public key) the public form; a buffer of
+ * ZUC_PKEY_MAX_WRITE_SIZE always suffices. */
+zuc_status zuc_pkey_import(zuc_alg type, int private_key,
+                           const uint8_t *data, size_t len, zuc_pkey **out);
+zuc_status zuc_pkey_export(const zuc_pkey *key, int public_only,
+                           uint8_t *out, size_t out_size, size_t *out_len);
 
 /* A new handle holding only the public half of `key`. */
 zuc_status zuc_pkey_public(const zuc_pkey *key, zuc_pkey **out);
@@ -540,9 +583,9 @@ zuc_status zuc_pkey_public(const zuc_pkey *key, zuc_pkey **out);
 /* Free a handle, wiping a private key. NULL is accepted and ignored. */
 void zuc_pkey_free(zuc_pkey *key);
 
-/* What a handle holds: its type (ZUC_ALG_RSA), its size in bits (the
- * modulus), and whether it is a private key. ZUC_ALG_NONE, 0 and 0 for
- * NULL. */
+/* What a handle holds: its type (ZUC_ALG_RSA, ZUC_ALG_EC_P256, ...,
+ * ZUC_ALG_X25519), its size in bits (the modulus or the curve), and whether
+ * it is a private key. ZUC_ALG_NONE, 0 and 0 for NULL. */
 zuc_alg zuc_pkey_type(const zuc_pkey *key);
 size_t  zuc_pkey_bits(const zuc_pkey *key);
 int     zuc_pkey_is_private(const zuc_pkey *key);
@@ -556,11 +599,14 @@ zuc_status zuc_pkey_write(const zuc_pkey *key, zuc_pkey_format format,
                           uint8_t *out, size_t out_size, size_t *out_len);
 
 /* Sign a message digest, or check a signature over one. `scheme` is
- * ZUC_ALG_RSA_PKCS1V15_SIGN or ZUC_ALG_RSA_PSS; `hash` is the digest that
- * produced `digest` (SHA-1 or SHA-2), and `digest_len` must be its size.
- * Signing needs a private key; the signature is zuc_pkey_bits() / 8 bytes,
- * and `sig_size` must be at least that. PSS signing draws its salt from
- * the operating system's random source.
+ * ZUC_ALG_RSA_PKCS1V15_SIGN or ZUC_ALG_RSA_PSS for an RSA key, and
+ * ZUC_ALG_ECDSA or ZUC_ALG_ECDSA_DETERMINISTIC for a key on a NIST curve;
+ * `hash` is the digest that produced `digest` (SHA-1 or SHA-2), and
+ * `digest_len` must be its size. Signing needs a private key. An RSA
+ * signature is zuc_pkey_bits() / 8 bytes; an ECDSA one is r || s, twice
+ * the curve's size rounded up to whole bytes (64, 96 or 132). A
+ * ZUC_PKEY_MAX_WRITE_SIZE buffer always suffices. PSS and randomised ECDSA
+ * draw from the operating system's random source.
  *
  * Verification returns ZUC_OK for a valid signature and ZUC_ERR_AUTH for
  * any other, including one of the wrong length. */
@@ -582,6 +628,8 @@ zuc_status zuc_pkey_verify_hash(const zuc_pkey *key, zuc_alg scheme,
  * operating system's random source; the ciphertext is zuc_pkey_bits() / 8
  * bytes. A plaintext too long for the key and scheme is ZUC_ERR_BAD_LENGTH.
  *
+ * EC keys do not encrypt: ZUC_ERR_UNSUPPORTED.
+ *
  * Decryption needs a private key. Any ciphertext that does not decrypt to
  * a validly padded message is ZUC_ERR_AUTH, with the same status whatever
  * the cause, and on any failure the whole output buffer is zeroed.
@@ -595,6 +643,17 @@ zuc_status zuc_pkey_encrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
 zuc_status zuc_pkey_decrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
                             const uint8_t *in, size_t len,
                             uint8_t *out, size_t out_size, size_t *out_len);
+
+/* Elliptic-curve Diffie-Hellman: the raw shared secret of private `key`
+ * and `peer`, which must be on the same curve (or both X25519 keys); only
+ * the public half of `peer` is used. The secret is the x-coordinate for the
+ * NIST curves (32, 48 or 66 bytes) and 32 bytes for X25519. It is a shared
+ * secret, not a key: derive keys from it with a KDF. A peer on another
+ * curve, and an X25519 result of all zeros (a low-order peer point, RFC 7748
+ * section 6.1), are ZUC_ERR_INVALID_ARGUMENT. On failure the output is
+ * zeroed. */
+zuc_status zuc_pkey_agree(const zuc_pkey *key, const zuc_pkey *peer,
+                          uint8_t *out, size_t out_size, size_t *out_len);
 
 /* ------------------------------------------------------------------ *
  * Randomness

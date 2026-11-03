@@ -142,3 +142,15 @@ test_that("the archive reads an RSA key, signs and verifies (RFC 7515 A.2)", {
   expect_length(sig, 256L)
   expect_identical(sig[1:4], as.raw(c(112, 46, 33, 137)))
 })
+
+test_that("the archive's X25519 reproduces RFC 7748 section 6.1", {
+  # Added after ABI 1 (Stage 16a).
+  hex <- function(x) as.raw(strtoi(substring(x, seq(1, nchar(x), 2),
+                                             seq(2, nchar(x), 2)), 16L))
+  a <- hex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a")
+  B <- hex("de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f")
+  expect_identical(
+    archive_x25519(a, B),
+    hex("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742")
+  )
+})

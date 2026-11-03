@@ -257,7 +257,7 @@ SEXP zucrypttest_exercise(void)
     }
 
     /* Utilities. ZUCRYPT_API_HAS is how a consumer tests for a field before
-     * calling it; pkey_decrypt is the table's last field, so the test covers
+     * calling it; pkey_agree is the table's last field, so the test covers
      * the whole struct_size arithmetic. Every field this fixture calls is
      * present in the table it was built against, so it must say yes. */
     check(&f, ZUCRYPT_API_HAS(api, equal) && ZUCRYPT_API_HAS(api, secure_zero) &&
@@ -265,7 +265,8 @@ SEXP zucrypttest_exercise(void)
               ZUCRYPT_API_HAS(api, aead_encrypt) &&
               ZUCRYPT_API_HAS(api, aead_decrypt) &&
               ZUCRYPT_API_HAS(api, pbkdf2_hmac) &&
-              ZUCRYPT_API_HAS(api, pkey_decrypt),
+              ZUCRYPT_API_HAS(api, pkey_decrypt) &&
+              ZUCRYPT_API_HAS(api, pkey_agree),
           "ZUCRYPT_API_HAS denies a field the table has");
     check(&f, !ZUCRYPT_API_HAS((const zucrypt_api_v1 *) NULL, equal),
           "ZUCRYPT_API_HAS accepted a NULL table");
@@ -381,6 +382,42 @@ SEXP zucrypttest_exercise(void)
         api->pkey_free(back);
         api->pkey_free(pub);
         api->pkey_free(key);
+    }
+
+    /* Elliptic curves, appended after ABI 1 (Stage 16a): the RFC 7748
+     * section 6.1 X25519 exchange through pkey_import, pkey_export and
+     * pkey_agree. */
+    {
+        static const uint8_t a[32] = {
+            0x77, 0x07, 0x6d, 0x0a, 0x73, 0x18, 0xa5, 0x7d, 0x3c, 0x16, 0xc1,
+            0x72, 0x51, 0xb2, 0x66, 0x45, 0xdf, 0x4c, 0x2f, 0x87, 0xeb, 0xc0,
+            0x99, 0x2a, 0xb1, 0x77, 0xfb, 0xa5, 0x1d, 0xb9, 0x2c, 0x2a
+        };
+        static const uint8_t B[32] = {
+            0xde, 0x9e, 0xdb, 0x7d, 0x7b, 0x7d, 0xc1, 0xb4, 0xd3, 0x5b, 0x61,
+            0xc2, 0xec, 0xe4, 0x35, 0x37, 0x3f, 0x83, 0x43, 0xc8, 0x5b, 0x78,
+            0x67, 0x4d, 0xad, 0xfc, 0x7e, 0x14, 0x6f, 0x88, 0x2b, 0x4f
+        };
+        static const uint8_t K[32] = {
+            0x4a, 0x5d, 0x9d, 0x5b, 0xa4, 0xce, 0x2d, 0xe1, 0x72, 0x8e, 0x3b,
+            0xf4, 0x80, 0x35, 0x0f, 0x25, 0xe0, 0x7e, 0x21, 0xc9, 0x47, 0xd1,
+            0x9e, 0x33, 0x76, 0xf0, 0x9b, 0x3c, 0x1e, 0x16, 0x17, 0x42
+        };
+        zuc_pkey *alice = NULL, *bob = NULL;
+        uint8_t k[32], raw[32];
+        size_t kl = 0, rl = 0;
+
+        check(&f, api->pkey_import(ZUC_ALG_X25519, 1, a, 32, &alice) == ZUC_OK &&
+                  api->pkey_import(ZUC_ALG_X25519, 0, B, 32, &bob) == ZUC_OK,
+              "pkey_import refused RFC 7748's X25519 keys");
+        check(&f, api->pkey_agree(alice, bob, k, sizeof k, &kl) == ZUC_OK &&
+                  kl == 32 && memcmp(k, K, 32) == 0,
+              "pkey_agree does not reproduce RFC 7748 section 6.1");
+        check(&f, api->pkey_export(bob, 0, raw, sizeof raw, &rl) == ZUC_OK &&
+                  rl == 32 && memcmp(raw, B, 32) == 0,
+              "pkey_export does not return the key pkey_import was given");
+        api->pkey_free(bob);
+        api->pkey_free(alice);
     }
 
     result = PROTECT(Rf_allocVector(STRSXP, f.n));

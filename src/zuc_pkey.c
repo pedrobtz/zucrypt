@@ -1,5 +1,5 @@
-/* zucrypt: public-key cryptography, RSA (Stage 15a, design.md section 6,
- * tranche 3).
+/* zucrypt: public-key cryptography, RSA (Stage 15a) and elliptic curves
+ * (Stage 16a); design.md section 6, tranches 3 and 4.
  *
  * A zuc_pkey holds key *material*, not a key in the backend's store: the
  * key's canonical encoding (RSAPrivateKey or RSAPublicKey DER, the format
@@ -12,10 +12,17 @@
  * policy. It is also what makes a handle trivially safe to keep across
  * calls: there is no backend state behind it.
  *
- * Reading and writing go through the backend's PK layer, which speaks DER
- * and PEM in PKCS#1, PKCS#8 and SubjectPublicKeyInfo. Its writer emits a
- * private RSA key only as PKCS#1, so PKCS#8 is the PKCS#1 encoding inside a
- * fixed PrivateKeyInfo wrapper, built here.
+ * Reading goes through the backend's PK layer, which speaks DER and PEM in
+ * PKCS#1, SEC1, PKCS#8 and SubjectPublicKeyInfo. Writing uses its public-key
+ * writer for SubjectPublicKeyInfo. The private encodings are built here, so
+ * that they match what OpenSSL writes byte for byte: PKCS#8 around an RSA
+ * key's PKCS#1, SEC1 for an EC key (with its curve, and inside PKCS#8
+ * without), and RFC 8410 for X25519.
+ *
+ * Key material, by type, as the backend imports and exports it:
+ *   RSA       RSAPrivateKey or RSAPublicKey DER;
+ *   EC        the private scalar d, or the uncompressed point 04 || x || y;
+ *   X25519    32 bytes, private or public.
  */
 
 #include <stdlib.h>
@@ -27,11 +34,12 @@
 #include "zuc_internal.h"
 
 struct zuc_pkey {
-    zuc_alg  type;
-    int      is_private;
-    size_t   bits;
-    uint8_t *der;       /* RSAPrivateKey or RSAPublicKey */
-    size_t   der_len;
+    zuc_alg        type;
+    psa_key_type_t ptype;     /* the backend type of `der`: pair or public */
+    int            is_private;
+    size_t         bits;
+    uint8_t       *der;       /* the key material, see above */
+    size_t         der_len;
 };
 
 /* The operations, defined below and exported through the wrappers at the
@@ -57,6 +65,82 @@ static zuc_status pkey_encrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg
 static zuc_status pkey_decrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
                                     const uint8_t *in, size_t len,
                                     uint8_t *out, size_t out_size, size_t *out_len);
+static zuc_status pkey_import_impl(zuc_alg type, int private_key,
+                                   const uint8_t *data, size_t len,
+                                   zuc_pkey **out);
+static zuc_status pkey_export_impl(const zuc_pkey *key, int public_only,
+                                   uint8_t *out, size_t out_size,
+                                   size_t *out_len);
+static zuc_status pkey_agree_impl(const zuc_pkey *key, const zuc_pkey *peer,
+                                  uint8_t *out, size_t out_size,
+                                  size_t *out_len);
+
+/* ------------------------------------------------------------------ *
+ * Key types
+ * ------------------------------------------------------------------ */
+
+/* The zuc_alg of a backend key type, or ZUC_ALG_NONE for one this build
+ * does not offer. */
+static zuc_alg alg_of_psa(psa_key_type_t type, size_t bits)
+{
+    if (PSA_KEY_TYPE_IS_RSA(type)) {
+        return ZUC_ALG_RSA;
+    }
+    if (PSA_KEY_TYPE_IS_ECC(type)) {
+        psa_ecc_family_t family = PSA_KEY_TYPE_ECC_GET_FAMILY(type);
+        if (family == PSA_ECC_FAMILY_SECP_R1) {
+            if (bits == 256) return ZUC_ALG_EC_P256;
+            if (bits == 384) return ZUC_ALG_EC_P384;
+            if (bits == 521) return ZUC_ALG_EC_P521;
+        }
+        if (family == PSA_ECC_FAMILY_MONTGOMERY && bits == 255) {
+            return ZUC_ALG_X25519;
+        }
+    }
+    return ZUC_ALG_NONE;
+}
+
+/* The backend key-pair type and size of an EC or X25519 zuc_alg; 0 for
+ * anything else. */
+static psa_key_type_t ec_pair_type(zuc_alg type, size_t *bits)
+{
+    switch (type) {
+    case ZUC_ALG_EC_P256:
+        *bits = 256;
+        return PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1);
+    case ZUC_ALG_EC_P384:
+        *bits = 384;
+        return PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1);
+    case ZUC_ALG_EC_P521:
+        *bits = 521;
+        return PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_SECP_R1);
+    case ZUC_ALG_X25519:
+        *bits = 255;
+        return PSA_KEY_TYPE_ECC_KEY_PAIR(PSA_ECC_FAMILY_MONTGOMERY);
+    default:
+        *bits = 0;
+        return 0;
+    }
+}
+
+static int is_nist_curve(zuc_alg type)
+{
+    return type == ZUC_ALG_EC_P256 || type == ZUC_ALG_EC_P384 ||
+           type == ZUC_ALG_EC_P521;
+}
+
+/* Bytes in a scalar or coordinate of the key's curve. */
+static size_t ec_bytes(const zuc_pkey *key)
+{
+    return (key->bits + 7) / 8;
+}
+
+/* How long a signature by `key` is: the modulus for RSA, r || s for
+ * ECDSA. */
+static size_t signature_size(const zuc_pkey *key)
+{
+    return key->type == ZUC_ALG_RSA ? key->bits / 8 : 2 * ec_bytes(key);
+}
 
 /* ------------------------------------------------------------------ *
  * Handles
@@ -117,7 +201,7 @@ static zuc_status pkey_from_psa(psa_key_id_t id, int want_private,
         return zuc_int_from_psa(ps);
     }
     type = psa_get_key_type(&attr);
-    if (!PSA_KEY_TYPE_IS_RSA(type)) {
+    if (alg_of_psa(type, psa_get_key_bits(&attr)) == ZUC_ALG_NONE) {
         psa_reset_key_attributes(&attr);
         return ZUC_ERR_UNSUPPORTED;
     }
@@ -143,7 +227,8 @@ static zuc_status pkey_from_psa(psa_key_id_t id, int want_private,
         psa_reset_key_attributes(&attr);
         return zuc_int_from_psa(ps);
     }
-    key->type = ZUC_ALG_RSA;
+    key->type = alg_of_psa(type, psa_get_key_bits(&attr));
+    key->ptype = is_pair ? type : PSA_KEY_TYPE_PUBLIC_KEY_OF_KEY_PAIR(type);
     key->is_private = is_pair;
     key->bits = psa_get_key_bits(&attr);
     key->der = buf;
@@ -161,8 +246,7 @@ static zuc_status pkey_import(const zuc_pkey *key, psa_algorithm_t alg,
     psa_key_attributes_t attr = psa_key_attributes_init();
     psa_status_t ps;
 
-    psa_set_key_type(&attr, key->is_private ? PSA_KEY_TYPE_RSA_KEY_PAIR
-                                            : PSA_KEY_TYPE_RSA_PUBLIC_KEY);
+    psa_set_key_type(&attr, key->ptype);
     psa_set_key_algorithm(&attr, alg);
     psa_set_key_usage_flags(&attr, usage);
     ps = psa_import_key(&attr, key->der, key->der_len, id);
@@ -267,18 +351,39 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
         return parse_status(ret);
     }
 
+    /* The PK layer describes a key only for a usage it supports: signing
+     * for RSA and the NIST curves, key agreement for X25519 key pairs.
+     * Whichever answers gives the key's type; its policy is replaced below,
+     * since the key is imported only to be exported. */
     ret = mbedtls_pk_get_psa_attributes(
         &pk, is_pair ? PSA_KEY_USAGE_SIGN_HASH : PSA_KEY_USAGE_VERIFY_HASH,
         &attr);
-    if (ret != 0 || !PSA_KEY_TYPE_IS_RSA(psa_get_key_type(&attr))) {
+    if (ret != 0 && is_pair) {
+        psa_reset_key_attributes(&attr);
+        ret = mbedtls_pk_get_psa_attributes(&pk, PSA_KEY_USAGE_DERIVE, &attr);
+    }
+    if (ret != 0 && !is_pair && mbedtls_pk_get_bitlen(&pk) == 255) {
+        /* A public X25519 key has no usage the PK layer will describe; its
+         * raw 32 bytes are what the backend imports. */
+        uint8_t raw[32];
+        size_t raw_len = 0;
+        psa_reset_key_attributes(&attr);
+        ret = mbedtls_pk_write_pubkey_psa(&pk, raw, sizeof raw, &raw_len);
+        mbedtls_pk_free(&pk);
+        if (ret != 0 || raw_len != sizeof raw) {
+            return ZUC_ERR_UNSUPPORTED;
+        }
+        return pkey_import_impl(ZUC_ALG_X25519, 0, raw, raw_len, out);
+    }
+    if (ret != 0) {
         mbedtls_pk_free(&pk);
         psa_reset_key_attributes(&attr);
-        /* A well-formed key the PK layer knows, of a type this build does
-         * not handle: an EC key, for one. */
+        /* A well-formed key the PK layer knows, of a type or curve this
+         * build does not handle. */
         return ZUC_ERR_UNSUPPORTED;
     }
-    psa_set_key_usage_flags(&attr, psa_get_key_usage_flags(&attr) |
-                                   PSA_KEY_USAGE_EXPORT);
+    psa_set_key_algorithm(&attr, PSA_ALG_NONE);
+    psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_EXPORT);
     ret = mbedtls_pk_import_into_psa(&pk, &attr, &id);
     mbedtls_pk_free(&pk);
     psa_reset_key_attributes(&attr);
@@ -312,13 +417,26 @@ static zuc_status pkey_generate_impl(zuc_alg type, size_t bits, zuc_pkey **out)
     if (!zuc_int_ready()) {
         return ZUC_ERR_NOT_READY;
     }
-    if (type != ZUC_ALG_RSA || !zuc_alg_available(type)) {
+    if (!zuc_alg_available(type)) {
         return ZUC_ERR_UNSUPPORTED;
     }
-    if (bits < 1024 || bits > 4096) {
-        return ZUC_ERR_BAD_LENGTH;
+    if (type == ZUC_ALG_RSA) {
+        if (bits < 1024 || bits > 4096) {
+            return ZUC_ERR_BAD_LENGTH;
+        }
+        psa_set_key_type(&attr, PSA_KEY_TYPE_RSA_KEY_PAIR);
+    } else {
+        size_t curve_bits = 0;
+        psa_key_type_t pt = ec_pair_type(type, &curve_bits);
+        if (pt == 0) {
+            return ZUC_ERR_UNSUPPORTED;
+        }
+        if (bits != 0 && bits != curve_bits) {
+            return ZUC_ERR_BAD_LENGTH;
+        }
+        bits = curve_bits;
+        psa_set_key_type(&attr, pt);
     }
-    psa_set_key_type(&attr, PSA_KEY_TYPE_RSA_KEY_PAIR);
     psa_set_key_bits(&attr, bits);
     psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_EXPORT);
     ps = psa_generate_key(&attr, &id);
@@ -359,7 +477,8 @@ static zuc_status pkey_public_impl(const zuc_pkey *key, zuc_pkey **out)
  * Writing
  * ------------------------------------------------------------------ */
 
-/* RSAPublicKey DER for any handle, into a fresh buffer. */
+/* The public key material of any handle (RSAPublicKey DER, an EC point,
+ * 32 X25519 bytes), into a fresh buffer. */
 static zuc_status public_der(const zuc_pkey *key, uint8_t **der,
                              size_t *der_len)
 {
@@ -494,6 +613,172 @@ static zuc_status spki_der(const zuc_pkey *key, uint8_t **out,
     return ZUC_OK;
 }
 
+/* --- EC and X25519 encodings ------------------------------------------ */
+
+/* Bytes a DER element with `n` content bytes takes. */
+static size_t tlv_size(size_t n)
+{
+    return 1 + (n < 0x80 ? 1 : n <= 0xFF ? 2 : 3) + n;
+}
+
+/* Write a tag and length at `p`; returns the bytes written. Content follows
+ * at p + the return value. */
+static size_t tlv_head(uint8_t *p, uint8_t tag, size_t n)
+{
+    p[0] = tag;
+    return 1 + der_length(n, p + 1);
+}
+
+static size_t tlv(uint8_t *p, uint8_t tag, const uint8_t *v, size_t n)
+{
+    size_t h = tlv_head(p, tag, n);
+    memcpy(p + h, v, n);
+    return h + n;
+}
+
+/* id-ecPublicKey (RFC 5480), and the curve OIDs of P-256, P-384, P-521. */
+static const uint8_t OID_EC_PUBLIC_KEY[] = {
+    0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01
+};
+static const uint8_t OID_P256[] = {
+    0x06, 0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07
+};
+static const uint8_t OID_P384[] = { 0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x22 };
+static const uint8_t OID_P521[] = { 0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x23 };
+/* id-X25519 (RFC 8410). */
+static const uint8_t OID_X25519[] = { 0x06, 0x03, 0x2b, 0x65, 0x6e };
+
+static void curve_oid(zuc_alg type, const uint8_t **oid, size_t *len)
+{
+    switch (type) {
+    case ZUC_ALG_EC_P256: *oid = OID_P256; *len = sizeof OID_P256; break;
+    case ZUC_ALG_EC_P384: *oid = OID_P384; *len = sizeof OID_P384; break;
+    default:              *oid = OID_P521; *len = sizeof OID_P521; break;
+    }
+}
+
+/* SEC1 ECPrivateKey (RFC 5915): SEQUENCE { 1, OCTET STRING d,
+ * [0] curve (when `params`), [1] BIT STRING point }. Written at `p` when
+ * `p` is not NULL; returns its size either way. */
+static size_t ec_sec1(uint8_t *p, const zuc_pkey *key, const uint8_t *point,
+                      size_t point_len, int params)
+{
+    const uint8_t *oid;
+    size_t oid_len, body, n = 0;
+
+    curve_oid(key->type, &oid, &oid_len);
+    body = 3 + tlv_size(key->der_len) +
+           (params ? tlv_size(oid_len) : 0) +
+           tlv_size(tlv_size(point_len + 1));
+    if (p == NULL) {
+        return tlv_size(body);
+    }
+    n += tlv_head(p, 0x30, body);
+    p[n++] = 0x02; p[n++] = 0x01; p[n++] = 0x01;
+    n += tlv(p + n, 0x04, key->der, key->der_len);
+    if (params) {
+        n += tlv(p + n, 0xa0, oid, oid_len);
+    }
+    n += tlv_head(p + n, 0xa1, tlv_size(point_len + 1));
+    n += tlv_head(p + n, 0x03, point_len + 1);
+    p[n++] = 0x00;
+    memcpy(p + n, point, point_len);
+    return n + point_len;
+}
+
+/* The private encodings of an EC or X25519 key, and its PKCS#1-slot
+ * refusal. Public keys are SubjectPublicKeyInfo, through the PK writer. */
+static zuc_status ec_encode(const zuc_pkey *key, zuc_pkey_format format,
+                            int private_out, uint8_t **der, size_t *der_len,
+                            const char **label)
+{
+    const int pkcs1 = format == ZUC_PKEY_PKCS1_DER ||
+                      format == ZUC_PKEY_PKCS1_PEM;
+    uint8_t *point = NULL, *p;
+    size_t point_len = 0, total, n = 0;
+    zuc_status st;
+
+    if (format < ZUC_PKEY_PKCS1_DER || format > ZUC_PKEY_INFO_PEM) {
+        return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (!private_out) {
+        if (pkcs1) {
+            return ZUC_ERR_UNSUPPORTED;
+        }
+        *label = "PUBLIC KEY";
+        return spki_der(key, der, der_len);
+    }
+    if (key->type == ZUC_ALG_X25519) {
+        /* RFC 8410 section 7: SEQUENCE { 0, SEQUENCE { id-X25519 },
+         * OCTET STRING { OCTET STRING k } }. There is no SEC1 form. */
+        size_t alg = tlv_size(sizeof OID_X25519);
+        size_t inner = tlv_size(key->der_len);
+        size_t body = 3 + alg + tlv_size(inner);
+        if (pkcs1) {
+            return ZUC_ERR_UNSUPPORTED;
+        }
+        total = tlv_size(body);
+        p = malloc(total);
+        if (p == NULL) {
+            return ZUC_ERR_MEMORY;
+        }
+        n += tlv_head(p, 0x30, body);
+        p[n++] = 0x02; p[n++] = 0x01; p[n++] = 0x00;
+        n += tlv(p + n, 0x30, OID_X25519, sizeof OID_X25519);
+        n += tlv_head(p + n, 0x04, inner);
+        n += tlv(p + n, 0x04, key->der, key->der_len);
+        *der = p;
+        *der_len = n;
+        *label = "PRIVATE KEY";
+        return ZUC_OK;
+    }
+
+    st = public_der(key, &point, &point_len);
+    if (st != ZUC_OK) {
+        return st;
+    }
+    if (pkcs1) {
+        /* SEC1 with the curve, as OpenSSL writes "EC PRIVATE KEY". */
+        total = ec_sec1(NULL, key, point, point_len, 1);
+        p = malloc(total);
+        if (p != NULL) {
+            n = ec_sec1(p, key, point, point_len, 1);
+        }
+        *label = "EC PRIVATE KEY";
+    } else {
+        /* PKCS#8 (RFC 5915 section 3): the curve in the algorithm
+         * identifier, and SEC1 without it inside. */
+        const uint8_t *oid;
+        size_t oid_len, sec1, alg, body;
+        curve_oid(key->type, &oid, &oid_len);
+        sec1 = ec_sec1(NULL, key, point, point_len, 0);
+        alg = sizeof OID_EC_PUBLIC_KEY + oid_len;
+        body = 3 + tlv_size(alg) + tlv_size(sec1);
+        total = tlv_size(body);
+        p = malloc(total);
+        if (p != NULL) {
+            n += tlv_head(p, 0x30, body);
+            p[n++] = 0x02; p[n++] = 0x01; p[n++] = 0x00;
+            n += tlv_head(p + n, 0x30, alg);
+            memcpy(p + n, OID_EC_PUBLIC_KEY, sizeof OID_EC_PUBLIC_KEY);
+            n += sizeof OID_EC_PUBLIC_KEY;
+            memcpy(p + n, oid, oid_len);
+            n += oid_len;
+            n += tlv_head(p + n, 0x04, sec1);
+            n += ec_sec1(p + n, key, point, point_len, 0);
+        }
+        *label = "PRIVATE KEY";
+    }
+    zuc_secure_zero(point, point_len);
+    free(point);
+    if (p == NULL) {
+        return ZUC_ERR_MEMORY;
+    }
+    *der = p;
+    *der_len = n;
+    return ZUC_OK;
+}
+
 static zuc_status pkey_write_impl(const zuc_pkey *key, zuc_pkey_format format,
                                   int public_only,
                                   uint8_t *out, size_t out_size, size_t *out_len)
@@ -514,7 +799,9 @@ static zuc_status pkey_write_impl(const zuc_pkey *key, zuc_pkey_format format,
         return ZUC_ERR_NOT_READY;
     }
 
-    switch (format) {
+    if (key->type != ZUC_ALG_RSA) {
+        st = ec_encode(key, format, private_out, &der, &der_len, &label);
+    } else switch (format) {
     case ZUC_PKEY_PKCS1_DER:
     case ZUC_PKEY_PKCS1_PEM:
         if (private_out) {
@@ -555,7 +842,7 @@ static zuc_status pkey_write_impl(const zuc_pkey *key, zuc_pkey_format format,
         size_t olen = 0;
         int ret;
 
-        /* `label` is one of four constants above, so these fit. */
+        /* `label` is one of the constants above, so these fit. */
         strcpy(header, "-----BEGIN ");
         strcat(header, label);
         strcat(header, "-----\n");
@@ -602,6 +889,29 @@ static psa_algorithm_t sign_alg(zuc_alg scheme, zuc_alg hash)
         return PSA_ALG_RSA_PSS(h);
     }
 #endif
+#if defined(PSA_WANT_ALG_ECDSA)
+    if (scheme == ZUC_ALG_ECDSA) {
+        return PSA_ALG_ECDSA(h);
+    }
+#endif
+#if defined(PSA_WANT_ALG_DETERMINISTIC_ECDSA)
+    if (scheme == ZUC_ALG_ECDSA_DETERMINISTIC) {
+        return PSA_ALG_DETERMINISTIC_ECDSA(h);
+    }
+#endif
+    return 0;
+}
+
+/* Does `scheme` belong to `key`'s type? An RSA scheme on an EC key, or the
+ * reverse, is a usage error. */
+static int scheme_fits(const zuc_pkey *key, zuc_alg scheme)
+{
+    if (scheme == ZUC_ALG_RSA_PKCS1V15_SIGN || scheme == ZUC_ALG_RSA_PSS) {
+        return key->type == ZUC_ALG_RSA;
+    }
+    if (scheme == ZUC_ALG_ECDSA || scheme == ZUC_ALG_ECDSA_DETERMINISTIC) {
+        return is_nist_curve(key->type);
+    }
     return 0;
 }
 
@@ -631,7 +941,10 @@ static zuc_status pkey_sign_hash_impl(const zuc_pkey *key, zuc_alg scheme,
     if (alg == 0) {
         return ZUC_ERR_UNSUPPORTED;
     }
-    if (digest_len != zuc_alg_size(hash) || sig_size < key->bits / 8) {
+    if (!scheme_fits(key, scheme)) {
+        return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (digest_len != zuc_alg_size(hash) || sig_size < signature_size(key)) {
         return ZUC_ERR_BAD_LENGTH;
     }
     st = pkey_import(key, alg, PSA_KEY_USAGE_SIGN_HASH, &id);
@@ -668,12 +981,15 @@ static zuc_status pkey_verify_hash_impl(const zuc_pkey *key, zuc_alg scheme,
     if (alg == 0) {
         return ZUC_ERR_UNSUPPORTED;
     }
+    if (!scheme_fits(key, scheme)) {
+        return ZUC_ERR_INVALID_ARGUMENT;
+    }
     if (digest_len != zuc_alg_size(hash)) {
         return ZUC_ERR_BAD_LENGTH;
     }
     /* A signature of the wrong length is a signature that does not verify,
      * not a usage error. */
-    if (sig_len != key->bits / 8) {
+    if (sig_len != signature_size(key)) {
         return ZUC_ERR_AUTH;
     }
     st = pkey_import(key, alg, PSA_KEY_USAGE_VERIFY_HASH, &id);
@@ -684,8 +1000,8 @@ static zuc_status pkey_verify_hash_impl(const zuc_pkey *key, zuc_alg scheme,
     psa_destroy_key(id);
     /* Every argument has been checked above, so an "invalid argument" from
      * the backend is about the signature: one whose integer is not below
-     * the modulus is refused as bad input rather than as a bad signature.
-     * Either way it does not verify. */
+     * the modulus (or an ECDSA r or s out of range) is refused as bad input
+     * rather than as a bad signature. Either way it does not verify. */
     if (ps == PSA_ERROR_INVALID_SIGNATURE || ps == PSA_ERROR_INVALID_ARGUMENT) {
         return ZUC_ERR_AUTH;
     }
@@ -735,7 +1051,7 @@ static zuc_status pkey_encrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg
         return ZUC_ERR_NOT_READY;
     }
     alg = crypt_alg(scheme, hash);
-    if (alg == 0) {
+    if (alg == 0 || key->type != ZUC_ALG_RSA) {
         return ZUC_ERR_UNSUPPORTED;
     }
     if (out_size < key->bits / 8) {
@@ -781,7 +1097,7 @@ static zuc_status pkey_decrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg
         return ZUC_ERR_INVALID_ARGUMENT;
     }
     alg = crypt_alg(scheme, hash);
-    if (alg == 0) {
+    if (alg == 0 || key->type != ZUC_ALG_RSA) {
         return ZUC_ERR_UNSUPPORTED;
     }
     st = pkey_import(key, alg, PSA_KEY_USAGE_DECRYPT, &id);
@@ -802,6 +1118,158 @@ static zuc_status pkey_decrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg
                                                    : ZUC_ERR_AUTH;
     }
     return ZUC_OK;
+}
+
+/* ------------------------------------------------------------------ *
+ * Raw key material, and key agreement
+ * ------------------------------------------------------------------ */
+
+static zuc_status pkey_import_impl(zuc_alg type, int private_key,
+                                   const uint8_t *data, size_t len,
+                                   zuc_pkey **out)
+{
+    psa_key_attributes_t attr = psa_key_attributes_init();
+    psa_key_type_t pt;
+    psa_key_id_t id = 0;
+    psa_status_t ps;
+    zuc_status st;
+    size_t bits = 0;
+
+    if (out == NULL) {
+        return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    *out = NULL;
+    if (!zuc_int_ready()) {
+        return ZUC_ERR_NOT_READY;
+    }
+    if (data == NULL || len == 0) {
+        return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (!zuc_alg_available(type)) {
+        return ZUC_ERR_UNSUPPORTED;
+    }
+    if (type == ZUC_ALG_RSA) {
+        pt = PSA_KEY_TYPE_RSA_KEY_PAIR;
+    } else {
+        pt = ec_pair_type(type, &bits);
+        if (pt == 0) {
+            return ZUC_ERR_UNSUPPORTED;
+        }
+    }
+    psa_set_key_type(&attr, private_key ? pt
+                                        : PSA_KEY_TYPE_PUBLIC_KEY_OF_KEY_PAIR(pt));
+    psa_set_key_bits(&attr, bits);
+    psa_set_key_usage_flags(&attr, PSA_KEY_USAGE_EXPORT);
+    /* The backend validates as it imports: a point not on the curve, a
+     * scalar out of range, an RSA key whose parts do not agree. */
+    ps = psa_import_key(&attr, data, len, &id);
+    psa_reset_key_attributes(&attr);
+    if (ps != PSA_SUCCESS) {
+        return ps == PSA_ERROR_INSUFFICIENT_MEMORY ? ZUC_ERR_MEMORY
+                                                   : ZUC_ERR_INVALID_ARGUMENT;
+    }
+    st = pkey_from_psa(id, private_key, out);
+    psa_destroy_key(id);
+    return st;
+}
+
+static zuc_status pkey_export_impl(const zuc_pkey *key, int public_only,
+                                   uint8_t *out, size_t out_size,
+                                   size_t *out_len)
+{
+    uint8_t *der = NULL;
+    size_t der_len = 0;
+    zuc_status st;
+
+    if (out_len != NULL) {
+        *out_len = 0;
+    }
+    if (!zuc_int_ready()) {
+        return ZUC_ERR_NOT_READY;
+    }
+    if (key == NULL || out == NULL || out_len == NULL) {
+        return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (key->is_private && !public_only) {
+        if (key->der_len > out_size) {
+            return ZUC_ERR_BAD_LENGTH;
+        }
+        memcpy(out, key->der, key->der_len);
+        *out_len = key->der_len;
+        return ZUC_OK;
+    }
+    st = public_der(key, &der, &der_len);
+    if (st != ZUC_OK) {
+        return st;
+    }
+    if (der_len > out_size) {
+        st = ZUC_ERR_BAD_LENGTH;
+    } else {
+        memcpy(out, der, der_len);
+        *out_len = der_len;
+    }
+    free(der);
+    return st;
+}
+
+static zuc_status pkey_agree_impl(const zuc_pkey *key, const zuc_pkey *peer,
+                                  uint8_t *out, size_t out_size,
+                                  size_t *out_len)
+{
+    uint8_t *point = NULL;
+    size_t point_len = 0, i;
+    psa_key_id_t id = 0;
+    psa_status_t ps;
+    zuc_status st;
+    int zero = 1;
+
+    if (out_len != NULL) {
+        *out_len = 0;
+    }
+    if (!zuc_int_ready()) {
+        return ZUC_ERR_NOT_READY;
+    }
+    if (key == NULL || peer == NULL || out == NULL || out_len == NULL) {
+        return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (key->type == ZUC_ALG_RSA || !zuc_alg_available(ZUC_ALG_ECDH)) {
+        return ZUC_ERR_UNSUPPORTED;
+    }
+    if (!key->is_private || peer->type != key->type) {
+        return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (out_size < ec_bytes(key)) {
+        return ZUC_ERR_BAD_LENGTH;
+    }
+    st = public_der(peer, &point, &point_len);
+    if (st != ZUC_OK) {
+        return st;
+    }
+    st = pkey_import(key, PSA_ALG_ECDH, PSA_KEY_USAGE_DERIVE, &id);
+    if (st == ZUC_OK) {
+        ps = psa_raw_key_agreement(PSA_ALG_ECDH, id, point, point_len,
+                                   out, out_size, out_len);
+        psa_destroy_key(id);
+        st = ps == PSA_SUCCESS ? ZUC_OK
+           : ps == PSA_ERROR_INSUFFICIENT_MEMORY ? ZUC_ERR_MEMORY
+           : ZUC_ERR_INVALID_ARGUMENT;
+    }
+    free(point);
+    /* RFC 7748 section 6.1: an all-zero X25519 result means a low-order
+     * peer point, and contributes nothing secret. */
+    if (st == ZUC_OK && key->type == ZUC_ALG_X25519) {
+        for (i = 0; i < *out_len; i++) {
+            if (out[i] != 0) zero = 0;
+        }
+        if (zero) {
+            st = ZUC_ERR_INVALID_ARGUMENT;
+        }
+    }
+    if (st != ZUC_OK) {
+        zuc_secure_zero(out, out_size);
+        *out_len = 0;
+    }
+    return st;
 }
 
 /* ------------------------------------------------------------------ *
@@ -873,4 +1341,28 @@ zuc_status zuc_pkey_decrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
 {
     zuc_int_alloc_watch();
     return zuc_int_memory_or(pkey_decrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
+}
+
+zuc_status zuc_pkey_import(zuc_alg type, int private_key,
+                           const uint8_t *data, size_t len, zuc_pkey **out)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_import_impl(type, private_key, data, len,
+                                              out));
+}
+
+zuc_status zuc_pkey_export(const zuc_pkey *key, int public_only,
+                           uint8_t *out, size_t out_size, size_t *out_len)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_export_impl(key, public_only, out, out_size,
+                                              out_len));
+}
+
+zuc_status zuc_pkey_agree(const zuc_pkey *key, const zuc_pkey *peer,
+                          uint8_t *out, size_t out_size, size_t *out_len)
+{
+    zuc_int_alloc_watch();
+    return zuc_int_memory_or(pkey_agree_impl(key, peer, out, out_size,
+                                             out_len));
 }
