@@ -106,6 +106,18 @@ failure after one as `ZUC_ERR_MEMORY`, because bignum and ASN.1 code
 turns allocation failures into “invalid key” and the like. 15b
 (envelopes, SSH, fingerprints, bignum, encrypted PEM) follows.
 
+**Stage 16a is done** (2026-11-03, \#81): tranche 4 admitted on the same
+workflow. `zuc_pkey` now holds EC and X25519 keys too (its `ptype` is
+the backend type); `zuc_pkey_import()`/`_export()` move raw key material
+and `zuc_pkey_agree()` does ECDH and X25519, refusing an all-zero X25519
+result. ECDSA signatures are raw `r || s` in C and DER in R, read
+strictly (the encoding must re-encode identically). The private EC
+encodings are built in `src/zuc_pkey.c` to match OpenSSL byte for byte:
+SEC1 with the curve, PKCS#8 around SEC1 without it, RFC 8410 for X25519.
+The allocation sweep’s window holds deterministic ECDSA and X25519 only;
+ECDSA verification and P-256 ECDH allocate 36,000 and 21,000 times and
+are left out on purpose.
+
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`);
 `readme.yaml` re-renders it in CI and fails on any difference, so never
 edit `README.md` by hand.
@@ -226,12 +238,12 @@ stays compiled in every build. Fixtures are in
 
 [.agents/stage-1-spike.md](https://pedrobtz.github.io/zucrypt/.agents/stage-1-spike.md)
 records what the spike measured and every decision it settled — the
-pinned release, the configuration (now thirty-six defines), the trim
-(now 37 objects, 144 files, since \#51 added hardware AES, Stage 14a GCM
-and Stage 15a RSA and PK; `aesce.c` is kept by hand because it has
-symbols only on Arm) and how to re-derive it, the external-RNG choice,
-and the measurements. Read it before touching `src/vendor/`,
-`src/Makevars` or `src/zuc_crypto_config.h`.
+pinned release, the configuration (now forty-eight defines), the trim
+(now 43 objects, 153 files, since \#51 added hardware AES, Stage 14a
+GCM, Stage 15a RSA and PK and Stage 16a the curves; `aesce.c` is kept by
+hand because it has symbols only on Arm) and how to re-derive it, the
+external-RNG choice, and the measurements. Read it before touching
+`src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.
 
 The real content of this repository is
 [.agents/design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md),
@@ -424,7 +436,13 @@ Three surfaces are exposed:
     [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
     / `_verify()`,
     [`crypt_rsa_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
-    / `_decrypt()` and `crypt_sha1/256/384/512()`.
+    / `_decrypt()`,
+    [`crypt_ec_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
+    [`crypt_ec_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
+    [`crypt_ec_dh()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
+    the X25519 functions,
+    [`crypt_ecdsa_parse()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md)
+    / `_write()` and `crypt_sha1/256/384/512()`.
 2.  A registered function table (`inst/include/zucrypt-r.h`,
     `zucrypt_api_v1`, resolved lazily via `zucrypt_get_api`) for
     consumers that can carry `Imports:` + `LinkingTo:` + a real

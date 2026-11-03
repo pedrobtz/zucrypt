@@ -130,9 +130,9 @@
         </dt>
         <dd>Derive a Key from a Password with PBKDF2</dd>
       </dl></div><div class="section level2">
-      <h2 id="rsa-keys-and-signatures-openssl-style-">RSA keys and signatures (openssl-style)<a class="anchor" aria-label="anchor" href="#rsa-keys-and-signatures-openssl-style-"></a></h2>
+      <h2 id="public-keys-and-signatures-openssl-style-">Public keys and signatures (openssl-style)<a class="anchor" aria-label="anchor" href="#public-keys-and-signatures-openssl-style-"></a></h2>
 
-      <div class="section-desc"><p>Reading, writing and generating RSA keys, signatures and RSA encryption, with openssl’s names and arguments under a crypt_ prefix, and the openssl-style digests they take.</p></div>
+      <div class="section-desc"><p>RSA and elliptic-curve keys, signatures, RSA encryption and key agreement, with openssl’s names and arguments under a crypt_ prefix, and the openssl-style digests they take.</p></div>
 
       <dl></dl></div><div class="section level2">
 
@@ -148,10 +148,17 @@
 
         <dt>
 
+          <code><a href="crypt_ec_keys.html">crypt_ec_keygen()</a></code> <code><a href="crypt_ec_keys.html">crypt_ec_key()</a></code> <code><a href="crypt_ec_keys.html">crypt_ec_dh()</a></code> <code><a href="crypt_ec_keys.html">crypt_x25519_keygen()</a></code> <code><a href="crypt_ec_keys.html">crypt_read_x25519_key()</a></code> <code><a href="crypt_ec_keys.html">crypt_read_x25519_pubkey()</a></code> <code><a href="crypt_ec_keys.html">crypt_x25519_diffie_hellman()</a></code> <code><a href="crypt_ec_keys.html">crypt_ecdsa_parse()</a></code> <code><a href="crypt_ec_keys.html">crypt_ecdsa_write()</a></code>
+
+        </dt>
+        <dd>Elliptic-Curve and X25519 Keys</dd>
+
+        <dt>
+
           <code><a href="crypt_rsa_crypto.html">crypt_signature_create()</a></code> <code><a href="crypt_rsa_crypto.html">crypt_signature_verify()</a></code> <code><a href="crypt_rsa_crypto.html">crypt_rsa_encrypt()</a></code> <code><a href="crypt_rsa_crypto.html">crypt_rsa_decrypt()</a></code>
 
         </dt>
-        <dd>RSA Signatures and Encryption</dd>
+        <dd>Signatures and RSA Encryption</dd>
 
         <dt>
 

@@ -237,7 +237,7 @@ draws them from the operating system’s cryptographic source:
 ``` r
 
 crypt_rand_bytes(16)
-#>  [1] d9 77 85 a7 57 b9 26 f0 92 24 a0 11 78 94 16 af
+#>  [1] e6 8b a6 69 9e ed 3f 4e 2c 89 f2 1f ca 30 9b e8
 ```
 
 R’s own random number generator is not involved, so
@@ -268,11 +268,11 @@ nonce is drawn fresh for each message unless you supply one:
 key <- crypt_rand_bytes(32)
 sealed <- crypt_aes_gcm_encrypt(charToRaw("meet at noon"), key)
 sealed
-#>  [1] 0d 60 ca c9 aa 77 c1 fa 05 9f 03 e0
+#>  [1] a2 69 e9 58 f8 3e 7d 84 10 e6 ef a0
 #> attr(,"iv")
-#>  [1] 64 16 ea 45 69 d7 c1 63 80 fc d8 73
+#>  [1] cf 8a a3 c7 14 7c a7 9a 94 ca 24 9c
 #> attr(,"tag")
-#>  [1] fd b8 2d 35 e2 fb 08 db 2a a6 45 61 b3 d3 49 6a
+#>  [1] dc e4 61 10 74 3f bb 55 3a ac 13 ae f1 7b b6 c5
 ```
 
 [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
@@ -377,13 +377,13 @@ key
 #> [2048-bit rsa private key]
 cat(crypt_write_pem(key$pubkey))
 #> -----BEGIN PUBLIC KEY-----
-#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsLndl3cKdic+oPZdMMH8
-#> W3vmLUdvwBGfsh3Fe7aojCWaHi1Ijmz3Bji1W8rQzrBv2QDd++QdkD54Z/Y3kU/N
-#> +iFIsMF0SnuNibickiNkmHci523yeMPMzql3pSJ47hh1UBWOuYlw5k4t0lDFpRx6
-#> GFjzPXeJ+FFzed39NY730kyKbBoidA56NroaYsQcTfD6IKmhSTRFKs4otYqWEjk8
-#> T4tL7ARxVLCbN3WvxklP//Qrz83AnmJw9kABotyxpYr9aTWK+kZ5ra9gUEunXHEV
-#> vke+uOeuNj3bkf0NwkKBvJ2oVRmhIvlIK44eR8JCcYpjRYRjEsuRheoBkEQEGEGV
-#> aQIDAQAB
+#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwy3PxkzT4AuxtzraA2w2
+#> W0yNIg+8kOjnTGhjyZ242eLjN20kW2e0jvPwWbCRdZgqq5ym89Mf3I6LHe7L2EuU
+#> bPRJHTnKvm+CgXVIuDvF/5s/gCWBHCdqSrkZ4Z/i3EYO0dWnH/nGu01dPvW8hiBC
+#> FQmpwK/ecKVe8D1w8qm1KwoacnzyhfqOAvxohPnTCPnKtOoC7R8i0fPXpBHGU64H
+#> b6i7mM6L0VeN647eUy5qAaM1UlR+dlgYhKVRezhD1XKUhcluCSEQPTQ71s9JLVBT
+#> 3Dc9F2GvRT9shmEhzPvvN7M3XfAHEVOMIHoQW6BfBhgGApnN97dYzzBPk6aG1WpO
+#> IQIDAQAB
 #> -----END PUBLIC KEY-----
 ```
 
@@ -426,8 +426,45 @@ names(as.list(key)$data)
 
 Key objects live in C and do not survive
 [`saveRDS()`](https://rdrr.io/r/base/readRDS.html); save the PEM
-instead. Elliptic-curve keys, password-protected keys and SSH formats
-are not in this version.
+instead. Password-protected keys and SSH formats are not in this
+version.
+
+## Elliptic curves and X25519
+
+Keys on P-256, P-384 and P-521 sign with ECDSA through the same
+functions, and agree on a shared secret with
+[`crypt_ec_dh()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md):
+
+``` r
+
+alice <- crypt_ec_keygen("P-256")
+bob <- crypt_ec_keygen("P-256")
+sig <- crypt_signature_create(msg, crypt_sha256, alice)
+crypt_signature_verify(msg, sig, crypt_sha256, alice$pubkey)
+#> [1] TRUE
+identical(crypt_ec_dh(alice, bob$pubkey), crypt_ec_dh(bob, alice$pubkey))
+#> [1] TRUE
+```
+
+ECDSA signatures come as DER, as `openssl` returns them;
+[`crypt_ecdsa_parse()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md)
+gives their `r` and `s`. `deterministic = TRUE` makes an RFC 6979
+signature, the same for the same key and message.
+
+X25519 keys only agree on secrets:
+
+``` r
+
+a <- crypt_x25519_keygen()
+b <- crypt_x25519_keygen()
+identical(crypt_x25519_diffie_hellman(a, b$pubkey),
+          crypt_x25519_diffie_hellman(b, a$pubkey))
+#> [1] TRUE
+```
+
+A shared secret is not a key. Derive keys from it, for example with HKDF
+or the Concat KDF a protocol specifies. There is no Ed25519: the bundled
+library has no EdDSA.
 
 ## AES-CBC: for formats that specify it
 
@@ -634,7 +671,7 @@ choice:
 
 | You want | Reach for |
 |----|----|
-| Elliptic curves, certificates, SSH keys, broad algorithm coverage | [openssl](https://cran.r-project.org/package=openssl) |
+| Ed25519, certificates, SSH keys, broad algorithm coverage | [openssl](https://cran.r-project.org/package=openssl) |
 | Modern authenticated encryption that is hard to misuse | [sodium](https://cran.r-project.org/package=sodium), or [rmonocypher](https://cran.r-project.org/package=rmonocypher) with no system library |
 | A cache key for an R object, or a fast non-cryptographic hash | [digest](https://cran.r-project.org/package=digest) |
-| SHA-2, HMAC, AES-GCM, PBKDF2 or RSA with no system library, a constant-time compare, or cryptography callable from your package’s C code | zucrypt |
+| SHA-2, HMAC, AES-GCM, PBKDF2, RSA, ECDSA or X25519 with no system library, a constant-time compare, or cryptography callable from your package’s C code | zucrypt |

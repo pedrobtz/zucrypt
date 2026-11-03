@@ -1,6 +1,6 @@
-# RSA Signatures and Encryption
+# Signatures and RSA Encryption
 
-`crypt_signature_create()` signs data with a private key, and
+`crypt_signature_create()` signs data with a private RSA or EC key, and
 `crypt_signature_verify()` checks the signature with the public key.
 `crypt_rsa_encrypt()` encrypts a short message to a public key, and
 `crypt_rsa_decrypt()` decrypts it with the private key. The names,
@@ -13,6 +13,14 @@ is signed, so `hash = crypt_sha256` gives an RSA-SHA256 signature. With
 v1.5 signatures are deterministic. PSS signatures (`pss = TRUE`, RFC
 8017 section 8.1) are randomised, use MGF1 with the same digest, and a
 salt as long as the digest; verification requires that salt length.
+
+With a key on P-256, P-384 or P-521 the signature is ECDSA, encoded in
+DER as openssl encodes it;
+[`crypt_ecdsa_parse()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md)
+gives its `r` and `s`. ECDSA signatures are randomised unless
+`deterministic = TRUE`, which derives the nonce from the key and digest
+as RFC 6979 specifies. Verification accepts only the canonical DER
+encoding.
 
 RSA encryption is for short secrets such as keys: a 2048-bit key with
 OAEP over SHA-1 takes at most 214 bytes. OAEP (`oaep = TRUE`, RFC 8017
@@ -31,7 +39,8 @@ crypt_signature_create(
   hash = crypt_sha1,
   key,
   password = NULL,
-  pss = FALSE
+  pss = FALSE,
+  deterministic = FALSE
 )
 
 crypt_signature_verify(data, sig, hash = crypt_sha1, pubkey, pss = FALSE)
@@ -69,7 +78,12 @@ crypt_rsa_decrypt(data, key, password = NULL, oaep = FALSE, oaep_hash = "sha1")
 
 - pss:
 
-  `TRUE` for RSASSA-PSS, `FALSE` (the default) for PKCS#1 v1.5.
+  `TRUE` for RSASSA-PSS, `FALSE` (the default) for PKCS#1 v1.5. RSA keys
+  only.
+
+- deterministic:
+
+  `TRUE` for RFC 6979 deterministic ECDSA. EC keys only.
 
 - sig:
 
@@ -107,9 +121,10 @@ long for the key is `zucrypt_bad_length`.
 
 ## Compared with openssl
 
-`pss` and `oaep_hash` are additions. There is no default key: openssl
-reads `~/.ssh`. PKCS#1 v1.5 decryption of an invalid ciphertext is an
-error here; OpenSSL 3 returns random bytes instead (implicit rejection).
+`pss`, `deterministic` and `oaep_hash` are additions. There is no
+default key: openssl reads `~/.ssh`. PKCS#1 v1.5 decryption of an
+invalid ciphertext is an error here; OpenSSL 3 returns random bytes
+instead (implicit rejection).
 
 ## Examples
 

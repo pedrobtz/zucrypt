@@ -289,7 +289,7 @@ simply not equal.</p>
 cryptographic source:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes</a></span><span class="op">(</span><span class="fl">16</span><span class="op">)</span></span>
-<span><span class="co">#&gt;  [1] d9 77 85 a7 57 b9 26 f0 92 24 a0 11 78 94 16 af</span></span></code></pre></div>
+<span><span class="co">#&gt;  [1] e6 8b a6 69 9e ed 3f 4e 2c 89 f2 1f ca 30 9b e8</span></span></code></pre></div>
 <p>R’s own random number generator is not involved, so
 <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> does not make it repeat, and drawing bytes does
 not disturb a simulation that relies on <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code>:</p>
@@ -313,11 +313,11 @@ message unless you supply one:</p>
 <code class="sourceCode R"><span><span class="va">key</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes</a></span><span class="op">(</span><span class="fl">32</span><span class="op">)</span></span>
 <span><span class="va">sealed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_encrypt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"meet at noon"</span><span class="op">)</span>, <span class="va">key</span><span class="op">)</span></span>
 <span><span class="va">sealed</span></span>
-<span><span class="co">#&gt;  [1] 0d 60 ca c9 aa 77 c1 fa 05 9f 03 e0</span></span>
+<span><span class="co">#&gt;  [1] a2 69 e9 58 f8 3e 7d 84 10 e6 ef a0</span></span>
 <span><span class="co">#&gt; attr(,"iv")</span></span>
-<span><span class="co">#&gt;  [1] 64 16 ea 45 69 d7 c1 63 80 fc d8 73</span></span>
+<span><span class="co">#&gt;  [1] cf 8a a3 c7 14 7c a7 9a 94 ca 24 9c</span></span>
 <span><span class="co">#&gt; attr(,"tag")</span></span>
-<span><span class="co">#&gt;  [1] fd b8 2d 35 e2 fb 08 db 2a a6 45 61 b3 d3 49 6a</span></span></code></pre></div>
+<span><span class="co">#&gt;  [1] dc e4 61 10 74 3f bb 55 3a ac 13 ae f1 7b b6 c5</span></span></code></pre></div>
 <p><code><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_decrypt()</a></code> reads the nonce and tag back
 from those attributes, checks the tag, and only then returns the
 plaintext:</p>
@@ -405,13 +405,13 @@ them:</p>
 <span><span class="co">#&gt; [2048-bit rsa private key]</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_rsa_keys.html">crypt_write_pem</a></span><span class="op">(</span><span class="va">key</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; -----BEGIN PUBLIC KEY-----</span></span>
-<span><span class="co">#&gt; MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsLndl3cKdic+oPZdMMH8</span></span>
-<span><span class="co">#&gt; W3vmLUdvwBGfsh3Fe7aojCWaHi1Ijmz3Bji1W8rQzrBv2QDd++QdkD54Z/Y3kU/N</span></span>
-<span><span class="co">#&gt; +iFIsMF0SnuNibickiNkmHci523yeMPMzql3pSJ47hh1UBWOuYlw5k4t0lDFpRx6</span></span>
-<span><span class="co">#&gt; GFjzPXeJ+FFzed39NY730kyKbBoidA56NroaYsQcTfD6IKmhSTRFKs4otYqWEjk8</span></span>
-<span><span class="co">#&gt; T4tL7ARxVLCbN3WvxklP//Qrz83AnmJw9kABotyxpYr9aTWK+kZ5ra9gUEunXHEV</span></span>
-<span><span class="co">#&gt; vke+uOeuNj3bkf0NwkKBvJ2oVRmhIvlIK44eR8JCcYpjRYRjEsuRheoBkEQEGEGV</span></span>
-<span><span class="co">#&gt; aQIDAQAB</span></span>
+<span><span class="co">#&gt; MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwy3PxkzT4AuxtzraA2w2</span></span>
+<span><span class="co">#&gt; W0yNIg+8kOjnTGhjyZ242eLjN20kW2e0jvPwWbCRdZgqq5ym89Mf3I6LHe7L2EuU</span></span>
+<span><span class="co">#&gt; bPRJHTnKvm+CgXVIuDvF/5s/gCWBHCdqSrkZ4Z/i3EYO0dWnH/nGu01dPvW8hiBC</span></span>
+<span><span class="co">#&gt; FQmpwK/ecKVe8D1w8qm1KwoacnzyhfqOAvxohPnTCPnKtOoC7R8i0fPXpBHGU64H</span></span>
+<span><span class="co">#&gt; b6i7mM6L0VeN647eUy5qAaM1UlR+dlgYhKVRezhD1XKUhcluCSEQPTQ71s9JLVBT</span></span>
+<span><span class="co">#&gt; 3Dc9F2GvRT9shmEhzPvvN7M3XfAHEVOMIHoQW6BfBhgGApnN97dYzzBPk6aG1WpO</span></span>
+<span><span class="co">#&gt; IQIDAQAB</span></span>
 <span><span class="co">#&gt; -----END PUBLIC KEY-----</span></span></code></pre></div>
 <p>A signature covers a digest of the data. <code>hash</code> names the
 digest function, as in <code>openssl</code>:</p>
@@ -438,8 +438,37 @@ them, which is how a JSON Web Key carries one:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list</a></span><span class="op">(</span><span class="va">key</span><span class="op">)</span><span class="op">$</span><span class="va">data</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "e"  "n"  "p"  "q"  "d"  "dp" "dq" "qi"</span></span></code></pre></div>
 <p>Key objects live in C and do not survive <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code>; save
-the PEM instead. Elliptic-curve keys, password-protected keys and SSH
-formats are not in this version.</p>
+the PEM instead. Password-protected keys and SSH formats are not in this
+version.</p>
+</div>
+<div class="section level2">
+<h2 id="elliptic-curves-and-x25519">Elliptic curves and X25519<a class="anchor" aria-label="anchor" href="#elliptic-curves-and-x25519"></a>
+</h2>
+<p>Keys on P-256, P-384 and P-521 sign with ECDSA through the same
+functions, and agree on a shared secret with
+<code><a href="../reference/crypt_ec_keys.html">crypt_ec_dh()</a></code>:</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">alice</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_ec_keys.html">crypt_ec_keygen</a></span><span class="op">(</span><span class="st">"P-256"</span><span class="op">)</span></span>
+<span><span class="va">bob</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_ec_keys.html">crypt_ec_keygen</a></span><span class="op">(</span><span class="st">"P-256"</span><span class="op">)</span></span>
+<span><span class="va">sig</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_rsa_crypto.html">crypt_signature_create</a></span><span class="op">(</span><span class="va">msg</span>, <span class="va">crypt_sha256</span>, <span class="va">alice</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/crypt_rsa_crypto.html">crypt_signature_verify</a></span><span class="op">(</span><span class="va">msg</span>, <span class="va">sig</span>, <span class="va">crypt_sha256</span>, <span class="va">alice</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_ec_keys.html">crypt_ec_dh</a></span><span class="op">(</span><span class="va">alice</span>, <span class="va">bob</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span>, <span class="fu"><a href="../reference/crypt_ec_keys.html">crypt_ec_dh</a></span><span class="op">(</span><span class="va">bob</span>, <span class="va">alice</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p>ECDSA signatures come as DER, as <code>openssl</code> returns them;
+<code><a href="../reference/crypt_ec_keys.html">crypt_ecdsa_parse()</a></code> gives their <code>r</code> and
+<code>s</code>. <code>deterministic = TRUE</code> makes an RFC 6979
+signature, the same for the same key and message.</p>
+<p>X25519 keys only agree on secrets:</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_ec_keys.html">crypt_x25519_keygen</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_ec_keys.html">crypt_x25519_keygen</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_ec_keys.html">crypt_x25519_diffie_hellman</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span>,</span>
+<span>          <span class="fu"><a href="../reference/crypt_ec_keys.html">crypt_x25519_diffie_hellman</a></span><span class="op">(</span><span class="va">b</span>, <span class="va">a</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p>A shared secret is not a key. Derive keys from it, for example with
+HKDF or the Concat KDF a protocol specifies. There is no Ed25519: the
+bundled library has no EdDSA.</p>
 </div>
 <div class="section level2">
 <h2 id="aes-cbc-for-formats-that-specify-it">AES-CBC: for formats that specify it<a class="anchor" aria-label="anchor" href="#aes-cbc-for-formats-that-specify-it"></a>
@@ -470,7 +499,7 @@ also the argument for not doing it yourself.</p>
 <p>This is the first two blocks of the NIST SP 800-38A F.2.1 example,
 which is the kind of thing these functions exist for: matching bytes
 that another implementation specifies.</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">unhex</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">as.raw</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/strtoi.html" class="external-link">strtoi</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/substr.html" class="external-link">substring</a></span><span class="op">(</span><span class="va">x</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nchar</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fu"><a href="https://rdrr.io/r/base/nchar.html" class="external-link">nchar</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span>, <span class="fl">16L</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
@@ -492,14 +521,14 @@ never reused with the same key.</p>
 <h3 id="padding-is-yours">Padding is yours<a class="anchor" aria-label="anchor" href="#padding-is-yours"></a>
 </h3>
 <p>Data that is not a multiple of 16 bytes is refused, not padded:</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">e</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_encrypt_nopad</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"hello"</span><span class="op">)</span>, <span class="va">key</span>, <span class="va">iv</span><span class="op">)</span>,</span>
 <span>              error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="va">e</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "zucrypt_bad_length" "zucrypt_error"      "error"             </span></span>
 <span><span class="co">#&gt; [4] "condition"</span></span></code></pre></div>
 <p>If your format uses PKCS#7 padding, apply and check it yourself:</p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">pad_pkcs7</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">16L</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/Arithmetic.html" class="external-link">%%</a></span> <span class="fl">16L</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">x</span>, <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">as.raw</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="va">n</span>, <span class="va">n</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
@@ -524,7 +553,7 @@ never reused with the same key.</p>
 boundary with its own IV — Office’s agile encryption does this in
 4096-byte segments. Each call starts from the IV it is given, so a
 segmented format is one call per segment:</p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># The NIST plaintext above as two 16-byte "segments", each from the same IV.</span></span>
 <span><span class="va">segments</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/split.html" class="external-link">split</a></span><span class="op">(</span><span class="va">pt</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span>, each <span class="op">=</span> <span class="fl">16</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">segmented</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html" class="external-link">unlist</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">segments</span>, <span class="va">crypt_aes_cbc_encrypt_nopad</span>, key <span class="op">=</span> <span class="va">key</span>, iv <span class="op">=</span> <span class="va">iv</span><span class="op">)</span>,</span>
@@ -549,7 +578,7 @@ specifies; here both use one IV only to keep the example short.</p>
 ciphertext with a <em>second, independent</em> key, send the tag
 alongside, and check it with <code><a href="../reference/crypt_equal.html">crypt_equal()</a></code> <em>before</em>
 decrypting anything.</p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">enc_key</span> <span class="op">&lt;-</span> <span class="fu">unhex</span><span class="op">(</span><span class="st">"603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"</span><span class="op">)</span></span>
 <span><span class="va">mac_key</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">as.raw</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">32</span><span class="op">)</span>   <span class="co"># in real use: 32 random bytes, kept secret</span></span>
 <span></span>
@@ -583,7 +612,7 @@ authenticated construction is the better tool for your own data.</p>
 <p>Every error is a condition with a specific class, then
 <code>zucrypt_error</code>, then <code>error</code>. Branch on the
 class, never on the message, which may be reworded:</p>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">e</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_aes_cbc_nopad.html">crypt_aes_cbc_encrypt_nopad</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">raw</a></span><span class="op">(</span><span class="fl">32</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">raw</a></span><span class="op">(</span><span class="fl">15</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/raw.html" class="external-link">raw</a></span><span class="op">(</span><span class="fl">16</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>              error <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="va">e</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/class.html" class="external-link">class</a></span><span class="op">(</span><span class="va">e</span><span class="op">)</span></span>
@@ -650,7 +679,7 @@ report these</td>
 <code>native_status</code> fields. None of them ever contains a key, an
 IV or any of your data, so an error message is safe to paste into a bug
 report.</p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">handled</span> <span class="op">&lt;-</span> <span class="kw"><a href="https://rdrr.io/r/base/conditions.html" class="external-link">tryCatch</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="../reference/crypt_hash.html">crypt_hash</a></span><span class="op">(</span><span class="va">msg</span>, <span class="st">"md5"</span><span class="op">)</span>,</span>
 <span>  zucrypt_unsupported_algorithm <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="st">"md5 is not provided; use sha256"</span></span>
@@ -682,8 +711,7 @@ choice:</p>
 </tr></thead>
 <tbody>
 <tr class="odd">
-<td>Elliptic curves, certificates, SSH keys, broad algorithm
-coverage</td>
+<td>Ed25519, certificates, SSH keys, broad algorithm coverage</td>
 <td><a href="https://cran.r-project.org/package=openssl" class="external-link">openssl</a></td>
 </tr>
 <tr class="even">
@@ -698,9 +726,9 @@ with no system library</td>
 <td><a href="https://cran.r-project.org/package=digest" class="external-link">digest</a></td>
 </tr>
 <tr class="even">
-<td>SHA-2, HMAC, AES-GCM, PBKDF2 or RSA with no system library, a
-constant-time compare, or cryptography callable from your package’s C
-code</td>
+<td>SHA-2, HMAC, AES-GCM, PBKDF2, RSA, ECDSA or X25519 with no system
+library, a constant-time compare, or cryptography callable from your
+package’s C code</td>
 <td>zucrypt</td>
 </tr>
 </tbody>

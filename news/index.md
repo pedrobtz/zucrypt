@@ -55,6 +55,29 @@
   signature that does not verify, or a ciphertext that does not decrypt,
   is `zucrypt_auth_error`.
 
+- Elliptic curves
+  ([\#81](https://github.com/pedrobtz/zucrypt/issues/81)):
+  [`crypt_ec_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
+  [`crypt_ec_dh()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
+  [`crypt_x25519_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
+  [`crypt_x25519_diffie_hellman()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
+  [`crypt_read_x25519_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
+  [`crypt_read_x25519_pubkey()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
+  [`crypt_ecdsa_parse()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md)
+  and
+  [`crypt_ecdsa_write()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md)
+  keep `openssl`’s names and arguments, and
+  [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+  and `_verify()` sign with ECDSA on P-256, P-384 and P-521, in DER,
+  with `deterministic = TRUE` for RFC
+
+  6979. [`crypt_ec_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md)
+        and [`as.list()`](https://rdrr.io/r/base/list.html) build an EC
+        key from its coordinates and take it apart. EC and X25519 keys
+        are read and written in every encoding `openssl` uses, byte for
+        byte. Points off the curve, peers on another curve and all-zero
+        X25519 secrets are refused. There is no Ed25519.
+
 - [`crypt_sha1()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md),
   [`crypt_sha256()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md),
   [`crypt_sha384()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md)
@@ -84,6 +107,12 @@
   and the table. New `zuc_alg` values: `ZUC_ALG_RSA_OAEP = 97`,
   `ZUC_ALG_RSA_PKCS1V15_CRYPT = 98`, `ZUC_ALG_RSA = 192`,
   `ZUC_ALG_RSA_PKCS1V15_SIGN = 224` and `ZUC_ALG_RSA_PSS = 225`.
+- Elliptic curves: `zuc_pkey_import()`, `zuc_pkey_export()` (the
+  backend’s raw key forms) and `zuc_pkey_agree()` (ECDH and X25519),
+  appended to the archive and the table; the `zuc_pkey_*` functions take
+  EC keys too. New `zuc_alg` values: `ZUC_ALG_EC_P256` to `_P521`
+  (193-195), `ZUC_ALG_X25519 = 196`, `ZUC_ALG_ECDH = 197`,
+  `ZUC_ALG_ECDSA = 226` and `ZUC_ALG_ECDSA_DETERMINISTIC = 227`.
 
 ### Backend
 
@@ -97,6 +126,13 @@
   adds 15 upstream sources and 14 headers: 144 vendored files, 37
   compiled. Measured on macOS x86-64, the source tarball grew to 730 KB,
   `zucrypt.so` to 536 KB and `libzucrypt.a` to 1.3 MB.
+- The NIST curves, Curve25519, ECDSA (with RFC 6979) and ECDH are
+  enabled: 6 more upstream sources and 3 headers, 153 vendored files, 43
+  compiled. The source tarball is 854 KB, `zucrypt.so` 656 KB and
+  `libzucrypt.a` 1.6 MB on macOS x86-64. `tools/make-ec-kat.py` extracts
+  the RFC 6979, RFC 7748, RFC 5903 and RFC 7515 vectors and checks them
+  against Python’s `cryptography`. The allocation sweep’s window holds
+  deterministic ECDSA and X25519, about 10,000 of its 13,000 positions.
 - The backend allocates through `zuc_int_calloc()`, which records a
   failed allocation. The RSA functions report any failure that followed
   one as `ZUC_ERR_MEMORY`: inside bignum and ASN.1 code an allocation
