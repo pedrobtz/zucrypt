@@ -205,7 +205,10 @@ test_that("OAEP takes each hash, and decrypts only with the same one", {
   ct <- crypt_rsa_encrypt(secret, key, oaep = TRUE, oaep_hash = "sha256")
   expect_error(crypt_rsa_decrypt(ct, key, oaep = TRUE),
                class = "zucrypt_auth_error")
-  expect_error(crypt_rsa_decrypt(ct, key), class = "zucrypt_auth_error")
+  # Not asserted: that PKCS#1 v1.5 refuses an OAEP ciphertext. About one in
+  # 256 OAEP encodings happens to look like valid v1.5 padding and decodes
+  # to garbage -- the weakness that makes v1.5 legacy -- so the expectation
+  # would fail by chance.
   expect_error(crypt_rsa_encrypt(secret, key, oaep = TRUE, oaep_hash = "md5"),
                class = "zucrypt_invalid_argument")
 })
@@ -215,7 +218,13 @@ test_that("decryption failures are one class, and a long message is refused", {
   ct <- crypt_rsa_encrypt(as.raw(1:8), key, oaep = TRUE)
   flipped <- ct
   flipped[[10]] <- xor(flipped[[10]], as.raw(1))
-  for (bad in list(flipped, ct[-1], raw(0), as.raw(rep(0xff, 128)))) {
+  # A wrong length, nothing, and an integer above the modulus fail under
+  # either padding. A flipped ciphertext is checked under OAEP only: under
+  # PKCS#1 v1.5 the garbage it decrypts to passes the padding check about
+  # once in 65,536.
+  expect_error(crypt_rsa_decrypt(flipped, key, oaep = TRUE),
+               class = "zucrypt_auth_error")
+  for (bad in list(ct[-1], raw(0), as.raw(rep(0xff, 128)))) {
     for (oaep in c(TRUE, FALSE)) {
       expect_error(crypt_rsa_decrypt(bad, key, oaep = oaep),
                    class = "zucrypt_auth_error")
