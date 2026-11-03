@@ -32,6 +32,37 @@
   SHA-256, SHA-384 or SHA-512
   ([\#12](https://github.com/pedrobtz/zucrypt/issues/12)).
 
+- RSA, in the openssl-style layer
+  ([\#80](https://github.com/pedrobtz/zucrypt/issues/80)):
+  [`crypt_read_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+  [`crypt_read_pubkey()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+  [`crypt_write_pem()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+  [`crypt_write_der()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+  [`crypt_write_pkcs1()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+  [`crypt_rsa_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+  [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md),
+  [`crypt_signature_verify()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md),
+  [`crypt_rsa_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+  and
+  [`crypt_rsa_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+  keep `openssl`’s names and arguments. Keys are read and written as
+  PKCS#1, PKCS#8 and SubjectPublicKeyInfo, PEM or DER, byte for byte as
+  `openssl` writes them. Additions: `pss = TRUE` for RSASSA-PSS,
+  `oaep_hash` for OAEP over SHA-256 and longer digests, and
+  [`crypt_rsa_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)
+  and [`as.list()`](https://rdrr.io/r/base/list.html) to build a key
+  from its integers and take it apart. Moduli of 1024 to 4096 bits. A
+  signature that does not verify, or a ciphertext that does not decrypt,
+  is `zucrypt_auth_error`.
+
+- [`crypt_sha1()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md),
+  [`crypt_sha256()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md),
+  [`crypt_sha384()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md)
+  and
+  [`crypt_sha512()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md)
+  mirror `openssl`’s digest and HMAC functions on raw input, so that
+  `hash = crypt_sha256` works as `openssl`’s `hash = sha256` does.
+
 ### C interface
 
 - `zuc_random_bytes()` is added to the archive, and `random_bytes` is
@@ -45,6 +76,14 @@
   first identifier in the cipher range, and `ZUC_ERR_AUTH = 11` is
   appended to `zuc_status`. The digest and HMAC functions refuse
   `ZUC_ALG_AES_GCM`.
+- RSA: an opaque `zuc_pkey` handle with `zuc_pkey_parse()`,
+  `zuc_pkey_generate()`, `zuc_pkey_public()`, `zuc_pkey_free()`,
+  `zuc_pkey_type()`, `zuc_pkey_bits()`, `zuc_pkey_is_private()`,
+  `zuc_pkey_write()`, `zuc_pkey_sign_hash()`, `zuc_pkey_verify_hash()`,
+  `zuc_pkey_encrypt()` and `zuc_pkey_decrypt()`, appended to the archive
+  and the table. New `zuc_alg` values: `ZUC_ALG_RSA_OAEP = 97`,
+  `ZUC_ALG_RSA_PKCS1V15_CRYPT = 98`, `ZUC_ALG_RSA = 192`,
+  `ZUC_ALG_RSA_PKCS1V15_SIGN = 224` and `ZUC_ALG_RSA_PSS = 225`.
 
 ### Backend
 
@@ -54,6 +93,19 @@
   macOS x86-64, the source tarball grew from 548 KB to 580 KB,
   `zucrypt.so` from 162 KB to 188 KB, and `libzucrypt.a` from 518 KB to
   632 KB.
+- RSA and the PK, PEM, ASN.1 and Base64 modules are enabled. The trim
+  adds 15 upstream sources and 14 headers: 144 vendored files, 37
+  compiled. Measured on macOS x86-64, the source tarball grew to 730 KB,
+  `zucrypt.so` to 536 KB and `libzucrypt.a` to 1.3 MB.
+- The backend allocates through `zuc_int_calloc()`, which records a
+  failed allocation. The RSA functions report any failure that followed
+  one as `ZUC_ERR_MEMORY`: inside bignum and ASN.1 code an allocation
+  failure otherwise surfaced as an invalid key, a bad argument or an RNG
+  failure.
+- `tools/make-rsa-kat.py` extracts the RFC 7515 A.2 and RFC 7516 A.1 and
+  A.2 vectors and generates PSS and OAEP ones, and checks them all
+  against Python’s `cryptography`; the tests cross-verify with `openssl`
+  2.4.2.
 - The AEAD and KDF vectors are checked outside the package by
   `tools/check-kat.py`, against Python’s `cryptography` and `hashlib`,
   and `tools/make-kat.R --check` compares the GCM ciphertexts with

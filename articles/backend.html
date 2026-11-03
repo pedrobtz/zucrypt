@@ -88,8 +88,8 @@ file is vendored. In the 4.x architecture TF-PSA-Crypto <em>is</em> the
 cryptography library; Mbed TLS adds only X.509 and TLS, and this package
 builds neither.</p>
 <p>It is not the whole library. Of upstream’s 77 buildable C sources,
-zucrypt compiles the <strong>22</strong> that contain code under its
-configuration, plus the headers those include: 115 files and about 2.8
+zucrypt compiles the <strong>37</strong> that contain code under its
+configuration, plus the headers those include: 144 files and about 3.4
 MB of source, including upstream’s <code>LICENSE</code>. The upstream
 archive is 55 MB unpacked, most of it tests.</p>
 <table class="table">
@@ -100,21 +100,21 @@ archive is 55 MB unpacked, most of it tests.</p>
 <tbody>
 <tr class="odd">
 <td>Vendored tree</td>
-<td>115 files, 2.8 MB</td>
+<td>144 files, 3.4 MB</td>
 </tr>
 <tr class="even">
 <td>Source tarball</td>
-<td>580 KB</td>
+<td>730 KB</td>
 </tr>
 <tr class="odd">
 <td>Installed <code>zucrypt.so</code>
 </td>
-<td>188 KB</td>
+<td>536 KB</td>
 </tr>
 <tr class="even">
 <td>Installed <code>libzucrypt.a</code>
 </td>
-<td>632 KB</td>
+<td>1.3 MB</td>
 </tr>
 </tbody>
 </table>
@@ -176,22 +176,68 @@ compatibility with existing formats, never as a default</td>
 <td><code><a href="../reference/crypt_pbkdf2.html">crypt_pbkdf2()</a></code></td>
 </tr>
 <tr class="even">
+<td>
+<code>PSA_WANT_KEY_TYPE_RSA_*</code> (public key; key pair basic,
+import, export, generate)</td>
+<td>RSA keys: <code><a href="../reference/crypt_rsa_keys.html">crypt_read_key()</a></code>,
+<code><a href="../reference/crypt_rsa_keys.html">crypt_rsa_keygen()</a></code> and the rest</td>
+</tr>
+<tr class="odd">
+<td>
+<code>PSA_WANT_ALG_RSA_PKCS1V15_SIGN</code>,
+<code>_RSA_PSS</code>
+</td>
+<td>
+<code><a href="../reference/crypt_rsa_crypto.html">crypt_signature_create()</a></code> and
+<code>_verify()</code>
+</td>
+</tr>
+<tr class="even">
+<td>
+<code>PSA_WANT_ALG_RSA_OAEP</code>,
+<code>_RSA_PKCS1V15_CRYPT</code>
+</td>
+<td>
+<code><a href="../reference/crypt_rsa_crypto.html">crypt_rsa_encrypt()</a></code> and <code>_decrypt()</code>
+</td>
+</tr>
+<tr class="odd">
+<td>
+<code>MBEDTLS_PK_C</code>, <code>_PK_PARSE_C</code>,
+<code>_PK_WRITE_C</code>, <code>_ASN1_PARSE_C</code>,
+<code>_ASN1_WRITE_C</code>, <code>_BASE64_C</code>,
+<code>_PEM_PARSE_C</code>, <code>_PEM_WRITE_C</code>
+</td>
+<td>Reading and writing keys as PEM and DER</td>
+</tr>
+<tr class="even">
+<td>
+<code>MBEDTLS_PLATFORM_MEMORY</code>,
+<code>_PLATFORM_CALLOC_MACRO</code>,
+<code>_PLATFORM_FREE_MACRO</code>
+</td>
+<td>The backend allocates through zucrypt’s <code>calloc()</code>
+wrapper, which notices a failed allocation, so that running out of
+memory is reported as <code>zucrypt_memory_error</code> rather than as
+whatever error the backend turned it into</td>
+</tr>
+<tr class="odd">
 <td><code>MBEDTLS_PSA_CRYPTO_C</code></td>
 <td>The PSA API everything above goes through</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>MBEDTLS_PSA_KEY_STORE_DYNAMIC</code></td>
 <td>A key store that grows with the number of live handles, rather than
 failing at a fixed slot count</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>
 <code>MBEDTLS_AESNI_C</code>, <code>MBEDTLS_AESCE_C</code>,
 <code>MBEDTLS_HAVE_ASM</code>
 </td>
 <td>Hardware AES where the CPU has it (below)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG</code></td>
 <td>Randomness from the operating system rather than a vendored DRBG and
 entropy module</td>
@@ -199,23 +245,24 @@ entropy module</td>
 </tbody>
 </table>
 <p>That is the whole list. <strong>Not enabled:</strong> public-key
-cryptography of any kind, authenticated encryption other than AES-GCM,
-key derivation other than PBKDF2, other hash functions (MD5, SHA-224,
-SHA-3), PKCS#7 padding, X.509, TLS and persistent key storage. The build
-asks upstream for exactly these features through its own configuration
-mechanism. When the configuration was settled, a probe confirmed that
-MD5 and SHA-224 report “not supported” in the backend rather than
-working by accident, and the package’s tests confirm that any algorithm
-name it does not list is refused.</p>
-<p><strong>Randomness.</strong> No backend operation in this profile
-consumes random bytes: CBC and GCM take their IV or nonce from the
-caller. <code><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes()</a></code>, and the default nonce of
-<code><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_encrypt()</a></code>, read the operating system’s source
-directly. The backend still links a random-number entry point, and
-zucrypt supplies it from the operating system (<code>rand_s</code>,
-<code>arc4random_buf</code>, <code>getrandom</code> or
-<code>/dev/urandom</code>, chosen at compile time), never from R’s
-random number generator.</p>
+cryptography other than RSA (no elliptic curves), password-encrypted
+keys, authenticated encryption other than AES-GCM, key derivation other
+than PBKDF2, other hash functions (MD5, SHA-224, SHA-3), PKCS#7 padding,
+X.509, TLS and persistent key storage. The build asks upstream for
+exactly these features through its own configuration mechanism. When the
+configuration was settled, a probe confirmed that MD5 and SHA-224 report
+“not supported” in the backend rather than working by accident, and the
+package’s tests confirm that any algorithm name it does not list is
+refused.</p>
+<p><strong>Randomness.</strong> CBC and GCM take their IV or nonce from
+the caller, and <code><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes()</a></code> and the default GCM
+nonce read the operating system’s source directly. RSA key generation,
+PSS signing, RSA encryption and RSA blinding draw through the backend,
+which zucrypt points at the same source. The backend still links a
+random-number entry point, and zucrypt supplies it from the operating
+system (<code>rand_s</code>, <code>arc4random_buf</code>,
+<code>getrandom</code> or <code>/dev/urandom</code>, chosen at compile
+time), never from R’s random number generator.</p>
 <p><strong>Hardware AES.</strong> AES uses AES-NI on x86 and the
 Cryptography Extension on 64-bit Arm where the CPU has them, detected at
 run time, and falls back to upstream’s table-based software AES

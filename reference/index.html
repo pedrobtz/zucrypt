@@ -130,6 +130,36 @@
         </dt>
         <dd>Derive a Key from a Password with PBKDF2</dd>
       </dl></div><div class="section level2">
+      <h2 id="rsa-keys-and-signatures-openssl-style-">RSA keys and signatures (openssl-style)<a class="anchor" aria-label="anchor" href="#rsa-keys-and-signatures-openssl-style-"></a></h2>
+
+      <div class="section-desc"><p>Reading, writing and generating RSA keys, signatures and RSA encryption, with openssl’s names and arguments under a crypt_ prefix, and the openssl-style digests they take.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="crypt_rsa_keys.html">crypt_read_key()</a></code> <code><a href="crypt_rsa_keys.html">crypt_read_pubkey()</a></code> <code><a href="crypt_rsa_keys.html">crypt_rsa_keygen()</a></code> <code><a href="crypt_rsa_keys.html">crypt_write_pem()</a></code> <code><a href="crypt_rsa_keys.html">crypt_write_der()</a></code> <code><a href="crypt_rsa_keys.html">crypt_write_pkcs1()</a></code> <code><a href="crypt_rsa_keys.html">crypt_rsa_key()</a></code>
+
+        </dt>
+        <dd>RSA Keys</dd>
+
+        <dt>
+
+          <code><a href="crypt_rsa_crypto.html">crypt_signature_create()</a></code> <code><a href="crypt_rsa_crypto.html">crypt_signature_verify()</a></code> <code><a href="crypt_rsa_crypto.html">crypt_rsa_encrypt()</a></code> <code><a href="crypt_rsa_crypto.html">crypt_rsa_decrypt()</a></code>
+
+        </dt>
+        <dd>RSA Signatures and Encryption</dd>
+
+        <dt>
+
+          <code><a href="crypt_sha.html">crypt_sha1()</a></code> <code><a href="crypt_sha.html">crypt_sha256()</a></code> <code><a href="crypt_sha.html">crypt_sha384()</a></code> <code><a href="crypt_sha.html">crypt_sha512()</a></code>
+
+        </dt>
+        <dd>Digests in the Style of openssl</dd>
+      </dl></div><div class="section level2">
       <h2 id="ciphers-advanced-">Ciphers (advanced)<a class="anchor" aria-label="anchor" href="#ciphers-advanced-"></a></h2>
 
       <div class="section-desc"><p>Unauthenticated AES-CBC, for reading and writing formats that specify it. No padding is added or removed and nothing is authenticated: ciphertext produced here can be altered undetectably, and detecting that is the caller’s job. These are interoperability tools, not a way to encrypt something of your own.</p></div>

@@ -54,11 +54,11 @@ is one.
 
 ``` r
 crypt_rand_bytes(16)
-#>  [1] 48 ba 0d 01 31 7a 8e ad 8a 7a 72 6c 8f 5b 56 9b
+#>  [1] de 98 10 75 29 b7 a5 98 80 a9 15 14 df 85 33 69
 
 # A 256-bit key, printed as hex.
 crypt_hex(crypt_rand_bytes(32))
-#> [1] "82f56fcebe2404111b6cdd5de469c956293f1b0f0c7b956b7a2eaca2503bd161"
+#> [1] "6fd8c7f210bcff8c6cd9d726ed459e037771409d8dd10e8d8916057451c706db"
 
 # set.seed() does not repeat it.
 set.seed(1)

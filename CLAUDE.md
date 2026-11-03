@@ -83,6 +83,29 @@ nonce and a 16-byte tag; a received tag of another length is
 from a venv). 14b (ChaCha20-Poly1305, CTR, padded CBC, HKDF) follows
 13b.
 
+**Stage 15a is done** (2026-11-03, \#80): tranche 3 was admitted with
+`zujwt` as its workflow, and split. An opaque `zuc_pkey` holds RSA key
+material (PKCS#1 DER) and imports it into PSA per operation, so one key
+serves every scheme and digest; twelve `zuc_pkey_*` functions and table
+fields. The R side is openssl-shaped:
+[`crypt_read_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+[`crypt_write_pem()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+[`crypt_rsa_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+[`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md),
+[`crypt_rsa_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+and partners, plus
+[`crypt_rsa_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)/[`as.list()`](https://rdrr.io/r/base/list.html)
+for JWK integers and `crypt_sha*()` (pulled forward from 13b, raw input
+only). Key objects are tagged external pointers; never strip their
+attributes, since an external pointer is not duplicated.
+`tools/make-rsa-kat.py` owns `rsa.tsv` and `rsa-keys.tsv` and their
+manifest rows; `make-kat.R` keeps rows other generators own. The backend
+allocates through `zuc_int_calloc()` (`MBEDTLS_PLATFORM_CALLOC_MACRO`),
+which records a NULL return; the `zuc_pkey_*` entry points report any
+failure after one as `ZUC_ERR_MEMORY`, because bignum and ASN.1 code
+turns allocation failures into “invalid key” and the like. 15b
+(envelopes, SSH, fingerprints, bignum, encrypted PEM) follows.
+
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`);
 `readme.yaml` re-renders it in CI and fails on any difference, so never
 edit `README.md` by hand.
@@ -102,7 +125,7 @@ builds, so they must stay runnable with no `Suggests` beyond the website
 needs — mention openssl or sodium in prose, never in a chunk.
 
 The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from
-source, exports eleven `crypt_*` functions: the seven of design §7
+source, exports eleven core `crypt_*` functions: the seven of design §7
 ([`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
 joined the original six in \#59),
 [`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
@@ -111,7 +134,9 @@ joined the original six in \#59),
 [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
 and
 [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md)
-(Stage 14a, \#10, \#12), and publishes both consumer shapes: the
+(Stage 14a, \#10, \#12); and from Stage 15a fifteen openssl-style ones
+(the RSA key, signature and encryption functions and
+`crypt_sha1/256/384/512()`), and publishes both consumer shapes: the
 registered function table (`inst/include/zucrypt-r.h`,
 `zucrypt_get_api`) and the static archive (`libzucrypt.a`, which
 `src/install.libs.R` installs to the package’s `lib${R_ARCH}/`, beside
@@ -201,12 +226,12 @@ stays compiled in every build. Fixtures are in
 
 [.agents/stage-1-spike.md](https://pedrobtz.github.io/zucrypt/.agents/stage-1-spike.md)
 records what the spike measured and every decision it settled — the
-pinned release, the configuration (now sixteen defines), the trim (now
-22 objects, 115 files, since \#51 added hardware AES and Stage 14a GCM;
-`aesce.c` is kept by hand because it has symbols only on Arm) and how to
-re-derive it, the external-RNG choice, and the measurements. Read it
-before touching `src/vendor/`, `src/Makevars` or
-`src/zuc_crypto_config.h`.
+pinned release, the configuration (now thirty-six defines), the trim
+(now 37 objects, 144 files, since \#51 added hardware AES, Stage 14a GCM
+and Stage 15a RSA and PK; `aesce.c` is kept by hand because it has
+symbols only on Arm) and how to re-derive it, the external-RNG choice,
+and the measurements. Read it before touching `src/vendor/`,
+`src/Makevars` or `src/zuc_crypto_config.h`.
 
 The real content of this repository is
 [.agents/design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md),
@@ -387,7 +412,19 @@ Three surfaces are exposed:
     [`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
     /
     [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md),
-    [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md).
+    [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md);
+    and the openssl-style layer so far:
+    [`crypt_read_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+    [`crypt_read_pubkey()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+    [`crypt_write_pem()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+    [`crypt_write_der()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+    [`crypt_write_pkcs1()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+    [`crypt_rsa_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+    [`crypt_rsa_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+    [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+    / `_verify()`,
+    [`crypt_rsa_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+    / `_decrypt()` and `crypt_sha1/256/384/512()`.
 2.  A registered function table (`inst/include/zucrypt-r.h`,
     `zucrypt_api_v1`, resolved lazily via `zucrypt_get_api`) for
     consumers that can carry `Imports:` + `LinkingTo:` + a real

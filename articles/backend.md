@@ -23,17 +23,17 @@ library; Mbed TLS adds only X.509 and TLS, and this package builds
 neither.
 
 It is not the whole library. Of upstream’s 77 buildable C sources,
-zucrypt compiles the **22** that contain code under its configuration,
-plus the headers those include: 115 files and about 2.8 MB of source,
+zucrypt compiles the **37** that contain code under its configuration,
+plus the headers those include: 144 files and about 3.4 MB of source,
 including upstream’s `LICENSE`. The upstream archive is 55 MB unpacked,
 most of it tests.
 
 |                          | Measured on macOS x86-64, R release, 2026-11-03 |
 |--------------------------|-------------------------------------------------|
-| Vendored tree            | 115 files, 2.8 MB                               |
-| Source tarball           | 580 KB                                          |
-| Installed `zucrypt.so`   | 188 KB                                          |
-| Installed `libzucrypt.a` | 632 KB                                          |
+| Vendored tree            | 144 files, 3.4 MB                               |
+| Source tarball           | 730 KB                                          |
+| Installed `zucrypt.so`   | 536 KB                                          |
+| Installed `libzucrypt.a` | 1.3 MB                                          |
 
 The tree lives in `src/vendor/tf-psa-crypto/`, flattened to `inc/` and
 `lib/`, because upstream’s own paths exceed the 100-byte limit on
@@ -52,30 +52,36 @@ lists:
 | `PSA_WANT_ALG_CBC_NO_PADDING`, `PSA_WANT_KEY_TYPE_AES` | [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md) and [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md) |
 | `PSA_WANT_ALG_GCM` | [`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md) and [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md) |
 | `PSA_WANT_ALG_PBKDF2_HMAC` | [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md) |
+| `PSA_WANT_KEY_TYPE_RSA_*` (public key; key pair basic, import, export, generate) | RSA keys: [`crypt_read_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md), [`crypt_rsa_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md) and the rest |
+| `PSA_WANT_ALG_RSA_PKCS1V15_SIGN`, `_RSA_PSS` | [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md) and `_verify()` |
+| `PSA_WANT_ALG_RSA_OAEP`, `_RSA_PKCS1V15_CRYPT` | [`crypt_rsa_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md) and `_decrypt()` |
+| `MBEDTLS_PK_C`, `_PK_PARSE_C`, `_PK_WRITE_C`, `_ASN1_PARSE_C`, `_ASN1_WRITE_C`, `_BASE64_C`, `_PEM_PARSE_C`, `_PEM_WRITE_C` | Reading and writing keys as PEM and DER |
+| `MBEDTLS_PLATFORM_MEMORY`, `_PLATFORM_CALLOC_MACRO`, `_PLATFORM_FREE_MACRO` | The backend allocates through zucrypt’s `calloc()` wrapper, which notices a failed allocation, so that running out of memory is reported as `zucrypt_memory_error` rather than as whatever error the backend turned it into |
 | `MBEDTLS_PSA_CRYPTO_C` | The PSA API everything above goes through |
 | `MBEDTLS_PSA_KEY_STORE_DYNAMIC` | A key store that grows with the number of live handles, rather than failing at a fixed slot count |
 | `MBEDTLS_AESNI_C`, `MBEDTLS_AESCE_C`, `MBEDTLS_HAVE_ASM` | Hardware AES where the CPU has it (below) |
 | `MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG` | Randomness from the operating system rather than a vendored DRBG and entropy module |
 
-That is the whole list. **Not enabled:** public-key cryptography of any
-kind, authenticated encryption other than AES-GCM, key derivation other
-than PBKDF2, other hash functions (MD5, SHA-224, SHA-3), PKCS#7 padding,
-X.509, TLS and persistent key storage. The build asks upstream for
-exactly these features through its own configuration mechanism. When the
-configuration was settled, a probe confirmed that MD5 and SHA-224 report
-“not supported” in the backend rather than working by accident, and the
+That is the whole list. **Not enabled:** public-key cryptography other
+than RSA (no elliptic curves), password-encrypted keys, authenticated
+encryption other than AES-GCM, key derivation other than PBKDF2, other
+hash functions (MD5, SHA-224, SHA-3), PKCS#7 padding, X.509, TLS and
+persistent key storage. The build asks upstream for exactly these
+features through its own configuration mechanism. When the configuration
+was settled, a probe confirmed that MD5 and SHA-224 report “not
+supported” in the backend rather than working by accident, and the
 package’s tests confirm that any algorithm name it does not list is
 refused.
 
-**Randomness.** No backend operation in this profile consumes random
-bytes: CBC and GCM take their IV or nonce from the caller.
-[`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md),
-and the default nonce of
-[`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md),
-read the operating system’s source directly. The backend still links a
-random-number entry point, and zucrypt supplies it from the operating
-system (`rand_s`, `arc4random_buf`, `getrandom` or `/dev/urandom`,
-chosen at compile time), never from R’s random number generator.
+**Randomness.** CBC and GCM take their IV or nonce from the caller, and
+[`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
+and the default GCM nonce read the operating system’s source directly.
+RSA key generation, PSS signing, RSA encryption and RSA blinding draw
+through the backend, which zucrypt points at the same source. The
+backend still links a random-number entry point, and zucrypt supplies it
+from the operating system (`rand_s`, `arc4random_buf`, `getrandom` or
+`/dev/urandom`, chosen at compile time), never from R’s random number
+generator.
 
 **Hardware AES.** AES uses AES-NI on x86 and the Cryptography Extension
 on 64-bit Arm where the CPU has them, detected at run time, and falls

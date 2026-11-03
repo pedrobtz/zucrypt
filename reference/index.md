@@ -45,6 +45,31 @@ derives a key from a password.
 - [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md)
   : Derive a Key from a Password with PBKDF2
 
+## RSA keys and signatures (openssl-style)
+
+Reading, writing and generating RSA keys, signatures and RSA encryption,
+with openssl’s names and arguments under a crypt\_ prefix, and the
+openssl-style digests they take.
+
+- [`crypt_read_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)
+  [`crypt_read_pubkey()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)
+  [`crypt_rsa_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)
+  [`crypt_write_pem()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)
+  [`crypt_write_der()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)
+  [`crypt_write_pkcs1()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)
+  [`crypt_rsa_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)
+  : RSA Keys
+- [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+  [`crypt_signature_verify()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+  [`crypt_rsa_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+  [`crypt_rsa_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+  : RSA Signatures and Encryption
+- [`crypt_sha1()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md)
+  [`crypt_sha256()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md)
+  [`crypt_sha384()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md)
+  [`crypt_sha512()`](https://pedrobtz.github.io/zucrypt/reference/crypt_sha.md)
+  : Digests in the Style of openssl
+
 ## Ciphers (advanced)
 
 Unauthenticated AES-CBC, for reading and writing formats that specify
