@@ -31,6 +31,11 @@
 # rsa_alt_helpers.c, md.c, pk.c, pk_rsa.c, pk_wrap.c, pkparse.c, pkwrite.c,
 # asn1parse.c, asn1write.c, base64.c, oid.c and pem.c, and 14 headers.
 #
+# Re-derived 2026-11-03 for Stage 16a (the NIST curves, Curve25519, ECDSA,
+# deterministic ECDSA and ECDH): 42 sources carry symbols, adding ecp.c,
+# ecp_curves.c, ecdsa.c, hmac_drbg.c, psa_crypto_ecp.c and pk_ecc.c, and 3
+# headers.
+#
 # The layout is flattened to two directories rather than mirroring upstream's
 # six, and that is not tidiness. R CMD check rejects a tarball path over 100
 # bytes, and upstream's own
@@ -72,6 +77,7 @@ inc/mbedtls/private/ecp.h                                        drivers/builtin
 inc/mbedtls/private/entropy.h                                    drivers/builtin/include/mbedtls/private/entropy.h
 inc/mbedtls/private/error_common.h                               drivers/builtin/include/mbedtls/private/error_common.h
 inc/mbedtls/private/gcm.h                                        drivers/builtin/include/mbedtls/private/gcm.h
+inc/mbedtls/private/hmac_drbg.h                                  drivers/builtin/include/mbedtls/private/hmac_drbg.h
 inc/mbedtls/private/md5.h                                        drivers/builtin/include/mbedtls/private/md5.h
 inc/mbedtls/private/pk_private.h                                 include/mbedtls/private/pk_private.h
 inc/mbedtls/private/poly1305.h                                   drivers/builtin/include/mbedtls/private/poly1305.h
@@ -119,6 +125,7 @@ lib/bignum_core.c                                                drivers/builtin
 lib/bignum_core.h                                                drivers/builtin/src/bignum_core.h
 lib/bignum_core_invasive.h                                       drivers/builtin/src/bignum_core_invasive.h
 lib/bignum_internal.h                                            drivers/builtin/src/bignum_internal.h
+lib/bignum_mod.h                                                 drivers/builtin/src/bignum_mod.h
 lib/bn_mul.h                                                     drivers/builtin/src/bn_mul.h
 lib/check_crypto_config.h                                        core/check_crypto_config.h
 lib/cipher.c                                                     drivers/builtin/src/cipher.c
@@ -130,13 +137,19 @@ lib/constant_time_impl.h                                         utilities/const
 lib/constant_time_internal.h                                     utilities/constant_time_internal.h
 lib/crypto_oid.h                                                 utilities/crypto_oid.h
 lib/ctr.h                                                        drivers/builtin/src/ctr.h
+lib/ecdsa.c                                                      drivers/builtin/src/ecdsa.c
+lib/ecp.c                                                        drivers/builtin/src/ecp.c
+lib/ecp_curves.c                                                 drivers/builtin/src/ecp_curves.c
+lib/ecp_invasive.h                                               drivers/builtin/src/ecp_invasive.h
 lib/gcm.c                                                        drivers/builtin/src/gcm.c
+lib/hmac_drbg.c                                                  drivers/builtin/src/hmac_drbg.c
 lib/md.c                                                         extras/md.c
 lib/md_psa.h                                                     drivers/builtin/src/md_psa.h
 lib/md_wrap.h                                                    extras/md_wrap.h
 lib/oid.c                                                        utilities/oid.c
 lib/pem.c                                                        utilities/pem.c
 lib/pk.c                                                         extras/pk.c
+lib/pk_ecc.c                                                     extras/pk_ecc.c
 lib/pk_internal.h                                                extras/pk_internal.h
 lib/pk_rsa.c                                                     extras/pk_rsa.c
 lib/pk_wrap.c                                                    extras/pk_wrap.c
@@ -156,6 +169,7 @@ lib/psa_crypto_core_common.h                                     core/psa_crypto
 lib/psa_crypto_driver_wrappers.h                                 core/psa_crypto_driver_wrappers.h
 lib/psa_crypto_driver_wrappers_no_static.c                       core/psa_crypto_driver_wrappers_no_static.c
 lib/psa_crypto_driver_wrappers_no_static.h                       dispatch/psa_crypto_driver_wrappers_no_static.h
+lib/psa_crypto_ecp.c                                             drivers/builtin/src/psa_crypto_ecp.c
 lib/psa_crypto_ecp.h                                             drivers/builtin/src/psa_crypto_ecp.h
 lib/psa_crypto_ffdh.h                                            drivers/builtin/src/psa_crypto_ffdh.h
 lib/psa_crypto_hash.c                                            drivers/builtin/src/psa_crypto_hash.c

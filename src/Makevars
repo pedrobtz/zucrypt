@@ -42,7 +42,7 @@ PKG_CFLAGS = $(C_VISIBILITY)
 # Upstream's own build compiles every file in core/, drivers/builtin/src/,
 # platform/, utilities/, dispatch/ and extras/ and lets the configuration
 # guard the unused ones down to empty translation units. Under
-# src/zuc_crypto_config.h that is 77 files of which 36 define a single symbol;
+# src/zuc_crypto_config.h that is 77 files of which 42 define a single symbol;
 # the other 59 are compiled, produce nothing, and are not vendored at all.
 #
 # The list is derived, not chosen: compile all 77, keep the ones whose object
@@ -73,6 +73,12 @@ VENDOR_OBJECTS = \
   $(VENDOR)/lib/sha512.o \
   $(VENDOR)/lib/platform_util.o \
   $(VENDOR)/lib/constant_time.o \
+  $(VENDOR)/lib/ecdsa.o \
+  $(VENDOR)/lib/ecp.o \
+  $(VENDOR)/lib/ecp_curves.o \
+  $(VENDOR)/lib/hmac_drbg.o \
+  $(VENDOR)/lib/pk_ecc.o \
+  $(VENDOR)/lib/psa_crypto_ecp.o \
   $(VENDOR)/lib/asn1parse.o \
   $(VENDOR)/lib/asn1write.o \
   $(VENDOR)/lib/base64.o \
