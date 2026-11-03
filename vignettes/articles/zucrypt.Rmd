@@ -318,8 +318,37 @@ names(as.list(key)$data)
 ```
 
 Key objects live in C and do not survive `saveRDS()`; save the PEM instead.
-Elliptic-curve keys, password-protected keys and SSH formats are not in this
-version.
+Password-protected keys and SSH formats are not in this version.
+
+## Elliptic curves and X25519
+
+Keys on P-256, P-384 and P-521 sign with ECDSA through the same functions,
+and agree on a shared secret with `crypt_ec_dh()`:
+
+```{r}
+alice <- crypt_ec_keygen("P-256")
+bob <- crypt_ec_keygen("P-256")
+sig <- crypt_signature_create(msg, crypt_sha256, alice)
+crypt_signature_verify(msg, sig, crypt_sha256, alice$pubkey)
+identical(crypt_ec_dh(alice, bob$pubkey), crypt_ec_dh(bob, alice$pubkey))
+```
+
+ECDSA signatures come as DER, as `openssl` returns them;
+`crypt_ecdsa_parse()` gives their `r` and `s`. `deterministic = TRUE` makes
+an RFC 6979 signature, the same for the same key and message.
+
+X25519 keys only agree on secrets:
+
+```{r}
+a <- crypt_x25519_keygen()
+b <- crypt_x25519_keygen()
+identical(crypt_x25519_diffie_hellman(a, b$pubkey),
+          crypt_x25519_diffie_hellman(b, a$pubkey))
+```
+
+A shared secret is not a key. Derive keys from it, for example with HKDF or
+the Concat KDF a protocol specifies. There is no Ed25519: the bundled library
+has no EdDSA.
 
 ## AES-CBC: for formats that specify it
 
@@ -497,7 +526,7 @@ choice:
 
 | You want | Reach for |
 |---|---|
-| Elliptic curves, certificates, SSH keys, broad algorithm coverage | [openssl](https://cran.r-project.org/package=openssl) |
+| Ed25519, certificates, SSH keys, broad algorithm coverage | [openssl](https://cran.r-project.org/package=openssl) |
 | Modern authenticated encryption that is hard to misuse | [sodium](https://cran.r-project.org/package=sodium), or [rmonocypher](https://cran.r-project.org/package=rmonocypher) with no system library |
 | A cache key for an R object, or a fast non-cryptographic hash | [digest](https://cran.r-project.org/package=digest) |
-| SHA-2, HMAC, AES-GCM, PBKDF2 or RSA with no system library, a constant-time compare, or cryptography callable from your package's C code | zucrypt |
+| SHA-2, HMAC, AES-GCM, PBKDF2, RSA, ECDSA or X25519 with no system library, a constant-time compare, or cryptography callable from your package's C code | zucrypt |

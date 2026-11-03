@@ -116,7 +116,7 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 14b — Tranche 2: the rest | v0.3.0 | new | Stages 13b and 14a | |
 | 15a — RSA and key I/O | v0.4.0 | #80 | Stage 14a | **done**, 2026-11-03 |
 | 15b — Tranche 3: the rest | v0.4.0 | new | Stage 15a | |
-| 16 — Tranche 4: EC keys, ECDSA, ECDH, X25519 | v0.5.0 | new | Stage 15 | |
+| 16a — EC keys, ECDSA, ECDH, X25519 | v0.5.0 | #81 | Stage 15a | **done**, 2026-11-03 |
 | 17 — Tranche 5: certificates | v0.6.0 | new | Stage 16 | |
 | 18 — The TLS engine for zuhttp | next minor | new | Stage 17, and `zuhttp`'s trigger | |
 
@@ -690,6 +690,18 @@ Exit: cross-reading, cross-verification and the vectors green on three operating
 constant-time claims are upstream's and are quoted, not restated; CRAN 0.4.0.
 
 ## Stage 16 — Tranche 4 (candidate): EC keys, ECDSA, ECDH and X25519
+
+**Admitted 2026-11-03**, as Stage 15 was and for the same workflow: `zujwt`
+needs `ES256/384/512` and `ECDH-ES` (#81). **Done as Stage 16a** the same
+day. Everything below is in it, except the migration-article and gate rows
+for these functions, which go with the openssl-shaped layer's gate (13b).
+16a added six upstream sources and three headers (153 files, tarball
+854 KB); `zuc_pkey_import()`, `_export()` and `_agree()`; seven `zuc_alg`
+values; EC encodings built to match OpenSSL's bytes; and
+`tools/make-ec-kat.py` with RFC 6979, 7748, 5903 and 7515 vectors. The
+allocation sweep covers deterministic ECDSA and X25519 but not ECDSA
+verification or P-256 ECDH, which would make it five times longer for the
+same adapter code; `tools/alloc-exercise.R` records the counts.
 
 Work items:
 

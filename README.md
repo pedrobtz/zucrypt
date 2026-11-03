@@ -16,11 +16,12 @@
 
 zucrypt provides a focused set of cryptographic functions for R, backed by a
 bundled library: message digests, HMAC, AES-GCM authenticated encryption,
-PBKDF2 key derivation, RSA keys, signatures and encryption, random bytes,
+PBKDF2 key derivation, RSA and elliptic-curve keys, signatures, encryption
+and key agreement (P-256, P-384, P-521, X25519), random bytes,
 unauthenticated AES-CBC, constant-time comparison and secure erasure, over
 raw vectors. The backend is a vendored,
 pinned subset of [TF-PSA-Crypto](https://github.com/Mbed-TLS/TF-PSA-Crypto),
-the Mbed TLS project’s cryptography library — 144 files of it, configured down
+the Mbed TLS project’s cryptography library — 153 files of it, configured down
 to the algorithms above and nothing else. Installing the package needs a C99
 compiler and nothing else: no system cryptographic library, no Java, no
 Python, and no network access during installation.
@@ -32,11 +33,11 @@ as a static archive (`libzucrypt.a`) for consumers that cannot.
 Today that is the whole surface.
 [openssl](https://cran.r-project.org/package=openssl) and
 [sodium](https://cran.r-project.org/package=sodium) cover far more ground,
-and a package that needs elliptic curves, Ed25519 or certificates should use
-them. Later releases are planned to add Base64, more digests, the rest of the
-`openssl`-style interfaces, more authenticated encryption and key derivation
-(ChaCha20-Poly1305, HKDF), and elliptic curves. Those are plans, not features
-of this version. Office/Excel decryption lives in
+and a package that needs Ed25519, certificates or SSH keys should use them.
+Later releases are planned to add Base64, more digests, the rest of the
+`openssl`-style interfaces, and more authenticated encryption and key
+derivation (ChaCha20-Poly1305, HKDF). Those are plans, not features of this
+version. Office/Excel decryption lives in
 [zuxlsx](https://github.com/pedrobtz/zuxlsx), which is the first consumer of
 the archive, not here.
 

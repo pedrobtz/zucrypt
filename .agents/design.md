@@ -377,13 +377,15 @@ of Mbed TLS 4.1 LTS, which upstream supports until March 2029
   can be restricted to a tag pattern. That restriction is a follow-up in `r-actions` (#19).
 
 **The configuration** is `src/zuc_crypto_config.h`, which replaces upstream's configuration. It
-holds thirty-six defines, each recorded in the manifest's `defines` column and cross-checked by
+holds forty-eight defines, each recorded in the manifest's `defines` column and cross-checked by
 `tools/vendor/verify`:
 - SHA-1, SHA-256, SHA-384 and SHA-512;
 - HMAC and the HMAC key type;
 - CBC without padding, and the AES key type;
 - GCM and PBKDF2-HMAC (Stage 14a, #10, #12);
 - RSA keys and its four schemes, and the PK, PEM, ASN.1 and Base64 modules (Stage 15a, #80);
+- the NIST curves P-256, P-384 and P-521 and Curve25519, ECDSA (randomised and RFC 6979) and
+  ECDH (Stage 16a, #81);
 - the backend's allocator, `zuc_int_calloc()`, which records a failed allocation so that the
   adapter can report it as `ZUC_ERR_MEMORY` (Stage 15a);
 - the PSA core;
@@ -395,7 +397,8 @@ holds thirty-six defines, each recorded in the manifest's `defines` column and c
 Revision 3 swapped ECB-without-padding for the dynamic key store, and #51 added the three
 hardware-AES defines, and Stage 14a the GCM and PBKDF2 ones.
 Nothing else is enabled:
-- no public-key cryptography but RSA, no AEAD but GCM and no key derivation but PBKDF2;
+- no public-key cryptography but RSA, the three NIST curves and X25519 (no EdDSA), no AEAD
+  but GCM and no key derivation but PBKDF2;
 - no X.509 or TLS;
 - no persistent key storage.
 
