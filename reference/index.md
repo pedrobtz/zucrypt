@@ -34,6 +34,17 @@ involved.
 - [`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
   : Cryptographically Secure Random Bytes
 
+## Authenticated encryption and key derivation
+
+AES-GCM, which encrypts and authenticates together, and PBKDF2, which
+derives a key from a password.
+
+- [`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
+  [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
+  : AES-GCM Authenticated Encryption
+- [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md)
+  : Derive a Key from a Password with PBKDF2
+
 ## Ciphers (advanced)
 
 Unauthenticated AES-CBC, for reading and writing formats that specify

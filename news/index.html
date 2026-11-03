@@ -42,8 +42,9 @@
 <h2 class="pkg-version" data-toc-text="development version" id="zucrypt-development-version">zucrypt (development version)<a class="anchor" aria-label="anchor" href="#zucrypt-development-version"></a></h2>
 <div class="section level3">
 <h3 id="r-interface-development-version">R interface<a class="anchor" aria-label="anchor" href="#r-interface-development-version"></a></h3>
-<ul><li>
-<code>crypt_rand_bytes(n = 1)</code> returns <code>n</code> bytes from the operating system’s cryptographic random source, mirroring <code><a href="https://jeroen.r-universe.dev/openssl/reference/rand_bytes.html" class="external-link">openssl::rand_bytes()</a></code> (<a href="https://github.com/pedrobtz/zucrypt/issues/9" class="external-link">#9</a>). R’s random number generator is never used or disturbed, so <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> has no effect on it. A failure of the source raises the new <code>zucrypt_entropy_error</code> class and never returns bytes.</li>
+<ul><li><p><code>crypt_rand_bytes(n = 1)</code> returns <code>n</code> bytes from the operating system’s cryptographic random source, mirroring <code><a href="https://jeroen.r-universe.dev/openssl/reference/rand_bytes.html" class="external-link">openssl::rand_bytes()</a></code> (<a href="https://github.com/pedrobtz/zucrypt/issues/9" class="external-link">#9</a>). R’s random number generator is never used or disturbed, so <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> has no effect on it. A failure of the source raises the new <code>zucrypt_entropy_error</code> class and never returns bytes.</p></li>
+<li><p><code><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_encrypt()</a></code> and <code><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_decrypt()</a></code> provide AES-GCM authenticated encryption (<a href="https://github.com/pedrobtz/zucrypt/issues/10" class="external-link">#10</a>), with a 12-byte nonce, a 16-byte tag and optional associated data. The nonce is random unless supplied, and the nonce and tag travel as attributes of the ciphertext. Decryption checks the tag first: any alteration, a truncated tag or a wrong key raises the new <code>zucrypt_auth_error</code> class and returns no plaintext. The names and argument order follow <code>openssl</code>, and the ciphertext bytes match, but <code>openssl</code> returns no tag and does not authenticate, so this is a documented difference rather than a mirror.</p></li>
+<li><p><code><a href="../reference/crypt_pbkdf2.html">crypt_pbkdf2()</a></code> derives a key from a raw password with PBKDF2-HMAC over SHA-1, SHA-256, SHA-384 or SHA-512 (<a href="https://github.com/pedrobtz/zucrypt/issues/12" class="external-link">#12</a>).</p></li>
 </ul></div>
 <div class="section level3">
 <h3 id="c-interface-development-version">C interface<a class="anchor" aria-label="anchor" href="#c-interface-development-version"></a></h3>
@@ -51,6 +52,14 @@
 <code>zuc_random_bytes()</code> is added to the archive, and <code>random_bytes</code> is appended to the registered table; test for it with <code>ZUCRYPT_API_HAS(api, random_bytes)</code>. Both are additions, as ABI 1 allows.</li>
 <li>
 <code>ZUC_ERR_ENTROPY = 10</code> is appended to <code>zuc_status</code>.</li>
+<li>
+<code>zuc_aead_encrypt()</code>, <code>zuc_aead_decrypt()</code> and <code>zuc_pbkdf2_hmac()</code> are added to the archive, and <code>aead_encrypt</code>, <code>aead_decrypt</code> and <code>pbkdf2_hmac</code> are appended to the table. <code>ZUC_ALG_AES_GCM = 96</code> is the first identifier in the cipher range, and <code>ZUC_ERR_AUTH = 11</code> is appended to <code>zuc_status</code>. The digest and HMAC functions refuse <code>ZUC_ALG_AES_GCM</code>.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="backend-development-version">Backend<a class="anchor" aria-label="anchor" href="#backend-development-version"></a></h3>
+<ul><li>
+<code>PSA_WANT_ALG_GCM</code> and <code>PSA_WANT_ALG_PBKDF2_HMAC</code> are enabled. Re-deriving the trim added two upstream sources, <code>gcm.c</code> and <code>psa_crypto_aead.c</code>, and no header: 115 vendored files. Measured on macOS x86-64, the source tarball grew from 548 KB to 580 KB, <code>zucrypt.so</code> from 162 KB to 188 KB, and <code>libzucrypt.a</code> from 518 KB to 632 KB.</li>
+<li>The AEAD and KDF vectors are checked outside the package by <code>tools/check-kat.py</code>, against Python’s <code>cryptography</code> and <code>hashlib</code>, and <code>tools/make-kat.R --check</code> compares the GCM ciphertexts with <code>openssl</code>.</li>
 <li>On glibc, a <code>getrandom()</code> call interrupted by a signal is retried instead of being reported as an entropy failure.</li>
 </ul></div>
 </div>

@@ -107,6 +107,29 @@
         </dt>
         <dd>Cryptographically Secure Random Bytes</dd>
       </dl></div><div class="section level2">
+      <h2 id="authenticated-encryption-and-key-derivation">Authenticated encryption and key derivation<a class="anchor" aria-label="anchor" href="#authenticated-encryption-and-key-derivation"></a></h2>
+
+      <div class="section-desc"><p>AES-GCM, which encrypts and authenticates together, and PBKDF2, which derives a key from a password.</p></div>
+
+      <dl></dl></div><div class="section level2">
+
+
+
+
+      <dl><dt>
+
+          <code><a href="crypt_aes_gcm.html">crypt_aes_gcm_encrypt()</a></code> <code><a href="crypt_aes_gcm.html">crypt_aes_gcm_decrypt()</a></code>
+
+        </dt>
+        <dd>AES-GCM Authenticated Encryption</dd>
+
+        <dt>
+
+          <code><a href="crypt_pbkdf2.html">crypt_pbkdf2()</a></code>
+
+        </dt>
+        <dd>Derive a Key from a Password with PBKDF2</dd>
+      </dl></div><div class="section level2">
       <h2 id="ciphers-advanced-">Ciphers (advanced)<a class="anchor" aria-label="anchor" href="#ciphers-advanced-"></a></h2>
 
       <div class="section-desc"><p>Unauthenticated AES-CBC, for reading and writing formats that specify it. No padding is added or removed and nothing is authenticated: ciphertext produced here can be altered undetectably, and detecting that is the caller’s job. These are interoperability tools, not a way to encrypt something of your own.</p></div>

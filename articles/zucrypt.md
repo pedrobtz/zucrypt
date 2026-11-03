@@ -5,7 +5,7 @@
 library(zucrypt)
 ```
 
-zucrypt has eight functions:
+zucrypt has eleven functions:
 
 | Function | What it is for |
 |----|----|
@@ -14,6 +14,8 @@ zucrypt has eight functions:
 | [`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md) | Lower-case hex of some bytes, for printing or storing a digest |
 | [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md) | Comparing a secret value in constant time |
 | [`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md) | Random bytes from the operating system, for keys, IVs and salts |
+| [`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md), [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md) | Authenticated encryption with AES-GCM |
+| [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md) | A key derived from a password |
 | [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md) | What the installed build contains |
 | [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md), [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md) | Unauthenticated AES-CBC, for formats that specify it |
 
@@ -224,7 +226,7 @@ draws them from the operating system’s cryptographic source:
 ``` r
 
 crypt_rand_bytes(16)
-#>  [1] 26 25 15 87 6b 5d 99 b0 20 e6 1f 78 96 31 1d f9
+#>  [1] ba 95 d3 bf 25 c0 02 67 42 9d e3 6d f9 4e a9 dc
 ```
 
 R’s own random number generator is not involved, so
@@ -242,6 +244,84 @@ identical(a, crypt_rand_bytes(8))
 ```
 
 `crypt_info()$build_flags$random_backend` names the source compiled in.
+
+## AES-GCM: authenticated encryption
+
+[`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
+encrypts and authenticates in one step. The result is the ciphertext,
+with the 12-byte nonce and the 16-byte tag attached as attributes. The
+nonce is drawn fresh for each message unless you supply one:
+
+``` r
+
+key <- crypt_rand_bytes(32)
+sealed <- crypt_aes_gcm_encrypt(charToRaw("meet at noon"), key)
+sealed
+#>  [1] 58 4f af 53 b0 52 b4 e4 04 61 b3 f5
+#> attr(,"iv")
+#>  [1] 14 2f d2 ef 28 d0 53 82 fb 53 ff f4
+#> attr(,"tag")
+#>  [1] cd 1a 7d 6f e4 88 12 32 f3 0e 2b 47 30 65 0f 0b
+```
+
+[`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
+reads the nonce and tag back from those attributes, checks the tag, and
+only then returns the plaintext:
+
+``` r
+
+rawToChar(crypt_aes_gcm_decrypt(sealed, key))
+#> [1] "meet at noon"
+```
+
+A changed ciphertext, tag, nonce or key is an error of class
+`zucrypt_auth_error`, and nothing is decrypted:
+
+``` r
+
+tampered <- sealed
+tampered[1] <- xor(tampered[1], as.raw(1))
+e <- tryCatch(crypt_aes_gcm_decrypt(tampered, key), error = function(e) e)
+class(e)
+#> [1] "zucrypt_auth_error" "zucrypt_error"      "error"             
+#> [4] "condition"
+```
+
+Data that must be authenticated but not encrypted, such as a header or a
+record number, goes in `aad`, and decryption needs the same bytes.
+
+Two rules carry the security. Never reuse a nonce with the same key: the
+default random nonce is safe for about 2^32 messages per key. And keep
+the key a key: 16, 24 or 32 random bytes, or the output of
+[`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md).
+
+The names and argument order follow
+[`openssl::aes_gcm_encrypt()`](https://jeroen.r-universe.dev/openssl/reference/aes_cbc.html),
+and the ciphertext bytes are the same. openssl returns no tag, though,
+and its decryption accepts altered ciphertext, so the two are not
+interchangeable.
+
+## `crypt_pbkdf2()`: a key from a password
+
+A password is not a key.
+[`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md)
+stretches one into a key with PBKDF2-HMAC, given a random salt and an
+iteration count:
+
+``` r
+
+salt <- crypt_rand_bytes(16)
+key <- crypt_pbkdf2(charToRaw("correct horse battery staple"), salt,
+                    iterations = 10000)
+length(key)
+#> [1] 32
+```
+
+The password is raw, so its encoding is your decision. Keep the salt and
+the iteration count with what the key protects: the same password, salt
+and count give the same key, and nothing else does. Choose the count
+from the time you can afford; OWASP recommended 600,000 for SHA-256 in
+2023.
 
 ## `crypt_info()`: what is installed
 
@@ -447,6 +527,7 @@ e$algorithm
 | `zucrypt_connection_error` | A connection passed as `data` could not be opened, or ran dry before its end |
 | `zucrypt_memory_error` | An allocation failed |
 | `zucrypt_entropy_error` | The operating system’s random source failed |
+| `zucrypt_auth_error` | Authenticated decryption failed: the ciphertext, tag, nonce, associated data or key is wrong. No plaintext is returned |
 | `zucrypt_backend_error`, `zucrypt_internal_error` | The cryptographic library refused, or an invariant broke; please report these |
 
 Every condition also carries `algorithm` and `native_status` fields.
@@ -480,4 +561,4 @@ choice:
 | Keys, certificates, signatures, broad algorithm coverage | [openssl](https://cran.r-project.org/package=openssl) |
 | Modern authenticated encryption that is hard to misuse | [sodium](https://cran.r-project.org/package=sodium), or [rmonocypher](https://cran.r-project.org/package=rmonocypher) with no system library |
 | A cache key for an R object, or a fast non-cryptographic hash | [digest](https://cran.r-project.org/package=digest) |
-| SHA-2 and HMAC with no system library, a constant-time compare, or cryptography callable from your package’s C code | zucrypt |
+| SHA-2, HMAC, AES-GCM or PBKDF2 with no system library, a constant-time compare, or cryptography callable from your package’s C code | zucrypt |

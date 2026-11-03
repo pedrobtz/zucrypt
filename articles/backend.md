@@ -23,17 +23,17 @@ library; Mbed TLS adds only X.509 and TLS, and this package builds
 neither.
 
 It is not the whole library. Of upstream’s 77 buildable C sources,
-zucrypt compiles the **20** that contain code under its configuration,
-plus the headers those include: 113 files and about 2.7 MB of source,
+zucrypt compiles the **22** that contain code under its configuration,
+plus the headers those include: 115 files and about 2.8 MB of source,
 including upstream’s `LICENSE`. The upstream archive is 55 MB unpacked,
 most of it tests.
 
-|                          | Measured on macOS x86-64, R release |
-|--------------------------|-------------------------------------|
-| Vendored tree            | 113 files, 2.7 MB                   |
-| Source tarball           | 532 KB                              |
-| Installed `zucrypt.so`   | 266 KB                              |
-| Installed `libzucrypt.a` | 606 KB                              |
+|                          | Measured on macOS x86-64, R release, 2026-11-03 |
+|--------------------------|-------------------------------------------------|
+| Vendored tree            | 115 files, 2.8 MB                               |
+| Source tarball           | 580 KB                                          |
+| Installed `zucrypt.so`   | 188 KB                                          |
+| Installed `libzucrypt.a` | 632 KB                                          |
 
 The tree lives in `src/vendor/tf-psa-crypto/`, flattened to `inc/` and
 `lib/`, because upstream’s own paths exceed the 100-byte limit on
@@ -50,25 +50,32 @@ lists:
 | `PSA_WANT_ALG_SHA_1`, `_SHA_256`, `_SHA_384`, `_SHA_512` | The digests [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md) offers. SHA-1 for compatibility with existing formats, never as a default |
 | `PSA_WANT_ALG_HMAC`, `PSA_WANT_KEY_TYPE_HMAC` | [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md) |
 | `PSA_WANT_ALG_CBC_NO_PADDING`, `PSA_WANT_KEY_TYPE_AES` | [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md) and [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md) |
+| `PSA_WANT_ALG_GCM` | [`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md) and [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md) |
+| `PSA_WANT_ALG_PBKDF2_HMAC` | [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md) |
 | `MBEDTLS_PSA_CRYPTO_C` | The PSA API everything above goes through |
 | `MBEDTLS_PSA_KEY_STORE_DYNAMIC` | A key store that grows with the number of live handles, rather than failing at a fixed slot count |
 | `MBEDTLS_AESNI_C`, `MBEDTLS_AESCE_C`, `MBEDTLS_HAVE_ASM` | Hardware AES where the CPU has it (below) |
 | `MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG` | Randomness from the operating system rather than a vendored DRBG and entropy module |
 
 That is the whole list. **Not enabled:** public-key cryptography of any
-kind, authenticated encryption, key derivation, other hash functions
-(MD5, SHA-224, SHA-3), PKCS#7 padding, X.509, TLS and persistent key
-storage. The build asks upstream for exactly these features through its
-own configuration mechanism. When the configuration was settled, a probe
-confirmed that MD5 and SHA-224 report “not supported” in the backend
-rather than working by accident, and the package’s tests confirm that
-any algorithm name it does not list is refused.
+kind, authenticated encryption other than AES-GCM, key derivation other
+than PBKDF2, other hash functions (MD5, SHA-224, SHA-3), PKCS#7 padding,
+X.509, TLS and persistent key storage. The build asks upstream for
+exactly these features through its own configuration mechanism. When the
+configuration was settled, a probe confirmed that MD5 and SHA-224 report
+“not supported” in the backend rather than working by accident, and the
+package’s tests confirm that any algorithm name it does not list is
+refused.
 
-**Randomness.** No operation in this profile consumes random bytes; CBC
-takes its IV from the caller. The backend still links a random-number
-entry point, and zucrypt supplies it from the operating system
-(`rand_s`, `arc4random_buf`, `getrandom` or `/dev/urandom`, chosen at
-compile time), never from R’s random number generator.
+**Randomness.** No backend operation in this profile consumes random
+bytes: CBC and GCM take their IV or nonce from the caller.
+[`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md),
+and the default nonce of
+[`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md),
+read the operating system’s source directly. The backend still links a
+random-number entry point, and zucrypt supplies it from the operating
+system (`rand_s`, `arc4random_buf`, `getrandom` or `/dev/urandom`,
+chosen at compile time), never from R’s random number generator.
 
 **Hardware AES.** AES uses AES-NI on x86 and the Cryptography Extension
 on 64-bit Arm where the CPU has them, detected at run time, and falls
@@ -138,7 +145,7 @@ the build’s object list disagree.
 
 ## The patches
 
-`src/vendor/` is never edited in place. Two changes are applied as
+`src/vendor/` is never edited in place. Three changes are applied as
 patches from `tools/patches/tf-psa-crypto/`, each with its reason in its
 header:
 
@@ -152,6 +159,18 @@ header:
   Neither warning fires under the flags CRAN compiles with. The code
   they surround, including the constant-time functions and the
   zeroisation barrier, is unchanged.
+- **`0003-guard-aead-finish-tag-wipe.patch`.** When `psa_aead_finish()`
+  cannot allocate memory, its cleanup wrote through a NULL pointer, so
+  an out-of-memory condition during AES-GCM encryption crashed R instead
+  of raising `zucrypt_memory_error`. The patch adds the NULL check the
+  same file already has in `psa_mac_sign_finish()`. zucrypt’s
+  allocation-failure sweep found it. It should go when upstream fixes
+  the function.
+
+`lib/gcm.c`, vendored for AES-GCM, keeps one upstream
+`#pragma GCC diagnostic warning` block, around an XOR. R CMD check
+reports only pragmas that *ignore* a diagnostic, so this one is left as
+upstream wrote it rather than patched.
 
 ## How a security fix reaches you
 

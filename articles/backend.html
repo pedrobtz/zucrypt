@@ -88,33 +88,33 @@ file is vendored. In the 4.x architecture TF-PSA-Crypto <em>is</em> the
 cryptography library; Mbed TLS adds only X.509 and TLS, and this package
 builds neither.</p>
 <p>It is not the whole library. Of upstream’s 77 buildable C sources,
-zucrypt compiles the <strong>20</strong> that contain code under its
-configuration, plus the headers those include: 113 files and about 2.7
+zucrypt compiles the <strong>22</strong> that contain code under its
+configuration, plus the headers those include: 115 files and about 2.8
 MB of source, including upstream’s <code>LICENSE</code>. The upstream
 archive is 55 MB unpacked, most of it tests.</p>
 <table class="table">
 <thead><tr class="header">
 <th></th>
-<th>Measured on macOS x86-64, R release</th>
+<th>Measured on macOS x86-64, R release, 2026-11-03</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
 <td>Vendored tree</td>
-<td>113 files, 2.7 MB</td>
+<td>115 files, 2.8 MB</td>
 </tr>
 <tr class="even">
 <td>Source tarball</td>
-<td>532 KB</td>
+<td>580 KB</td>
 </tr>
 <tr class="odd">
 <td>Installed <code>zucrypt.so</code>
 </td>
-<td>266 KB</td>
+<td>188 KB</td>
 </tr>
 <tr class="even">
 <td>Installed <code>libzucrypt.a</code>
 </td>
-<td>606 KB</td>
+<td>632 KB</td>
 </tr>
 </tbody>
 </table>
@@ -165,6 +165,17 @@ compatibility with existing formats, never as a default</td>
 </td>
 </tr>
 <tr class="even">
+<td><code>PSA_WANT_ALG_GCM</code></td>
+<td>
+<code><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_encrypt()</a></code> and
+<code><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_decrypt()</a></code>
+</td>
+</tr>
+<tr class="odd">
+<td><code>PSA_WANT_ALG_PBKDF2_HMAC</code></td>
+<td><code><a href="../reference/crypt_pbkdf2.html">crypt_pbkdf2()</a></code></td>
+</tr>
+<tr class="even">
 <td><code>MBEDTLS_PSA_CRYPTO_C</code></td>
 <td>The PSA API everything above goes through</td>
 </tr>
@@ -188,20 +199,23 @@ entropy module</td>
 </tbody>
 </table>
 <p>That is the whole list. <strong>Not enabled:</strong> public-key
-cryptography of any kind, authenticated encryption, key derivation,
-other hash functions (MD5, SHA-224, SHA-3), PKCS#7 padding, X.509, TLS
-and persistent key storage. The build asks upstream for exactly these
-features through its own configuration mechanism. When the configuration
-was settled, a probe confirmed that MD5 and SHA-224 report “not
-supported” in the backend rather than working by accident, and the
-package’s tests confirm that any algorithm name it does not list is
-refused.</p>
-<p><strong>Randomness.</strong> No operation in this profile consumes
-random bytes; CBC takes its IV from the caller. The backend still links
-a random-number entry point, and zucrypt supplies it from the operating
-system (<code>rand_s</code>, <code>arc4random_buf</code>,
-<code>getrandom</code> or <code>/dev/urandom</code>, chosen at compile
-time), never from R’s random number generator.</p>
+cryptography of any kind, authenticated encryption other than AES-GCM,
+key derivation other than PBKDF2, other hash functions (MD5, SHA-224,
+SHA-3), PKCS#7 padding, X.509, TLS and persistent key storage. The build
+asks upstream for exactly these features through its own configuration
+mechanism. When the configuration was settled, a probe confirmed that
+MD5 and SHA-224 report “not supported” in the backend rather than
+working by accident, and the package’s tests confirm that any algorithm
+name it does not list is refused.</p>
+<p><strong>Randomness.</strong> No backend operation in this profile
+consumes random bytes: CBC and GCM take their IV or nonce from the
+caller. <code><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes()</a></code>, and the default nonce of
+<code><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_encrypt()</a></code>, read the operating system’s source
+directly. The backend still links a random-number entry point, and
+zucrypt supplies it from the operating system (<code>rand_s</code>,
+<code>arc4random_buf</code>, <code>getrandom</code> or
+<code>/dev/urandom</code>, chosen at compile time), never from R’s
+random number generator.</p>
 <p><strong>Hardware AES.</strong> AES uses AES-NI on x86 and the
 Cryptography Extension on 64-bit Arm where the CPU has them, detected at
 run time, and falls back to upstream’s table-based software AES
@@ -265,7 +279,7 @@ keep list and the build’s object list disagree.</p>
 <div class="section level2">
 <h2 id="the-patches">The patches<a class="anchor" aria-label="anchor" href="#the-patches"></a>
 </h2>
-<p><code>src/vendor/</code> is never edited in place. Two changes are
+<p><code>src/vendor/</code> is never edited in place. Three changes are
 applied as patches from <code>tools/patches/tf-psa-crypto/</code>, each
 with its reason in its header:</p>
 <ul>
@@ -282,7 +296,20 @@ Removes two upstream <code>#pragma GCC diagnostic ignored</code> blocks
 that R CMD check reports. Neither warning fires under the flags CRAN
 compiles with. The code they surround, including the constant-time
 functions and the zeroisation barrier, is unchanged.</li>
+<li>
+<strong><code>0003-guard-aead-finish-tag-wipe.patch</code>.</strong>
+When <code>psa_aead_finish()</code> cannot allocate memory, its cleanup
+wrote through a NULL pointer, so an out-of-memory condition during
+AES-GCM encryption crashed R instead of raising
+<code>zucrypt_memory_error</code>. The patch adds the NULL check the
+same file already has in <code>psa_mac_sign_finish()</code>. zucrypt’s
+allocation-failure sweep found it. It should go when upstream fixes the
+function.</li>
 </ul>
+<p><code>lib/gcm.c</code>, vendored for AES-GCM, keeps one upstream
+<code>#pragma GCC diagnostic warning</code> block, around an XOR. R CMD
+check reports only pragmas that <em>ignore</em> a diagnostic, so this
+one is left as upstream wrote it rather than patched.</p>
 </div>
 <div class="section level2">
 <h2 id="how-a-security-fix-reaches-you">How a security fix reaches you<a class="anchor" aria-label="anchor" href="#how-a-security-fix-reaches-you"></a>

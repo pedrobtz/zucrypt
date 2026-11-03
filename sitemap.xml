@@ -11,11 +11,13 @@
 <url><loc>https://pedrobtz.github.io/zucrypt/index.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/news/index.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.html</loc></url>
+<url><loc>https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/reference/crypt_equal.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/reference/crypt_hash.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/reference/crypt_hex.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/reference/crypt_info.html</loc></url>
+<url><loc>https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/reference/index.html</loc></url>
 <url><loc>https://pedrobtz.github.io/zucrypt/reference/zucrypt-package.html</loc></url>

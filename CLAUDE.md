@@ -69,6 +69,20 @@ operating-system source directly, not through `psa_generate_random()`.
 fail for the harness. 13b, the rest of the tranche, is next; 0.2.0 waits
 for it.
 
+**Stage 14a is done** (2026-11-03, \#10, \#12): Stage 14 was split the
+same way, because `zujwt`’s JWE needs AES-GCM and PBKDF2 and nothing
+else from tranche 2. `zuc_aead_encrypt()`, `zuc_aead_decrypt()` and
+`zuc_pbkdf2_hmac()` (archive), three appended table fields,
+`ZUC_ALG_AES_GCM = 96`, `ZUC_ERR_AUTH = 11`,
+[`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)/`_decrypt()`,
+[`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md)
+and `zucrypt_auth_error`. The AEAD is one-shot only, with a 12-byte
+nonce and a 16-byte tag; a received tag of another length is
+`ZUC_ERR_AUTH`. `tools/check-kat.py` is the outside oracle for
+`aead.tsv` and `kdf.tsv` (Python `cryptography` and `hashlib`; run it
+from a venv). 14b (ChaCha20-Poly1305, CTR, padded CBC, HKDF) follows
+13b.
+
 `README.md` is rendered from `README.Rmd` (`devtools::build_readme()`);
 `readme.yaml` re-renders it in CI and fails on any difference, so never
 edit `README.md` by hand.
@@ -88,17 +102,23 @@ builds, so they must stay runnable with no `Suggests` beyond the website
 needs — mention openssl or sodium in prose, never in a chunk.
 
 The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from
-source, exports eight `crypt_*` functions: the seven of design §7
+source, exports eleven `crypt_*` functions: the seven of design §7
 ([`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
-joined the original six in \#59) and
+joined the original six in \#59),
 [`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
-(Stage 13a, \#9), and publishes both consumer shapes: the registered
-function table (`inst/include/zucrypt-r.h`, `zucrypt_get_api`) and the
-static archive (`libzucrypt.a`, which `src/install.libs.R` installs to
-the package’s `lib${R_ARCH}/`, beside `licenses/tf-psa-crypto-LICENSE`;
-there is no `inst/lib/` in the sources). Stage 7 removed AES-ECB (#29),
-made the PSA key store dynamic (#30), appended `ZUC_ERR_NOT_READY` and
-`ZUCRYPT_API_HAS`, and moved the install layout to zukomp’s (#33).
+(Stage 13a, \#9), and
+[`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md),
+[`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
+and
+[`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md)
+(Stage 14a, \#10, \#12), and publishes both consumer shapes: the
+registered function table (`inst/include/zucrypt-r.h`,
+`zucrypt_get_api`) and the static archive (`libzucrypt.a`, which
+`src/install.libs.R` installs to the package’s `lib${R_ARCH}/`, beside
+`licenses/tf-psa-crypto-LICENSE`; there is no `inst/lib/` in the
+sources). Stage 7 removed AES-ECB (#29), made the PSA key store dynamic
+(#30), appended `ZUC_ERR_NOT_READY` and `ZUCRYPT_API_HAS`, and moved the
+install layout to zukomp’s (#33).
 
 **Stability comes in tiers (design §8.6).** The seven R functions are
 stable. The archive (`zucrypt.h`, `libzucrypt.a`,
@@ -181,11 +201,12 @@ stays compiled in every build. Fixtures are in
 
 [.agents/stage-1-spike.md](https://pedrobtz.github.io/zucrypt/.agents/stage-1-spike.md)
 records what the spike measured and every decision it settled — the
-pinned release, the configuration (now fourteen defines), the trim (now
-20 objects, 113 files, since \#51 added hardware AES; `aesce.c` is kept
-by hand because it has symbols only on Arm) and how to re-derive it, the
-external-RNG choice, and the measurements. Read it before touching
-`src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.
+pinned release, the configuration (now sixteen defines), the trim (now
+22 objects, 115 files, since \#51 added hardware AES and Stage 14a GCM;
+`aesce.c` is kept by hand because it has symbols only on Arm) and how to
+re-derive it, the external-RNG choice, and the measurements. Read it
+before touching `src/vendor/`, `src/Makevars` or
+`src/zuc_crypto_config.h`.
 
 The real content of this repository is
 [.agents/design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md),
@@ -362,7 +383,11 @@ Three surfaces are exposed:
     [`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md),
     [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
     /
-    [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md).
+    [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md),
+    [`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
+    /
+    [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md),
+    [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md).
 2.  A registered function table (`inst/include/zucrypt-r.h`,
     `zucrypt_api_v1`, resolved lazily via `zucrypt_get_api`) for
     consumers that can carry `Imports:` + `LinkingTo:` + a real
@@ -426,8 +451,8 @@ shared object exports `R_init_zucrypt` and nothing else.
   destroys every key, so a test that does it must run with nothing else
   live.
 - No `encrypt_file(password = )`, ever: the package specifies no format.
-  PBKDF2, HKDF and AEAD are Stage 14 (design §6 tranches), not yet on
-  `main`; randomness is (Stage 13a).
+  AES-GCM and PBKDF2 are on `main` (Stage 14a), as is randomness (Stage
+  13a); HKDF and ChaCha20-Poly1305 are Stage 14b.
 - The openssl-shaped layer (design §7.1) is the one place character
   input is accepted, typed as `openssl` types it; the core
   [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
