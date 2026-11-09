@@ -9,21 +9,18 @@
 # only ever compiled there as part of a translation unit that already includes
 # R's -- so it is checked here instead.
 #
-# paths-ignore matches native-checks.yaml. `!tests/**` re-includes what
-# `**.md` would otherwise swallow, and the negation has to come after the
-# pattern it undoes. GitHub applies paths-ignore only when *every* changed
-# file matches, so a commit touching both prose and a header still runs.
+# Whether a push or pull request runs these is r-actions' `changes` gate,
+# the same one native-checks.yaml's jobs use, rather than a paths-ignore list
+# of its own: prose and repository housekeeping skip it (testthat snapshots,
+# Markdown under tests/, count as code), and so does a pull request labelled
+# `skip-ci:abi` or `ci:minimal`. Labels apply to pull requests only, so
+# the push to main after merge still runs it.
 on:
   push:
     branches: [main, master]
-    paths-ignore:
-      - '**.md'
-      - '!tests/**'
-      - 'vignettes/**'
-      - '_pkgdown.yml'
-      - '.agents/**'
-      - 'docs/**'
   pull_request:
+    # `labeled`/`unlabeled` so that adding or removing a CI label reruns it.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
 
 name: abi.yaml
@@ -31,7 +28,14 @@ name: abi.yaml
 permissions: read-all
 
 jobs:
+  changes:
+    uses: pedrobtz/r-actions/.github/workflows/changes.yml@v1
+    with:
+      name: abi
+
   standalone-header:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs-only != 'true' }}
     runs-on: ${{ matrix.os }}
     name: zucrypt.h standalone (${{ matrix.os }})
     strategy:
