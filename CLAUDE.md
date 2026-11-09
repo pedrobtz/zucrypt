@@ -3,556 +3,418 @@
 This file provides guidance to Claude Code (claude.ai/code) when working
 with code in this repository.
 
+## Shared conventions
+
+The portfolio’s shared rules are synced into `.claude/shared/` from
+`pedrobtz/packages:claude/shared/`. Never edit them here. Where this
+file and a shared file disagree, this file wins for zucrypt.
+
+@.claude/shared/workflow.md @.claude/shared/r-package.md
+@.claude/shared/ci.md @.claude/shared/native-code.md
+@.claude/shared/correctness.md
+
+## What this is
+
+zucrypt is cryptography over raw vectors with no system library: a
+vendored, pinned TF-PSA-Crypto subset (the Mbed TLS project’s
+cryptography library) built from source, exposed to R as `crypt_*`
+functions and to other packages as a static archive and a registered C
+table. It is one package in the `zu*` family (siblings are checked out
+alongside it: `zuxlsx`, `zuxml`, `zukomp`, `zuhttp`, `zujwt`, …). Design
+revision 4 widened it from `zuxlsx`’s archive provider into an
+alternative to the `openssl` package, through an openssl-shaped layer
+(design §7.1) added in tranches after v0.1.0. A primitive enters on the
+admission rule of design §6 (a numbered standard, published vectors, an
+outside oracle, a composition contract, a demonstrated workflow
+benefit), not on a named consumer.
+
+The boundary is strict and is the main thing to preserve:
+
+- **zucrypt owns cryptography**: hashes, HMAC, AES, randomness, AEAD,
+  KDFs, keys, signatures and, from Stage 17, certificate data; and, if
+  Stage 18 is taken, a TLS client *engine* for `zuhttp` (design §10). It
+  never acquires XML, ZIP, Office, socket, name-resolution, proxy or
+  trust-store dependencies, and never reaches the user’s environment (no
+  key files, passphrase prompts or certificate downloads: design §5).
+- **Office/Excel decryption orchestration lives in `zuxlsx`**: iteration
+  counts, salts, block keys, password verifiers and segment IVs. It may
+  depend on zucrypt and `zuxml`, never the reverse.
+- **`zuhttp` owns connections, trust and TLS policy** and keeps its
+  native OS TLS backends. A bundled TLS engine, if ever taken (Stage
+  18), is compiled into `zucrypt.so`, published through a separate table
+  (`zucrypt-tls.h`) that `zuhttp` resolves at run time from `Suggests:`,
+  driven over I/O callbacks `zuhttp` supplies, verifying only against
+  the CA bundle, host name and pins `zuhttp` passes. It is **never in
+  `libzucrypt.a`**, so ABI 1 never sees it.
+- No `encrypt_file(password = )`, ever: the package specifies no format.
+
+[.agents/design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md)
+(revision 4, 2026-09-29) is the specification and outranks this file;
+design changes belong there. §3–§8 and §11–§12 describe `main`; §6, §7.1
+and §10 describe where revision 4 takes it (Stages 13–17); §9 and §13
+steps 3–5 are plans owned by `zuxlsx` and `zuhttp`.
+[.agents/roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
+Part A is the plan (its stage map says which stage is current); Part B
+is the executed v0.1.0 roadmap, kept as the record. Read
+[.agents/stage-1-spike.md](https://pedrobtz.github.io/zucrypt/.agents/stage-1-spike.md)
+before touching `src/vendor/`, `src/Makevars` or
+`src/zuc_crypto_config.h`.
+
 ## Current state
 
-The plan of record is
-[design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md)
-revision 4 (2026-09-29) and Part A of
-[roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
-(Stages 7–17). Revision 4 widened the goal: beyond being `zuxlsx`’s
-archive provider, `zucrypt` becomes an alternative to the `openssl`
-package with no system library, vendored Mbed TLS ecosystem underneath,
-through an openssl-shaped `crypt_` layer (design §7.1:
-`crypt_sha256(x, key = NULL)`, `crypt_rand_bytes(n)`, …) added in
-tranches after v0.1.0 (Stages 13–14 planned; 15–17 candidates, each
-decided when the one before has shipped; one CRAN minor release each),
-and Stage 18, a TLS client engine for `zuhttp` inside this package but
-never in the archive (design §10), a candidate on `zuhttp`’s trigger. A
-primitive enters on the admission rule of design §6 (a numbered
-standard, published vectors, an outside oracle, a composition contract,
-a demonstrated workflow benefit), no longer on a named consumer. The
-review in \#56 amended the revision before it merged; design §“Revision
-4” lists what it changed. Two backend facts fix the tranches: PK, PEM
-and ASN.1 are inside the pinned TF-PSA-Crypto tree, so key I/O needs no
-second vendored library, while X.509 does (Stage 17); and the release
-has X25519 but no Ed25519, the first documented gap against `openssl`.
-Stages 0–5 and 7–10 are complete (Stage 5 closed with Stage 8, once its
-weekly gates ran real tests; Stage 6 was superseded by Stages 7–9).
-**v0.1.0 is the first CRAN release and carries the freeze** (decided
-2026-09-29; the GitHub-only tag of \#27 and the separate v0.2.0 are
-gone). `zuxlsx` 0.1.0, with password-protected workbooks, follows it
-onto CRAN. The CBC pair is renamed
-[`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
-/ `_decrypt_nopad()` (design §7, \#56), freeing the ordinary names for
-Stage 14’s openssl-compatible padded pair.
-[`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
-(#59) and connection input to
-[`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md)/[`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
-(#11) joined 0.1.0 on their general value; `dastash` asked for them but
-is not a committed consumer (its gain would be the R floor). **Stage 11
-is done** ([\#43](https://github.com/pedrobtz/zucrypt/issues/43)):
-zuxlsx’s decryption core
+Verified 2026-11-09: 0.1.0 is on CRAN, published 2026-10-23 (crandb); it
+was submitted 2026-09-30 and resubmitted 2026-10-13 from `5a43275`,
+tagged `v0.1.0` with its GitHub release. `main` is `0.1.0.9000`. The
+open version issue is [v0.1.1
+(#77)](https://github.com/pedrobtz/zucrypt/issues/77), with no stage
+sub-issues yet; the roadmap’s release table plans each tranche as its
+own minor release (v0.2.0 onwards).
+
+On `main`, beyond the v0.1.0 surface: Stages 13a (randomness, \#9), 14a
+(AES-GCM and PBKDF2, \#10, \#12), 15a (RSA and key I/O, \#80) and 16a
+(EC keys, ECDSA, ECDH, X25519, \#81) are done. They were split off their
+tranches because `zujwt` needed them first. Not built yet: 13b (the rest
+of tranche 1), 14b (ChaCha20-Poly1305, CTR, padded CBC, HKDF), 15b
+(envelopes, SSH, fingerprints, bignum, encrypted PEM), 17 (certificates)
+and 18 (the TLS engine). Stages 15–18 are candidates, each decided when
+the one before has shipped. Ed25519 is absent from the pinned release:
+the first documented gap against `openssl`.
+
+**Stability comes in tiers (design §8.6).** The seven core R functions
+of design §7 are stable. The archive (`zucrypt.h`, `libzucrypt.a`,
+`ZUCRYPT_ABI_VERSION 1`) is **frozen as ABI 1** since Stage 11, on
+`zuxlsx`’s real decryption core in C
 ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3,
-zuxlsx#64) passed against `main` on three operating systems and ABI 1 is
-frozen. **Next is Stage 12**
-([\#44](https://github.com/pedrobtz/zucrypt/issues/44)): the C-API
-vignette (#13), the CRAN preparation, and the submission; on acceptance,
-tag `v0.1.0` and move `DESCRIPTION` to `0.1.0.9000`. Submitted
-2026-09-30; CRAN returned it on 2026-10-13 asking for every individually
-named upstream author in `Authors@R`. Adriaan de Jong, Daniel King and
-Simon Tatham are now `ctb`/`cph`, and `tools/vendor/verify` fails if a
-vendored file names an author missing from `Authors@R` or
-`inst/COPYRIGHTS`. Resubmitted 2026-10-13 from `5a43275`, which is
-tagged `v0.1.0` with its GitHub release; `main` is now `0.1.0.9000`.
-Stage 12 closes on CRAN’s acceptance, with `zuxlsx` told it can submit;
-if CRAN asks for changes, the fix ships as the resubmission and the tag
-moves to it.
+zuxlsx#64) passing on three operating systems. The table is
+*experimental*: no package uses it (#14, \#28).
 
-**Stage 13a is done** (2026-11-02, \#9): Stage 13 was split so that
-randomness ships first, because `zujwt` is blocked on it.
-`zuc_random_bytes()` (archive), `random_bytes` (table field, appended),
-`ZUC_ERR_ENTROPY = 10`,
-[`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
-and `zucrypt_entropy_error`. It reads `src/zuc_random.c`’s
-operating-system source directly, not through `psa_generate_random()`.
-`zuc_int_random_fail()` (declared in `src/zuc_live.h`) makes the source
-fail for the harness. 13b, the rest of the tranche, is next; 0.2.0 waits
-for it.
+## Versions and dependents
 
-**Stage 14a is done** (2026-11-03, \#10, \#12): Stage 14 was split the
-same way, because `zujwt`’s JWE needs AES-GCM and PBKDF2 and nothing
-else from tranche 2. `zuc_aead_encrypt()`, `zuc_aead_decrypt()` and
-`zuc_pbkdf2_hmac()` (archive), three appended table fields,
-`ZUC_ALG_AES_GCM = 96`, `ZUC_ERR_AUTH = 11`,
-[`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)/`_decrypt()`,
-[`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md)
-and `zucrypt_auth_error`. The AEAD is one-shot only, with a 12-byte
-nonce and a 16-byte tag; a received tag of another length is
-`ZUC_ERR_AUTH`. `tools/check-kat.py` is the outside oracle for
-`aead.tsv` and `kdf.tsv` (Python `cryptography` and `hashlib`; run it
-from a venv). 14b (ChaCha20-Poly1305, CTR, padded CBC, HKDF) follows
-13b.
+The current version’s parent issue is [v0.1.1
+(#77)](https://github.com/pedrobtz/zucrypt/issues/77). Dependents:
 
-**Stage 15a is done** (2026-11-03, \#80): tranche 3 was admitted with
-`zujwt` as its workflow, and split. An opaque `zuc_pkey` holds RSA key
-material (PKCS#1 DER) and imports it into PSA per operation, so one key
-serves every scheme and digest; twelve `zuc_pkey_*` functions and table
-fields. The R side is openssl-shaped:
-[`crypt_read_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-[`crypt_write_pem()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-[`crypt_rsa_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-[`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md),
-[`crypt_rsa_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
-and partners, plus
-[`crypt_rsa_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)/[`as.list()`](https://rdrr.io/r/base/list.html)
-for JWK integers and `crypt_sha*()` (pulled forward from 13b, raw input
-only). Key objects are tagged external pointers; never strip their
-attributes, since an external pointer is not duplicated.
-`tools/make-rsa-kat.py` owns `rsa.tsv` and `rsa-keys.tsv` and their
-manifest rows; `make-kat.R` keeps rows other generators own. The backend
-allocates through `zuc_int_calloc()` (`MBEDTLS_PLATFORM_CALLOC_MACRO`),
-which records a NULL return; the `zuc_pkey_*` entry points report any
-failure after one as `ZUC_ERR_MEMORY`, because bignum and ASN.1 code
-turns allocation failures into “invalid key” and the like. 15b
-(envelopes, SSH, fingerprints, bignum, encrypted PEM) follows.
+- **`zuxlsx`** links the static archive
+  (`LinkingTo: zucrypt (>= 0.1.0)`, no `Imports:`). `revdep.yaml` builds
+  it against every push and pull request. Every zucrypt release after
+  0.1.0 is additions only, so none puts `zuxlsx` back in the release
+  sequence.
+- **`zujwt`** is the workflow that admitted Stages 13a–16a.
+- **`zuhttp`** is the table consumer that was *hoped* for, not a real
+  one: its `DESCRIPTION` has no `Imports:` and its one pin
+  implementation hashes with the TLS backend’s own SHA-256 (#14).
 
-**Stage 16a is done** (2026-11-03, \#81): tranche 4 admitted on the same
-workflow. `zuc_pkey` now holds EC and X25519 keys too (its `ptype` is
-the backend type); `zuc_pkey_import()`/`_export()` move raw key material
-and `zuc_pkey_agree()` does ECDH and X25519, refusing an all-zero X25519
-result. ECDSA signatures are raw `r || s` in C and DER in R, read
-strictly (the encoding must re-encode identically). The private EC
-encodings are built in `src/zuc_pkey.c` to match OpenSSL byte for byte:
-SEC1 with the curve, PKCS#8 around SEC1 without it, RFC 8410 for X25519.
-The allocation sweep’s window holds deterministic ECDSA and X25519 only;
-ECDSA verification and P-256 ECDH allocate 36,000 and 21,000 times and
-are left out on purpose.
+Deviations from `.claude/shared/workflow.md`: there is no
+`cran-release.yaml`, `CRAN-SUBMISSION` is git-ignored, and the 0.1.0 tag
+is `v0.1.0`, not the bare version. A release is tagged by hand with
+`pkg-post-cran`.
 
-`README.md` is rendered from `README.Rmd` (`devtools::build_readme()`);
-`readme.yaml` re-renders it in CI and fails on any difference, so never
-edit `README.md` by hand.
-
-Long-form documentation is pkgdown-only, in `vignettes/articles/`
-(zukomp’s layout), which `.Rbuildignore` keeps out of the CRAN tarball;
-`Config/Needs/website` names knitr and rmarkdown for it.
-`vignettes/articles/zucrypt.Rmd` is the site’s “Get started” page and
-walks through all seven functions; `vignettes/articles/c-api.Rmd`
-(“Using zucrypt from C”, \#13) is for a package author linking either C
-shape and quotes the `tools/` fixtures, so it moves when they do;
-`vignettes/articles/backend.Rmd` (“The vendored backend”, \#17) is the
-one a CRAN or security reviewer reads, and its facts (file counts,
-defines, sizes, patches) must be updated whenever the vendored tree or
-its configuration changes. Their examples are executed when the site
-builds, so they must stay runnable with no `Suggests` beyond the website
-needs — mention openssl or sodium in prose, never in a chunk.
-
-The package builds a vendored TF-PSA-Crypto 1.1.1 crypto subset from
-source, exports eleven core `crypt_*` functions: the seven of design §7
-([`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md)
-joined the original six in \#59),
-[`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md)
-(Stage 13a, \#9), and
-[`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md),
-[`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
-and
-[`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md)
-(Stage 14a, \#10, \#12); and from Stage 15a fifteen openssl-style ones
-(the RSA key, signature and encryption functions and
-`crypt_sha1/256/384/512()`), and publishes both consumer shapes: the
-registered function table (`inst/include/zucrypt-r.h`,
-`zucrypt_get_api`) and the static archive (`libzucrypt.a`, which
-`src/install.libs.R` installs to the package’s `lib${R_ARCH}/`, beside
-`licenses/tf-psa-crypto-LICENSE`; there is no `inst/lib/` in the
-sources). Stage 7 removed AES-ECB (#29), made the PSA key store dynamic
-(#30), appended `ZUC_ERR_NOT_READY` and `ZUCRYPT_API_HAS`, and moved the
-install layout to zukomp’s (#33).
-
-**Stability comes in tiers (design §8.6).** The seven R functions are
-stable. The archive (`zucrypt.h`, `libzucrypt.a`,
-`ZUCRYPT_ABI_VERSION 1`) is **frozen as ABI 1** (Stage 11, declared
-2026-09-29, shipping in v0.1.0): `zuxlsx`’s decryption core in C
-([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3,
-zuxlsx#64) was built against it and passed on three operating systems
-first. From here an archive change is an *addition* or it is ABI 2.
-`revdep.yaml` builds zuxlsx against every push and PR. The table is
-*experimental*: no package uses it (#14).
-
-Both shapes have a consumer fixture package under `tools/`, zukomp’s
-layout, and neither is reachable from `R CMD check`; `consumer.yaml`
-builds both on Linux, macOS and Windows. `tools/zucrypttest` is the
-table consumer: `Imports:` + `LinkingTo:` + a real `importFrom()`,
-calling every table entry, because a pointer that was never assigned is
-indistinguishable from a working one until something calls it.
-`tools/zucryptlink` is the archive consumer: `LinkingTo` only,
-`configure`/`configure.win` resolving `lib/<arch>` then `lib/` into a
-single-quoted `PKG_LIBS`, exactly as zuxlsx does.
-`tools/check-linking.sh` drives it: installs into a library path
-containing a space, audits that the backend is linked in and that no
-`zuc_`/`psa_`/`mbedtls_` symbol is exported from the consumer, checks
-both copies report the same backend, runs it beside `zucrypt.so` in both
-load orders, and runs it with zucrypt removed from the library path.
-Both fixtures carry the msoffcrypto derivation vector, written by
-`tools/make-derivation-kat.py`. The Agile integration that the freeze
-waits for lives in `zuxlsx`
-([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22)).
-
-**The ABI promise, from the Stage 11 freeze.** Within major version 1,
-functions and table fields may be *added*; nothing is removed, reordered
-or given a new meaning; enumerator values are permanent; and a
-`ZUC_*_REQUIRED_SIZE` macro never grows. A layout change to a type
-`struct_size` cannot see renames the registered callable instead, so an
-old consumer fails at `R_GetCCallable()` rather than reading a structure
-that has moved.
-[`?zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
-is the published statement of this. The Office derivation rehearsal
-lives in the fixture and is the ABI validation gate: it runs the generic
-`H_n = hash(int32le(n-1) || H_{n-1})` loop through one reused
-incremental context and compares it two ways: with an R loop over
-[`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
-which catches a missing or broken reset but shares the backend; and with
-one known-answer vector whose oracle is msoffcrypto-tool
-(`fixtures/derivation.tsv`, generated by `tools/make-derivation-kat.py`
-from zuxlsx’s real encrypted fixture, stored as seed and output bytes).
-It is not Office support and must not become it — no constants, no block
-keys.
-
-The adapter counts live handles (`src/zuc_live.h`); `test-lifetime.R`
-interrupts each `crypt_*` loop with
-[`setTimeLimit()`](https://rdrr.io/r/base/setTimeLimit.html) and checks
-the count returns to its baseline after
-[`gc()`](https://rdrr.io/r/base/gc.html). Every entry point creates its
-owning external pointer *before* the context.
-
-The native layer is in two halves and the split is load-bearing.
-`src/zuc_*.c` is the adapter: R-free, and what goes into the archive.
-`src/zucrypt_r.c`, `src/zucrypt_crypt.c`, `src/zucrypt_api.c` and
-`src/zucrypt_test.c` are the R glue: backend-free, and not in the
-archive. `tools/check-layering.sh` enforces both directions in CI,
-because neither breaks loudly — including `R.h` in the adapter compiles
-fine here and fails much later in a consumer’s build.
-
-`src/zucrypt_crypt.c` holds the entry points behind the seven exports.
-Every context there is owned by an external pointer with a finalizer
-from the moment it exists, because the loop calls
-`R_CheckUserInterrupt()` between 1 MiB chunks and an interrupt longjmps
-past every `free()` beneath it — and the heap state here is exactly the
-state that must not leak.
-
-`src/zucrypt_test.c` is a permanently-compiled `.Call` harness
-(`zucrypt_test_*`), the analogue of `zukomp`’s `zu_test_stream()`. It is
-how the suite drives the adapter at caller-chosen split points, and it
-stays compiled in every build. Fixtures are in
-`tests/testthat/fixtures/`, with provenance in `MANIFEST.tsv`;
-`Rscript tools/make-kat.R --check` recomputes every vector against
-`openssl` and fails on a mismatch.
-
-[.agents/stage-1-spike.md](https://pedrobtz.github.io/zucrypt/.agents/stage-1-spike.md)
-records what the spike measured and every decision it settled — the
-pinned release, the configuration (now forty-eight defines), the trim
-(now 43 objects, 153 files, since \#51 added hardware AES, Stage 14a
-GCM, Stage 15a RSA and PK and Stage 16a the curves; `aesce.c` is kept by
-hand because it has symbols only on Arm) and how to re-derive it, the
-external-RNG choice, and the measurements. Read it before touching
-`src/vendor/`, `src/Makevars` or `src/zuc_crypto_config.h`.
-
-The real content of this repository is
-[.agents/design.md](https://pedrobtz.github.io/zucrypt/.agents/design.md),
-now at revision 4. §3–§8 and §11–§12 describe `main` as amended by
-revision 3’s decisions, which Stages 7–12 implement; §6, §7.1 and §10
-describe where revision 4 takes it, which Stages 13–17 implement; §9 and
-§13 steps 3–5 are plans owned by `zuxlsx` and `zuhttp`. Read it before
-writing code; it is the authoritative spec for the API, boundaries and
-constraints summarised below, and it is where design changes belong.
-[.agents/roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
-Part A is the plan from here (Stages 7–12, v0.1.0 on CRAN; Stages 13–17,
-one tranche and one CRAN minor release each); Part B is the executed
-v0.1.0 roadmap, kept as the record. Check which stage is current before
-starting work. One rule added by the re-plan: a stage that adds or
-changes a scheduled job closes only after that job’s first real run,
-dispatched by hand.
-
-## Working rhythm: one pull request per roadmap stage
-
-[.agents/roadmap.md](https://pedrobtz.github.io/zucrypt/.agents/roadmap.md)
-is the unit of work. Each stage ships as its own pull request against
-`main`, and the loop is the same every time:
-
-1.  Branch from an up-to-date `main` (`stage-N-<slug>`), do the stage’s
-    work, and check it locally first — `devtools::document()`,
-    `devtools::test()`, `devtools::check()` clean at 0/0/0 before
-    anything is pushed. CI is for the platforms and toolchains this
-    machine is not, not for finding what a local check would have
-    caught.
-2.  Open the PR with `gh pr create`. The body states the stage, what it
-    implements, and the stage’s exit criteria from the roadmap as a
-    checklist.
-3.  Watch the checks to completion (`gh pr checks --watch`,
-    `gh run view --log-failed`). Every leg green, not “green except the
-    container ones” and not “the failure is unrelated” — a failure is
-    part of the stage until it is understood. Fix on the same branch and
-    push again.
-4.  Merge only once every required check has passed, then delete the
-    branch and pull `main`.
-5.  Update this file’s **Current state** section and start the next
-    stage.
-
-A stage does not end because its code is written. It ends when its exit
-criteria are met and CI is green, which is also what makes the next
-stage safe to start: the roadmap’s stages are sequential precisely so
-that a later one never inherits an unproven earlier one.
+A stage that adds or changes a scheduled job closes only after that
+job’s first real run, dispatched by hand, whose log shows it exercised
+what it is named for (design §12). Before pushing a stage, `document()`,
+`test()` and `check()` are clean locally at 0/0/0: CI is for the
+platforms this machine is not. A failing leg is part of the stage until
+it is understood, never “unrelated”.
 
 ## Commands
 
-``` r
+Beyond the shared `devtools` commands:
 
-devtools::load_all()          # load package for interactive work
-devtools::document()          # regenerate NAMESPACE + man/ from roxygen2 (markdown enabled)
-devtools::test()              # run all tests
-testthat::test_file("tests/testthat/test-<name>.R")   # run one test file
-devtools::test(filter = "<name>")                      # run tests matching a pattern
-devtools::check()             # full R CMD check, as CI runs it
-pkgdown::build_site()         # build the docs site (output in docs/, gitignored)
+``` sh
+Rscript -e 'devtools::build_readme()'     # README.Rmd -> README.md
+Rscript -e 'pkgdown::build_site()'        # site in docs/ (gitignored)
+Rscript -e 'pkgbuild::clean_dll()'        # when native state gets stale
+Rscript tools/make-kat.R --check          # recompute kat.tsv against openssl
+python3 tools/check-kat.py                # aead.tsv, kdf.tsv vs cryptography
+python3 tools/make-rsa-kat.py --check     # rsa.tsv, rsa-keys.tsv vs the RFCs
+python3 tools/make-ec-kat.py --check      # ec.tsv, ec-keys.tsv vs the RFCs
+python3 tools/make-derivation-kat.py ZUXLSX_CHECKOUT --check
+sh tools/check-layering.sh                # adapter R-free, glue backend-free
+bash tools/check-linking.sh               # the archive, as a consumer links it
+tools/vendor/fetch && tools/vendor/record # re-vendor after a keep/patch change
+tools/vendor/verify                       # vendored tree vs manifest
+R_ENABLE_JIT=0 Rscript tools/alloc-exercise.R [--baseline]
+Rscript tools/openssl-usage.R [dir]       # openssl usage by CRAN revdeps
 ```
 
-Once C sources exist, `devtools::load_all()` recompiles; use
-[`pkgbuild::clean_dll()`](https://pkgbuild.r-lib.org/reference/clean_dll.html)
-when native state gets stale.
-
-## CI
-
-CI is adopted from
-[`pedrobtz/r-actions`](https://github.com/pedrobtz/r-actions), the
-family’s shared reusable workflows — never hand-rolled jobs. Two
-conventions:
-
-- **Calls track `@v1`, except `coverage.yml`**, which is pinned to a
-  commit with the tag in a trailing comment (`@59c917d... # v1.18.0`):
-  it is the one call holding a repository write token, and a tag is
-  mutable. Bump that pin deliberately, reading the diff.
-- **Add a workflow at the stage where it has something to check.** The
-  roadmap’s CI table says which workflow lands in which stage and why. A
-  job that is green because it inspected nothing is worse than no job.
-
-Today: `R-CMD-check.yaml` (runners plus the `clang23`, `ubuntu-clang`
-and `ubuntu-gcc16` containers, `nosuggests` on), `native-checks.yaml`
-(LTO, rchk, gctorture, sanitizers, valgrind, analyzers, and the bespoke
-layering check), `abi.yaml`, `consumer.yaml` and `revdep.yaml` (all
-bespoke; `revdep.yaml` builds zuxlsx against this checkout and runs its
-decryption tests), `coverage.yaml` (with `native: true`), `arch.yaml`
-and `alloc-failure.yaml` (weekly), `vendor.yaml` (the vendored tree
-matches its manifest, and a PR touching it updates that manifest),
-`vendor-upstream.yaml` (weekly; opens an issue when TF-PSA-Crypto
-releases) and `pkgdown.yaml` deploying to `gh-pages` on push to `main`.
-`pkgdown.yaml` is this repo’s own, not an r-actions call. The
-`nosuggests` leg checks with no `Suggests` installed, which is why
-`tests/testthat.R` wraps its
-[`library(testthat)`](https://testthat.r-lib.org) in
-[`requireNamespace()`](https://rdrr.io/r/base/ns-load.html). Anything
-else that reaches for a suggested package from a top-level test or
-example file must be guarded the same way.
-
-That guard has a cost, and the weekly jobs are where it showed: until
-Stage 8, `arch.yaml` installed no testthat and its three legs ran **no
-tests** while reporting green. Now the Debian legs install
-`r-cran-testthat` and the `en_US.UTF-8` locale, Alpine builds testthat
-(with `libuv-dev` and `linux-headers`), and the job sets
-`error-on: warning` and `require-tests: true` — so a leg that ran
-nothing, or ended in a WARNING, is red. i386 and aarch64 each report 754
-passing expectations.
-
-`alloc-failure.yaml` sweeps the allocations of the `crypt_*` calls only:
-`tools/alloc-exercise.R --baseline` runs the prefix (library,
-[`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md),
-inputs) so it sits under the floor, and both commands set
-`R_ENABLE_JIT=0`, because a failed allocation in R’s own compiler or
-regex engine crashes R, which is not what this job is for.
-`target-pattern: ZUC_ERR_MEMORY` with `min-target-hits: 20` proves each
-run reached the adapter (77 of 258 did on 2026-09-26). Both gates need
-r-actions ≥ v1.15.0.
-
-`rchk` and `analyzers` are informational until they read zero, then
-gated with `fail-on-findings: true`. A `baseline:` file is the answer to
-the first false positive: a boolean gate has one bad day in it, and what
-happens on that day is that someone sets it to false and the gate is
-gone for good.
-
-`abi.yaml` and `consumer.yaml` are bespoke by necessity — r-actions has
-no ABI or consumer workflow, because what a package publishes is
-specific to that package. Both are adapted from the sibling `zukomp`
-repo. `consumer.yaml` fails when zero tests are discovered:
-[`any()`](https://rdrr.io/r/base/any.html) over an empty vector is
-`FALSE`, so a fixture that silently stopped being found would otherwise
-be a green job that proved nothing.
+The Python tools need the `cryptography` package (the derivation one
+needs msoffcrypto-tool 6.0.0 and a `zuxlsx` checkout); run them from a
+venv. Without `--check` the generators write their fixtures and manifest
+rows; `make-kat.R` keeps the rows other generators own.
+`openssl-usage.R` is network-bound and backs the tranche order and the
+migration article’s “N of openssl’s exports”; its results are dated in
+the roadmap, so re-run it before restating the claim.
 
 ## Architecture
 
-`zucrypt` is one package in the `zu*` family (siblings are checked out
-alongside it: `zuxlsx`, `zuxml`, `zukomp`, `zuhttp`, …). The boundary is
-strict and is the main thing to preserve:
+Three surfaces:
 
-- **`zucrypt` owns cryptography** — today hashes, HMAC, AES-CBC,
-  constant-time compare and secure cleanup; from Stage 13 the tranches
-  of design §6 (randomness, AEAD, KDFs, keys, signatures, certificate
-  data); and, if Stage 18 is taken, a TLS client *engine* for `zuhttp`
-  (design §10). It must never acquire XML, ZIP, Office, socket,
-  name-resolution, proxy or trust-store dependencies, and never reaches
-  the user’s environment (no key files, passphrase prompts or
-  certificate downloads: design §5).
-- **Family conventions are binding** (design §3): C ABI prefix
-  `zuc_`/`ZUC_` (never `zu_`, which is `zukomp`’s public namespace and
-  `zuhttp`’s internal one, so a `zucrypt.h` using it could not be
-  included beside `zukomp.h`; `zuxlsx` itself includes `miniz.h`, not
-  `zukomp.h`); R exports `crypt_*`; entry points `zucrypt_*`; internal
-  `zuc_int_*`; test-only `zucrypt_test_*`; condition classes
-  `zucrypt_*`. `zukomp`’s CLAUDE.md is the reference.
-- **Office/Excel decryption orchestration lives in `zuxlsx`**, not here.
-  The Office adapter owns iteration counts, salts, block keys, password
-  verifiers and segment IVs; it may depend on `zucrypt` and `zuxml`,
-  never the reverse.
-- **`zuhttp` owns connections, trust and TLS policy**, and keeps its
-  native OS TLS backends. A bundled Mbed TLS backend, if ever taken, is
-  `zucrypt`’s TLS engine (roadmap Stage 18, a candidate on `zuhttp`’s
-  trigger): compiled into `zucrypt.so` from the same vendored rows,
-  published through a separate table (`zucrypt-tls.h`) that `zuhttp`
-  resolves at run time from `Suggests:`, driven over I/O callbacks
-  `zuhttp` supplies, and verifying only against the CA bundle, host name
-  and pins `zuhttp` passes. It is **never in `libzucrypt.a`**, so no
-  archive consumer compiles it and ABI 1 never sees it.
-
-Three surfaces are exposed:
-
-1.  A small R surface:
-    [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md),
+1.  **The R surface.** The core `crypt_*` functions
+    ([`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md),
     [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
     [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md),
     [`crypt_hex()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hex.md),
     [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md),
     [`crypt_rand_bytes()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rand_bytes.md),
-    [`crypt_aes_cbc_encrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
-    /
-    [`crypt_aes_cbc_decrypt_nopad()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md),
-    [`crypt_aes_gcm_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
-    /
-    [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md),
-    [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md);
-    and the openssl-style layer so far:
-    [`crypt_read_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-    [`crypt_read_pubkey()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-    [`crypt_write_pem()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-    [`crypt_write_der()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-    [`crypt_write_pkcs1()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-    [`crypt_rsa_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-    [`crypt_rsa_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
-    [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
-    / `_verify()`,
-    [`crypt_rsa_encrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
-    / `_decrypt()`,
-    [`crypt_ec_keygen()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
-    [`crypt_ec_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
-    [`crypt_ec_dh()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md),
-    the X25519 functions,
-    [`crypt_ecdsa_parse()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md)
-    / `_write()` and `crypt_sha1/256/384/512()`.
-2.  A registered function table (`inst/include/zucrypt-r.h`,
+    the `crypt_aes_cbc_*_nopad()` pair, the `crypt_aes_gcm_*()` pair,
+    [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md))
+    and the openssl-shaped layer (key read and write, RSA, EC, X25519,
+    signatures, `crypt_sha*()`). The CBC pair carries `_nopad` (#56) so
+    that Stage 14’s openssl-compatible padded pair can take the ordinary
+    names.
+2.  **A registered function table** (`inst/include/zucrypt-r.h`,
     `zucrypt_api_v1`, resolved lazily via `zucrypt_get_api`) for
-    consumers that can carry `Imports:` + `LinkingTo:` + a real
-    `importFrom()`. `zuhttp` is the consumer this was *hoped* for, not a
-    real one: its `DESCRIPTION` has no `Imports:`, its design and
-    roadmap never mention `zucrypt`, and its one pin implementation
-    hashes with the TLS backend’s own SHA-256 (`EVP_sha256()` in
-    `zu_tls_openssl.c`; the other two backends refuse a pin) (#14). No
-    table consumer exists today (#28).
-3.  A static archive `lib/libzucrypt.a` (installed path) for
-    `zuxlsx`-style consumers (`LinkingTo:` + `configure` resolving
-    `system.file("lib")`, no `Imports:`). It contains the R-free adapter
-    plus vendored crypto — **not** raw upstream, unlike
-    `zukomp`/`zuxml`’s archives — so consumers see only
-    `inst/include/zucrypt.h`, which must compile standalone as C99 with
-    no R or PSA vocabulary.
+    consumers with `Imports:` + `LinkingTo:` + a real `importFrom()`.
+3.  **A static archive**, `libzucrypt.a`, for `zuxlsx`-style consumers
+    (`LinkingTo:` + `configure` resolving `system.file("lib")`, no
+    `Imports:`). `src/install.libs.R` installs it to the package’s
+    `lib${R_ARCH}/`, beside `licenses/tf-psa-crypto-LICENSE`; there is
+    no `inst/lib/` in the sources. It holds the R-free adapter plus
+    vendored crypto, **not** raw upstream (unlike `zukomp`/`zuxml`), so
+    consumers see only `inst/include/zucrypt.h`.
 
-The backend is a vendored, pinned TF-PSA-Crypto crypto subset (no TLS,
-no X.509) — currently 1.1.1, an LTS branch. No Mbed TLS file is
-vendored: in the 4.x architecture TF-PSA-Crypto is the whole
-cryptography library and Mbed TLS supplies only X.509 and TLS.
-Installation downloads nothing and needs no Python or Perl; the release
-archive ships the generated sources. Upstream symbols are hidden
-(`PKG_CFLAGS = $(C_VISIBILITY)`) so independent vendored copies cannot
-bind to each other, and `tests/testthat/test-abi.R` asserts that the
-shared object exports `R_init_zucrypt` and nothing else.
+The native layer is in two halves, and the split is load-bearing.
+`src/zuc_*.c` is the adapter: R-free, and what goes into the archive.
+`src/zucrypt_r.c`, `src/zucrypt_crypt.c`, `src/zucrypt_api.c` and
+`src/zucrypt_test.c` are the R glue: backend-free, and not in the
+archive. `src/zucrypt_crypt.c` holds the `.Call` entry points behind the
+exports. `src/zucrypt_test.c` is a permanently compiled harness
+(`zucrypt_test_*`, the analogue of `zukomp`’s `zu_test_stream()`)
+through which the suite drives the adapter at caller-chosen split
+points.
 
-## Non-obvious constraints from the design
+An opaque `zuc_pkey` holds RSA (PKCS#1 DER), EC and X25519 key material,
+its `ptype` the backend type, and imports it into PSA per operation, so
+one key serves every scheme and digest. Randomness reads
+`src/zuc_random.c`’s operating-system source directly, not through
+`psa_generate_random()`.
 
-- Binary arguments are **raw vectors only**, with one exception: `data`
-  to
+Naming (design §3, `zukomp`’s CLAUDE.md is the reference): C ABI prefix
+`zuc_`/`ZUC_`, never `zu_` (that is `zukomp`’s public namespace and
+`zuhttp`’s internal one, so a `zucrypt.h` using it could not be included
+beside `zukomp.h`); R exports `crypt_*`; entry points `zucrypt_*`;
+internal `zuc_int_*`; test-only `zucrypt_test_*`; condition classes
+`zucrypt_*`.
+
+Long-form documentation is pkgdown-only, in `vignettes/articles/`
+(zukomp’s layout), kept out of the tarball. `zucrypt.Rmd` is “Get
+started”; `c-api.Rmd` (“Using zucrypt from C”, \#13) quotes the `tools/`
+fixtures, so it moves when they do; `backend.Rmd` (“The vendored
+backend”, \#17) is what a CRAN or security reviewer reads.
+
+## Invariants that are easy to break
+
+- **The ABI 1 promise.** Within major version 1, archive functions and
+  table fields may be *added*, always appended; nothing is removed,
+  reordered or given a new meaning; enumerator values are permanent; and
+  a `ZUC_*_REQUIRED_SIZE` macro never grows. A layout change to a type
+  `struct_size` cannot see renames the registered callable instead, so
+  an old consumer fails at `R_GetCCallable()` rather than reading a
+  moved structure.
+  [`?zucrypt_c_api`](https://pedrobtz.github.io/zucrypt/reference/zucrypt_c_api.md)
+  is the published statement.
+- **Layering.** Including `R.h` in the adapter compiles fine here and
+  fails much later in a consumer’s build; a backend header in the R glue
+  is the start of PSA types in an installed header.
+  `tools/check-layering.sh` enforces both directions in CI.
+- **`inst/include/zucrypt.h` compiles standalone as C99** with no R or
+  PSA vocabulary.
+- **Upstream symbols are hidden** (`PKG_CFLAGS = $(C_VISIBILITY)`) so
+  independent vendored copies cannot bind to each other; `test-abi.R`
+  asserts the shared object exports `R_init_zucrypt` and nothing else.
+- **Heap state across a longjmp is owned by R.** Every context in
+  `src/zucrypt_crypt.c` is owned by a finalized external pointer from
+  the moment it exists, created *before* the context, because the loops
+  call `R_CheckUserInterrupt()` between 1 MiB chunks. C returns status
+  codes, never `Rf_error()` below the outermost `.Call`.
+  `src/zuc_live.h` counts live handles; `test-lifetime.R` interrupts
+  each `crypt_*` loop with
+  [`setTimeLimit()`](https://rdrr.io/r/base/setTimeLimit.html) and
+  checks the count returns to baseline after
+  [`gc()`](https://rdrr.io/r/base/gc.html).
+- **Key objects are tagged external pointers.** Never strip their
+  attributes: an external pointer is not duplicated.
+- **Allocation failures are reported as such.** The backend allocates
+  through `zuc_int_calloc()` (`MBEDTLS_PLATFORM_CALLOC_MACRO`), which
+  records a NULL return; the `zuc_pkey_*` entry points report any
+  failure after one as `ZUC_ERR_MEMORY`, because bignum and ASN.1 code
+  turns allocation failures into “invalid key” and the like.
+- **The PSA key store is dynamic** (`MBEDTLS_PSA_KEY_STORE_DYNAMIC`,
+  \#30): each `zuc_aes` and `zuc_hmac` holds one volatile key. The
+  static 32-slot store it replaced failed at the 17th live AES handle as
+  `ZUC_ERR_MEMORY`. `zuc_shutdown()` to zero destroys every key, so a
+  test that does it runs with nothing else live.
+- **Binary arguments are raw vectors only**, except `data` to
   [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md)
   and
-  [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
-  may be a connection (#11), streamed in 1 MiB chunks through
+  [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md),
+  which may be a connection (#11), streamed in 1 MiB chunks through
   `zucrypt_*_stream_*` and refused in text mode. A character value is
-  never interpreted as a filename, password or byte sequence: a file is
-  hashed as `crypt_hash(file(path))`.
-- Algorithm names are exact scalars — no partial matching, no fallback.
-- AES runs on AES-NI or the Arm Cryptography Extension where the CPU has
-  them, selected at run time, with the table-based software AES as
-  fallback (#51). That fallback leaks key material through cache timing,
-  per upstream’s `SECURITY.md`; it is documented, not refused, and
-  `crypt_info()$build_flags$aes_implementation` reports the path in use.
-  Never turn hardware AES off to make platforms “run the same C”: AES is
-  deterministic, the bytes are identical, and `aes-paths.yaml` checks
-  each path including a `ZUC_AES_SOFTWARE_ONLY` build.
-- AES wrappers add/strip **no padding and no authentication**; keys must
-  be 16/24/32 bytes, IVs exactly 16, data a multiple of 16.
-  Authentication is the caller’s responsibility.
-- SHA-1 exists for Office compatibility and is never a default for new
-  formats. AES-ECB was removed in Stage 7 (#29): its only use was Office
-  Standard encryption, which `zuxlsx` put out of scope (design-zuxlsx
-  §21c). A primitive enters on the admission rule of design §6; ECB is
-  admissible and in no tranche.
-- The PSA key store is dynamic (`MBEDTLS_PSA_KEY_STORE_DYNAMIC`, Stage
-  7, \#30): each `zuc_aes` and `zuc_hmac` holds one volatile key, and
-  live handles are bounded only by memory. The static 32-slot store it
-  replaced failed at the 17th live AES handle and reported it as
-  `ZUC_ERR_MEMORY`. Tearing the backend down (`zuc_shutdown()` to zero)
-  destroys every key, so a test that does it must run with nothing else
-  live.
-- No `encrypt_file(password = )`, ever: the package specifies no format.
-  AES-GCM and PBKDF2 are on `main` (Stage 14a), as is randomness (Stage
-  13a); HKDF and ChaCha20-Poly1305 are Stage 14b.
-- The openssl-shaped layer (design §7.1) is the one place character
-  input is accepted, typed as `openssl` types it; the core
-  [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
-  [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md)
-  and CBC pair stay raw-only. Every mirrored function must be
-  byte-identical to `openssl`, cross-verified, or a documented
-  difference in the migration article; a function in none of the three
-  lists fails the suite. Compatibility is subordinate to the security
-  contract: never mirror a failure to authenticate or verify. `openssl`
-  2.3.4’s GCM returns no tag and accepts tampered ciphertext, so
-  `crypt_aes_gcm_*` keeps RFC 5116’s contract and is a documented
-  difference.
-- Randomness uses platform entropy or a seeded backend RNG, **never R’s
-  RNG**. `test-random.R` sets a seed, draws twice and expects a
-  difference.
-- Errors are R conditions
-  `c(<specific>, "zucrypt_error", "error", "condition")` built in R from
-  a `zuc_status`, mapped by enumerator *name*; never attach keys,
-  passwords or plaintext – in the message *or the call*:
-  `zucrypt_abort()` reduces every condition’s call to the bare function
-  name, because R prints the call, with its arguments, before the
-  message (#51). C returns status codes, never `Rf_error()` below the
-  outermost `.Call`; heap state that must survive a `longjmp`
-  (`Rf_error`, `R_CheckUserInterrupt`) is owned by a finalized external
-  pointer.
-- Vendoring uses the family layout — `src/vendor/<source>/`,
-  `tools/patches/`,
-  `tools/vendor/{manifest.tsv,checksums.sha256,fetch,record,verify}`,
-  `inst/COPYRIGHTS` — and `src/Makevars` is portable make with an
-  explicit `OBJECTS` list (no CMake, no GNU make). Two local departures,
-  both in `.agents/stage-1-spike.md`: the trim is a two-column keep list
-  (`tools/vendor/keep/<source>.txt`) rather than a `keep_files()` case
-  arm, and the tree is flattened to `inc/` and `lib/` because upstream’s
-  own paths exceed the 100-byte tarball limit. Never edit `src/vendor/`
-  in place: change the keep list or add a patch, then re-run
-  `tools/vendor/fetch` and `tools/vendor/record`, and
-  `tools/vendor/verify` before committing.
-- API resolution and calls are main-thread only in 0.1.
-- Testing gate: published known-answer vectors per algorithm, one-shot
-  vs incremental equivalence, and independent-implementation
-  compatibility — a self round trip is explicitly not sufficient. Tests
-  must run offline from synthetic fixtures.
+  never a filename, password or byte sequence: a file is hashed as
+  `crypt_hash(file(path))`. The openssl-shaped layer is the one place
+  character input is accepted, typed as `openssl` types it.
+- **Algorithm names are exact scalars**: no partial matching, no
+  fallback.
+- **AES wrappers add no padding and no authentication** (the CBC pair):
+  keys of 16/24/32 bytes, IVs of exactly 16, data a multiple of 16. The
+  GCM pair is one-shot, with a 12-byte nonce and a 16-byte tag; a
+  received tag of another length is `ZUC_ERR_AUTH`.
+- **Hardware AES stays on.** AES-NI or the Arm Cryptography Extension is
+  selected at run time, with table-based software AES as fallback (#51);
+  that fallback leaks key material through cache timing and is
+  documented, not refused; `crypt_info()$build_flags$aes_implementation`
+  reports the path. Never turn hardware AES off to make platforms “run
+  the same C”: `aes-paths.yaml` checks each path, including a
+  `ZUC_AES_SOFTWARE_ONLY` build.
+- **SHA-1 is for Office compatibility**, never a default for new
+  formats. AES-ECB was removed (#29); it is admissible and in no
+  tranche.
+- **openssl compatibility is checked, and subordinate to security.**
+  Every mirrored function is byte-identical to `openssl`,
+  cross-verified, or a documented difference in the migration article; a
+  function in none of the three lists fails the suite. Never mirror a
+  failure to authenticate or verify: `openssl` 2.3.4’s GCM returns no
+  tag and accepts tampered ciphertext, so `crypt_aes_gcm_*` keeps RFC
+  5116’s contract.
+- **EC encodings match OpenSSL byte for byte**, built in
+  `src/zuc_pkey.c`: SEC1 with the curve, PKCS#8 around SEC1 without it,
+  RFC 8410 for X25519. ECDSA signatures are raw `r || s` in C and DER in
+  R, read strictly (the encoding must re-encode identically).
+  `zuc_pkey_agree()` refuses an all-zero X25519 result.
+- **Randomness never uses R’s RNG.** `test-random.R` sets a seed, draws
+  twice and expects a difference.
+- **No secrets in conditions.** Errors are
+  `c(<specific>, "zucrypt_error", "error", "condition")`, built in R
+  from a `zuc_status` mapped by enumerator *name*. Never attach keys,
+  passwords or plaintext, in the message *or the call*:
+  `zucrypt_abort()` reduces every call to the bare function name,
+  because R prints the call with its arguments (#51).
+- **API resolution and calls are main-thread only** in 0.1.
+- **The Office derivation rehearsal is not Office support.** It lives in
+  the consumer fixtures and is the ABI validation gate: the generic
+  `H_n = hash(int32le(n-1) || H_{n-1})` loop through one reused
+  incremental context, compared with an R loop over
+  [`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md)
+  and with one msoffcrypto-tool vector (`fixtures/derivation.tsv`). No
+  constants, no block keys.
+- **Articles run when the site builds**, with no `Suggests` beyond the
+  website needs: mention openssl or sodium in prose, never in a chunk.
+  `backend.Rmd`’s facts (file counts, defines, sizes, patches) are
+  updated whenever the vendored tree or its configuration changes.
+- **Never edit `README.md`**: `readme.yaml` re-renders it and fails on
+  any difference.
 
-## Skills
+## Testing
 
-Several R-specific skills are available and worth using here:
-`r-package-development`, `testing-r-packages`, `review-testing`,
-`cran-extrachecks`, `review-cran-submission`.
+- **Gate** (design §12): published known-answer vectors per algorithm,
+  one-shot vs incremental equivalence, and independent-implementation
+  compatibility. A self round trip is not sufficient. Tests run offline
+  from synthetic fixtures.
+- **Fixtures** are in `tests/testthat/fixtures/` (`kat.tsv`, `aead.tsv`,
+  `kdf.tsv`, `rsa*.tsv`, `ec*.tsv`), with provenance in `MANIFEST.tsv`,
+  read as committed and never regenerated at test time. Generators and
+  oracles are under Commands.
+- **Helpers**: `helper-kat.R` (fixture access and `zucrypt_test_*`
+  harness wrappers), `helper-abi.R` (symbol audit of the loaded shared
+  object), `helper-linking.R` (audits of the installed `LinkingTo`
+  surface, which skip under `load_all()`). They are helpers rather than
+  file-scope code because testthat’s parallel workers
+  (`Config/testthat/parallel: true`) source `helper-*.R` but not a test
+  file’s file scope.
+- `zuc_int_random_fail()` (`src/zuc_live.h`) makes the entropy source
+  fail for the harness.
+- **The `nosuggests` leg** checks with no `Suggests` installed, so
+  `tests/testthat.R` wraps
+  [`library(testthat)`](https://testthat.r-lib.org) in
+  [`requireNamespace()`](https://rdrr.io/r/base/ns-load.html). Anything
+  else that reaches for a suggested package from a top-level test or
+  example file is guarded the same way.
+
+## Continuous integration
+
+Shared workflows from `pedrobtz/r-actions`, tracking `@v1`, except
+`coverage.yaml`, pinned to a commit with the tag in a comment. Bump that
+pin deliberately, reading the diff. Add a workflow at the stage where it
+has something to check: a job that is green because it inspected nothing
+is worse than no job.
+
+- `R-CMD-check.yaml`: runners plus the `clang23`, `ubuntu-clang` and
+  `ubuntu-gcc16` containers, `nosuggests` on.
+- `native-checks.yaml`: LTO, rchk, gctorture, sanitizers, valgrind,
+  analyzers, `cran-special`, and the bespoke layering check. `rchk` and
+  `analyzers` stay informational until they read zero, then gate with
+  `fail-on-findings: true`; answer the first false positive with a
+  `baseline:` file, never by turning the gate off.
+- `coverage.yaml` (`native: true`).
+- `arch.yaml` (weekly): until Stage 8 its legs installed no testthat and
+  ran **no tests** while green. The Debian legs now install
+  `r-cran-testthat` and the `en_US.UTF-8` locale, Alpine builds testthat
+  (with `libuv-dev` and `linux-headers`), and the job sets
+  `error-on: warning` and `require-tests: true`.
+- `alloc-failure.yaml` (weekly): sweeps the allocations of the `crypt_*`
+  calls only. `tools/alloc-exercise.R --baseline` runs the prefix so it
+  sits under the floor, and both commands set `R_ENABLE_JIT=0`, because
+  a failed allocation in R’s own compiler or regex engine crashes R.
+  `target-pattern: ZUC_ERR_MEMORY` with `min-target-hits: 20` proves
+  each run reached the adapter. Needs r-actions \>= v1.15.0. The window
+  holds deterministic ECDSA and X25519 only: ECDSA verification and
+  P-256 ECDH allocate 36,000 and 21,000 times and are left out on
+  purpose.
+- `vendor.yaml`: the vendored tree matches its manifest, and a pull
+  request touching it updates the manifest. `vendor-upstream.yaml`
+  (weekly) opens an issue when TF-PSA-Crypto releases.
+- Bespoke, adapted from `zukomp`, because what a package publishes is
+  its own: `abi.yaml`; `consumer.yaml`, which builds both fixture
+  packages on Linux, macOS and Windows and fails when zero tests are
+  discovered ([`any()`](https://rdrr.io/r/base/any.html) over an empty
+  vector is `FALSE`); `revdep.yaml`, which builds `zuxlsx` against this
+  checkout and runs its decryption tests; `aes-paths.yaml`;
+  `readme.yaml`.
+- `pkgdown.yaml` is this repository’s own, deploying to `gh-pages` on
+  push to `main`.
+
+**The consumer fixtures** under `tools/` (zukomp’s layout) are
+unreachable from `R CMD check`. `tools/zucrypttest` is the table
+consumer and calls every table entry, because a pointer never assigned
+is indistinguishable from a working one until something calls it.
+`tools/zucryptlink` is the archive consumer: `LinkingTo` only,
+`configure`/`configure.win` resolving `lib/<arch>` then `lib/` into a
+single-quoted `PKG_LIBS`, exactly as `zuxlsx` does.
+`tools/check-linking.sh` installs it into a library path containing a
+space, audits that the backend is linked in and that no
+`zuc_`/`psa_`/`mbedtls_` symbol is exported from the consumer, checks
+both copies report the same backend, runs it beside `zucrypt.so` in both
+load orders, and with zucrypt removed from the library path. Both
+fixtures carry the msoffcrypto derivation vector.
+
+## Vendored native code
+
+TF-PSA-Crypto 1.1.1 (an LTS branch), Apache-2.0, crypto subset only: no
+TLS, no X.509 (Stage 17 would need a second vendored library). No Mbed
+TLS file is vendored: in the 4.x architecture TF-PSA-Crypto is the whole
+cryptography library. Installation downloads nothing and needs no Python
+or Perl; the release archive ships the generated sources. The tag,
+commit, archive checksum, defines and patches are in
+`tools/vendor/manifest.tsv`; `tools/vendor/verify` fails if a vendored
+file names an author missing from `Authors@R` or `inst/COPYRIGHTS`
+(CRAN’s 2026-10-13 return).
+
+Local patches, in `tools/patches/tf-psa-crypto/`:
+
+- `0001-avoid-zero-size-pubkey-array.patch`
+- `0002-drop-diagnostic-pragmas.patch`
+- `0003-guard-aead-finish-tag-wipe.patch` (upstream report: \#85)
+
+The configuration is `src/zuc_crypto_config.h` (forty-eight defines);
+the trim is 43 objects and 153 files, with `aesce.c` kept by hand
+because it has symbols only on Arm. `src/Makevars` is portable make with
+an explicit `OBJECTS` list (no CMake, no GNU make).
+
+Departures from the family layout, both recorded in
+`.agents/stage-1-spike.md`: the trim is a two-column keep list
+(`tools/vendor/keep/<source>.txt`) rather than a `keep_files()` case
+arm, and the tree is flattened to `inc/` and `lib/` because upstream’s
+paths exceed the 100-byte tarball limit. The patch record is the
+manifest’s `patches` column, not a `src/vendor/PROVENANCE`. Never edit
+`src/vendor/` in place: change the keep list or add a patch, re-run
+`tools/vendor/fetch` and `tools/vendor/record`, then
+`tools/vendor/verify` before committing.
