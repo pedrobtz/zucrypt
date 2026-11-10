@@ -108,8 +108,12 @@ X25519 key, `x` and, private, `d`.
 
 `crypt_ecdsa_parse()` returns raw vectors rather than `bignum`s, and
 [`as.list()`](https://rdrr.io/r/base/list.html) gives coordinates as raw
-vectors. There is no Ed25519: the bundled library has no EdDSA. There is
-no default key.
+vectors. `crypt_ecdsa_parse()` reads strict DER: it refuses bytes after
+the signature's SEQUENCE, which
+[`openssl::ecdsa_parse()`](https://jeroen.r-universe.dev/openssl/reference/signatures.html)
+ignores, as well as the negative, non-minimal and truncated encodings
+both refuse. There is no Ed25519: the bundled library has no EdDSA.
+There is no default key.
 
 ## Examples
 
@@ -124,8 +128,8 @@ crypt_signature_verify(charToRaw("hi"), sig, crypt_sha256, alice$pubkey)
 #> [1] TRUE
 str(crypt_ecdsa_parse(sig))
 #> List of 2
-#>  $ r: raw [1:32] 81 af 3c 4b ...
-#>  $ s: raw [1:32] e8 e6 6e 90 ...
+#>  $ r: raw [1:32] 85 92 83 66 ...
+#>  $ s: raw [1:32] 29 47 db 1b ...
 
 a <- crypt_x25519_keygen()
 b <- crypt_x25519_keygen()
