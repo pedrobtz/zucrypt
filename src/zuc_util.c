@@ -80,6 +80,11 @@ void zuc_int_alloc_fail_at(long n)
     alloc_fail_in = n > 0 ? n : 0;
 }
 
+long zuc_int_alloc_fail_pending(void)
+{
+    return alloc_fail_in;
+}
+
 void *zuc_int_calloc(size_t n, size_t size)
 {
     void *p;
