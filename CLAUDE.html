@@ -45,7 +45,7 @@
 <div class="section level2">
 <h2 id="shared-conventions">Shared conventions<a class="anchor" aria-label="anchor" href="#shared-conventions"></a></h2>
 <p>The portfolio’s shared rules are synced into <code>.claude/shared/</code> from <code>pedrobtz/packages:claude/shared/</code>. Never edit them here. Where this file and a shared file disagree, this file wins for zucrypt.</p>
-<p>@.claude/shared/workflow.md @.claude/shared/r-package.md @.claude/shared/ci.md @.claude/shared/native-code.md @.claude/shared/correctness.md</p>
+<p>@.claude/shared/workflow.md @.claude/shared/r-package.md @.claude/shared/ci.md @.claude/shared/native-code.md @.claude/shared/correctness.md @.claude/shared/assurance.md</p>
 </div>
 <div class="section level2">
 <h2 id="what-this-is">What this is<a class="anchor" aria-label="anchor" href="#what-this-is"></a></h2>
@@ -187,6 +187,8 @@
 <li>Bespoke, adapted from <code>zukomp</code>, because what a package publishes is its own: <code>abi.yaml</code>; <code>consumer.yaml</code>, which builds both fixture packages on Linux, macOS and Windows and fails when zero tests are discovered (<code><a href="https://rdrr.io/r/base/any.html" class="external-link">any()</a></code> over an empty vector is <code>FALSE</code>); <code>revdep.yaml</code>, which builds <code>zuxlsx</code> against this checkout and runs its decryption tests; <code>aes-paths.yaml</code>; <code>readme.yaml</code>.</li>
 <li>
 <code>pkgdown.yaml</code> is this repository’s own, deploying to <code>gh-pages</code> on push to <code>main</code>.</li>
+<li>
+<code>assurance.yaml</code> runs r-actions’ <code>assurance.yml</code>, which holds <a href=".agents/assurance.html">.agents/assurance.md</a> to the portfolio standard: a <code>done</code> check must be backed by a workflow, and a gap must name an issue. Update the file’s rows in the same pull request as a new boundary, object or limit.</li>
 </ul><p><strong>The consumer fixtures</strong> under <code>tools/</code> (zukomp’s layout) are unreachable from <code>R CMD check</code>. <code>tools/zucrypttest</code> is the table consumer and calls every table entry, because a pointer never assigned is indistinguishable from a working one until something calls it. <code>tools/zucryptlink</code> is the archive consumer: <code>LinkingTo</code> only, <code>configure</code>/<code>configure.win</code> resolving <code>lib/&lt;arch&gt;</code> then <code>lib/</code> into a single-quoted <code>PKG_LIBS</code>, exactly as <code>zuxlsx</code> does. <code>tools/check-linking.sh</code> installs it into a library path containing a space, audits that the backend is linked in and that no <code>zuc_</code>/<code>psa_</code>/<code>mbedtls_</code> symbol is exported from the consumer, checks both copies report the same backend, runs it beside <code>zucrypt.so</code> in both load orders, and with zucrypt removed from the library path. Both fixtures carry the msoffcrypto derivation vector.</p>
 </div>
 <div class="section level2">
