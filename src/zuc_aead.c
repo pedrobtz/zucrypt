@@ -191,6 +191,14 @@ zuc_status zuc_aead_decrypt(zuc_alg alg,
     zuc_status st = check_aead_args(0, alg, key, key_len, nonce, nonce_len,
                                     aad, aad_len, ciphertext, len, plaintext,
                                     tag, tag_len);
+    if (st == ZUC_ERR_AUTH && len != 0) {
+        /* A tag of the wrong length is refused here, before the backend,
+         * but it is an authentication failure like any other, and every
+         * ZUC_ERR_AUTH leaves the output zeroed: a caller may rely on that
+         * whichever check refused it. The arguments that reach this point
+         * have passed every NULL and overlap check. */
+        zuc_secure_zero(plaintext, len);
+    }
     if (st != ZUC_OK) {
         return st;
     }

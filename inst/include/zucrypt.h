@@ -447,8 +447,9 @@ zuc_status zuc_aes_cbc_decrypt(zuc_aes *aes,
  * plaintext in `plaintext`; otherwise it returns ZUC_ERR_AUTH.
  *
  * An argument error (a NULL, a length, an overlap) is reported before
- * anything is written. Any failure after that zeroes all `len` bytes of the
- * output, and on encryption the tag too: no unauthenticated plaintext ever
+ * anything is written. Any failure after that, and every ZUC_ERR_AUTH (a
+ * tag of the wrong length included), zeroes all `len` bytes of the output,
+ * and on encryption the tag too: no unauthenticated plaintext ever
  * reaches the caller, and no half-made ciphertext either.
  *
  * A pointer may be NULL only when its length is 0: `aad` with `aad_len` 0,

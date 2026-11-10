@@ -850,7 +850,10 @@ SEXP zucrypt_test_aead_contract(void)
     memset(out, 0xA5, LEN);
     got[7] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
                                       ct, LEN, tag, sizeof tag - 1, out));
-    memset(out, 0, LEN);
+    /* Wiped like every other ZUC_ERR_AUTH, although it is refused before
+     * the backend runs: this harness used to zero the buffer itself here,
+     * which hid that the adapter did not (found by fuzz/fuzz_gcm.c). */
+    EXPECT_WIPED();
 
     memset(out, 0xA5, LEN);
     got[8] = zuc_status_name(AEAD_DEC(key2, 32, nonce, 12, aad, sizeof aad,
