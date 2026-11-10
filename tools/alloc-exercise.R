@@ -80,14 +80,19 @@ check <- function(what, got, expected) {
     quit(status = 3, save = "no")
   }
 }
+## Both arguments are forced inside the handler: `expected` is lazy, and an
+## expected value computed by a crypt_* call (crypt_write_der(rsa) below)
+## would otherwise fail outside it, printing R's bare "Error in" rather than
+## the class. The first sweep (2026-11-10) reported two such correct
+## ZUC_ERR_MEMORY refusals as silent for exactly that reason.
 run <- function(what, expr, expected = NULL) {
-  got <- tryCatch(expr, error = function(e) e)
+  got <- tryCatch(list(expr, expected), error = function(e) e)
   if (inherits(got, "error")) {
     cat(what, ": ", class(got)[1], ": ", conditionMessage(got), "\n", sep = "")
     quit(status = 1, save = "no")
   }
-  if (!is.null(expected)) check(what, got, expected)
-  invisible(got)
+  if (!is.null(got[[2]])) check(what, got[[1]], got[[2]])
+  invisible(got[[1]])
 }
 run("prefix", crypt_hash(raw(1)), crypt_hash(raw(1)))
 namespaces <- sort(loadedNamespaces())
