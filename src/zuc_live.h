@@ -33,4 +33,10 @@ void zuc_int_random_fail(int on);
  * chosen point inside the backend (#108, #116). Test harness only. */
 void zuc_int_alloc_fail_at(long n);
 
+/* How many allocations are still to come before the injected failure: 0
+ * once it has fired (or when none is set). A sweep that sees a non-zero
+ * value after an operation knows the operation made fewer allocations than
+ * the position it was asked to fail, and has been swept to its end. */
+long zuc_int_alloc_fail_pending(void);
+
 #endif /* ZUC_LIVE_H */
