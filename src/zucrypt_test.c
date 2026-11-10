@@ -502,6 +502,12 @@ SEXP zucrypt_test_not_ready(void)
     SEXP res, nms;
     int i;
 
+    /* The teardown destroys every key in the store, so it refuses to run
+     * under a live handle rather than relying on its callers (#111). */
+    if (zuc_int_live_contexts() != 0) {
+        Rf_error("zucrypt: zucrypt_test_not_ready() needs no live handle, "
+                 "and %ld are live", zuc_int_live_contexts());
+    }
     if (zuc_aes_new(key, sizeof key, &live) != ZUC_OK) {
         Rf_error("zucrypt: could not create the handle this test needs");
     }
@@ -1099,6 +1105,196 @@ SEXP zucrypt_test_ec_contract(void)
     return res;
 }
 
+/* A handle kept across the last zuc_shutdown() (#92). Tears the backend
+ * down and brings it back, as zucrypt_test_not_ready() does and under the
+ * same guard, with one AES, one HMAC and one digest handle made before the
+ * teardown and an AES and an HMAC handle made after it, which are handed
+ * the old handles' key ids again. The old handles must refuse with
+ * ZUC_ERR_NOT_READY -- reset included, which would re-use the key id -- and
+ * freeing them must leave the new handles' keys alone. Returns the
+ * statuses by name and the new handles' outputs, before and after the old
+ * handles are freed, for R to compare with the functions it exports. No R
+ * allocation happens while the backend is down. */
+SEXP zucrypt_test_stale_handles(void)
+{
+    static const char *names[] = {
+        "shutdown", "init", "aes_old_encrypt", "hmac_old_update",
+        "hmac_old_finish", "hmac_old_reset", "hash_old_update",
+        "hash_old_finish", "hash_old_reset", "aes_new", "hmac_new"
+    };
+    enum { N = 11 };
+    zuc_status st[N];
+    uint8_t key1[16], key2[16], zero[16] = {0}, block[16];
+    uint8_t aes_before[16], aes_after[16], mac_before[32], mac_after[32];
+    uint8_t mac[32];
+    size_t len = 0;
+    zuc_aes *aes_old = NULL, *aes_new = NULL;
+    zuc_hmac *hmac_old = NULL, *hmac_new = NULL;
+    zuc_hash *hash_old = NULL;
+    SEXP res, nms, codes, cn;
+    int i;
+
+    if (zuc_int_live_contexts() != 0) {
+        Rf_error("zucrypt: zucrypt_test_stale_handles() needs no live "
+                 "handle, and %ld are live", zuc_int_live_contexts());
+    }
+    memset(key1, 0x01, sizeof key1);
+    memset(key2, 0x02, sizeof key2);
+    memset(aes_before, 0, sizeof aes_before);
+    memset(aes_after, 0, sizeof aes_after);
+    memset(mac_before, 0, sizeof mac_before);
+    memset(mac_after, 0, sizeof mac_after);
+
+    if (zuc_aes_new(key1, sizeof key1, &aes_old) != ZUC_OK ||
+        zuc_hmac_new(ZUC_ALG_SHA256, key1, sizeof key1, &hmac_old) != ZUC_OK ||
+        zuc_hash_new(ZUC_ALG_SHA256, &hash_old) != ZUC_OK) {
+        zuc_aes_free(aes_old);
+        zuc_hmac_free(hmac_old);
+        zuc_hash_free(hash_old);
+        Rf_error("zucrypt: could not create the handles this test needs");
+    }
+
+    st[0] = zuc_shutdown();
+    st[1] = zuc_init();
+
+    st[9] = zuc_aes_new(key2, sizeof key2, &aes_new);
+    st[10] = zuc_hmac_new(ZUC_ALG_SHA256, key2, sizeof key2, &hmac_new);
+
+    memcpy(block, zero, sizeof block);
+    zuc_aes_cbc_set_state(aes_old, zero);
+    st[2] = zuc_aes_cbc_encrypt(aes_old, zero, sizeof zero, block);
+    st[3] = zuc_hmac_update(hmac_old, (const uint8_t *) "abc", 3);
+    st[4] = zuc_hmac_finish(hmac_old, mac, sizeof mac, &len);
+    st[5] = zuc_hmac_reset(hmac_old);
+    st[6] = zuc_hash_update(hash_old, (const uint8_t *) "abc", 3);
+    st[7] = zuc_hash_finish(hash_old, mac, sizeof mac, &len);
+    st[8] = zuc_hash_reset(hash_old);
+
+    if (aes_new != NULL) {
+        zuc_aes_cbc_set_state(aes_new, zero);
+        zuc_aes_cbc_encrypt(aes_new, zero, sizeof zero, aes_before);
+    }
+    if (hmac_new != NULL) {
+        zuc_hmac_update(hmac_new, (const uint8_t *) "abc", 3);
+        zuc_hmac_finish(hmac_new, mac_before, sizeof mac_before, &len);
+    }
+
+    zuc_aes_free(aes_old);
+    zuc_hmac_free(hmac_old);
+    zuc_hash_free(hash_old);
+
+    if (aes_new != NULL) {
+        zuc_aes_cbc_set_state(aes_new, zero);
+        zuc_aes_cbc_encrypt(aes_new, zero, sizeof zero, aes_after);
+    }
+    if (hmac_new != NULL) {
+        zuc_hmac_reset(hmac_new);
+        zuc_hmac_update(hmac_new, (const uint8_t *) "abc", 3);
+        zuc_hmac_finish(hmac_new, mac_after, sizeof mac_after, &len);
+    }
+    zuc_aes_free(aes_new);
+    zuc_hmac_free(hmac_new);
+
+    res = PROTECT(Rf_allocVector(VECSXP, 5));
+    nms = PROTECT(Rf_allocVector(STRSXP, 5));
+    codes = PROTECT(Rf_allocVector(STRSXP, N));
+    cn = PROTECT(Rf_allocVector(STRSXP, N));
+    for (i = 0; i < N; i++) {
+        SET_STRING_ELT(codes, i, Rf_mkChar(zuc_status_name(st[i])));
+        SET_STRING_ELT(cn, i, Rf_mkChar(names[i]));
+    }
+    Rf_setAttrib(codes, R_NamesSymbol, cn);
+    SET_VECTOR_ELT(res, 0, codes);
+    SET_VECTOR_ELT(res, 1, Rf_allocVector(RAWSXP, 16));
+    memcpy(RAW(VECTOR_ELT(res, 1)), aes_before, 16);
+    SET_VECTOR_ELT(res, 2, Rf_allocVector(RAWSXP, 16));
+    memcpy(RAW(VECTOR_ELT(res, 2)), aes_after, 16);
+    SET_VECTOR_ELT(res, 3, Rf_allocVector(RAWSXP, 32));
+    memcpy(RAW(VECTOR_ELT(res, 3)), mac_before, 32);
+    SET_VECTOR_ELT(res, 4, Rf_allocVector(RAWSXP, 32));
+    memcpy(RAW(VECTOR_ELT(res, 4)), mac_after, 32);
+    SET_STRING_ELT(nms, 0, Rf_mkChar("status"));
+    SET_STRING_ELT(nms, 1, Rf_mkChar("aes_before_free"));
+    SET_STRING_ELT(nms, 2, Rf_mkChar("aes_after_free"));
+    SET_STRING_ELT(nms, 3, Rf_mkChar("hmac_before_free"));
+    SET_STRING_ELT(nms, 4, Rf_mkChar("hmac_after_free"));
+    Rf_setAttrib(res, R_NamesSymbol, nms);
+    UNPROTECT(4);
+    return res;
+}
+
+/* A backend failure inside an update (#108). Fails the backend allocation
+ * that copies the update's input, then walks the handle through what a
+ * consumer would do next: an empty update, a one-byte update and a finish
+ * on the failed operation must all be refused, and a reset must bring it
+ * back to a working digest of "abc". `kind` is "hash" or "hmac" (SHA-256,
+ * the HMAC keyed with the 16 bytes 01..01). Returns the statuses by name
+ * and the final digest. */
+SEXP zucrypt_test_update_failure(SEXP kind)
+{
+    static const char *names[] = {
+        "new", "failed_update", "update_empty", "update_byte", "finish",
+        "reset", "update", "final"
+    };
+    enum { N = 8 };
+    zuc_status st[N];
+    uint8_t key[16], data[64], out[32];
+    size_t len = 0;
+    int hmac;
+    zuc_hash *h = NULL;
+    zuc_hmac *m = NULL;
+    SEXP res, nms, codes, cn;
+    int i;
+
+    if (TYPEOF(kind) != STRSXP || XLENGTH(kind) != 1) {
+        Rf_error("zucrypt: kind must be \"hash\" or \"hmac\"");
+    }
+    hmac = strcmp(CHAR(STRING_ELT(kind, 0)), "hmac") == 0;
+    memset(key, 0x01, sizeof key);
+    memset(data, 0x5a, sizeof data);
+    memset(out, 0, sizeof out);
+
+    st[0] = hmac ? zuc_hmac_new(ZUC_ALG_SHA256, key, sizeof key, &m)
+                 : zuc_hash_new(ZUC_ALG_SHA256, &h);
+    if (st[0] != ZUC_OK) {
+        Rf_error("zucrypt: could not create the handle this test needs");
+    }
+    zuc_int_alloc_fail_at(1);
+    st[1] = hmac ? zuc_hmac_update(m, data, sizeof data)
+                 : zuc_hash_update(h, data, sizeof data);
+    zuc_int_alloc_fail_at(0);
+    st[2] = hmac ? zuc_hmac_update(m, data, 0) : zuc_hash_update(h, data, 0);
+    st[3] = hmac ? zuc_hmac_update(m, data, 1) : zuc_hash_update(h, data, 1);
+    st[4] = hmac ? zuc_hmac_finish(m, out, sizeof out, &len)
+                 : zuc_hash_finish(h, out, sizeof out, &len);
+    st[5] = hmac ? zuc_hmac_reset(m) : zuc_hash_reset(h);
+    st[6] = hmac ? zuc_hmac_update(m, (const uint8_t *) "abc", 3)
+                 : zuc_hash_update(h, (const uint8_t *) "abc", 3);
+    memset(out, 0, sizeof out);
+    st[7] = hmac ? zuc_hmac_finish(m, out, sizeof out, &len)
+                 : zuc_hash_finish(h, out, sizeof out, &len);
+    zuc_hmac_free(m);
+    zuc_hash_free(h);
+
+    res = PROTECT(Rf_allocVector(VECSXP, 2));
+    nms = PROTECT(Rf_allocVector(STRSXP, 2));
+    codes = PROTECT(Rf_allocVector(STRSXP, N));
+    cn = PROTECT(Rf_allocVector(STRSXP, N));
+    for (i = 0; i < N; i++) {
+        SET_STRING_ELT(codes, i, Rf_mkChar(zuc_status_name(st[i])));
+        SET_STRING_ELT(cn, i, Rf_mkChar(names[i]));
+    }
+    Rf_setAttrib(codes, R_NamesSymbol, cn);
+    SET_VECTOR_ELT(res, 0, codes);
+    SET_VECTOR_ELT(res, 1, Rf_allocVector(RAWSXP, 32));
+    memcpy(RAW(VECTOR_ELT(res, 1)), out, 32);
+    SET_STRING_ELT(nms, 0, Rf_mkChar("status"));
+    SET_STRING_ELT(nms, 1, Rf_mkChar("digest"));
+    Rf_setAttrib(res, R_NamesSymbol, nms);
+    UNPROTECT(4);
+    return res;
+}
+
 const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_hash",           (DL_FUNC) &zucrypt_test_hash,           3},
     {"zucrypt_test_hmac",           (DL_FUNC) &zucrypt_test_hmac,           4},
@@ -1121,5 +1317,7 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_aead_contract",  (DL_FUNC) &zucrypt_test_aead_contract,  0},
     {"zucrypt_test_pkey_contract",  (DL_FUNC) &zucrypt_test_pkey_contract,  1},
     {"zucrypt_test_ec_contract",    (DL_FUNC) &zucrypt_test_ec_contract,    0},
+    {"zucrypt_test_stale_handles",  (DL_FUNC) &zucrypt_test_stale_handles,  0},
+    {"zucrypt_test_update_failure", (DL_FUNC) &zucrypt_test_update_failure, 1},
     {NULL, NULL, 0}
 };

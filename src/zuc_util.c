@@ -72,9 +72,23 @@ int zuc_int_overlaps(const void *in, const void *out, size_t len)
  * is not a failure. */
 static int alloc_failed = 0;
 
+/* See zuc_live.h: the countdown to an injected failure, 0 when off. */
+static long alloc_fail_in = 0;
+
+void zuc_int_alloc_fail_at(long n)
+{
+    alloc_fail_in = n > 0 ? n : 0;
+}
+
 void *zuc_int_calloc(size_t n, size_t size)
 {
-    void *p = calloc(n, size);
+    void *p;
+
+    if (alloc_fail_in > 0 && --alloc_fail_in == 0) {
+        p = NULL;
+    } else {
+        p = calloc(n, size);
+    }
     if (p == NULL && n != 0 && size != 0) {
         alloc_failed = 1;
     }

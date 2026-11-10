@@ -17,6 +17,7 @@ struct zuc_hash {
     psa_algorithm_t      palg;
     psa_hash_operation_t op;
     int                  active;   /* set up and accepting updates */
+    unsigned long        generation;   /* zuc_int_current() */
 };
 
 struct zuc_hmac {
@@ -25,6 +26,7 @@ struct zuc_hmac {
     psa_key_id_t        key;
     psa_mac_operation_t op;
     int                 active;
+    unsigned long       generation;
 };
 
 /* ------------------------------------------------------------------ *
@@ -103,6 +105,7 @@ zuc_status zuc_hash_new(zuc_alg alg, zuc_hash **out)
     h->alg  = alg;
     h->palg = zuc_int_psa_hash(alg);
     h->op   = psa_hash_operation_init();
+    h->generation = zuc_int_generation();
 
     ps = psa_hash_setup(&h->op, h->palg);
     if (ps != PSA_SUCCESS) {
@@ -122,18 +125,30 @@ zuc_status zuc_hash_new(zuc_alg alg, zuc_hash **out)
 
 zuc_status zuc_hash_update(zuc_hash *hash, const uint8_t *data, size_t data_len)
 {
+    psa_status_t ps;
+
     if (hash == NULL || (data == NULL && data_len != 0)) {
         return ZUC_ERR_INVALID_ARGUMENT;
     }
+    if (!zuc_int_current(hash->generation)) {
+        return ZUC_ERR_NOT_READY;
+    }
     if (!hash->active) {
-        /* Finished, and not reset. Updating would silently produce a digest
-         * of a different message than the caller believes. */
+        /* Finished, failed, and not reset. Updating would silently produce
+         * a digest of a different message than the caller believes. */
         return ZUC_ERR_INVALID_ARGUMENT;
     }
     if (data_len == 0) {
         return ZUC_OK;
     }
-    return zuc_int_from_psa(psa_hash_update(&hash->op, data, data_len));
+    ps = psa_hash_update(&hash->op, data, data_len);
+    if (ps != PSA_SUCCESS) {
+        /* The backend has aborted the operation, so the handle stops
+         * accepting updates until it is reset (#108). */
+        psa_hash_abort(&hash->op);
+        hash->active = 0;
+    }
+    return zuc_int_from_psa(ps);
 }
 
 zuc_status zuc_hash_finish(zuc_hash *hash,
@@ -143,6 +158,9 @@ zuc_status zuc_hash_finish(zuc_hash *hash,
 
     if (hash == NULL || out == NULL || out_len == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (!zuc_int_current(hash->generation)) {
+        return ZUC_ERR_NOT_READY;
     }
     if (!hash->active) {
         return ZUC_ERR_INVALID_ARGUMENT;
@@ -164,6 +182,9 @@ zuc_status zuc_hash_reset(zuc_hash *hash)
 
     if (hash == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (!zuc_int_current(hash->generation)) {
+        return ZUC_ERR_NOT_READY;
     }
     if (hash->active) {
         psa_hash_abort(&hash->op);
@@ -310,6 +331,7 @@ zuc_status zuc_hmac_new(zuc_alg alg, const uint8_t *key, size_t key_len,
     h->alg  = alg;
     h->palg = PSA_ALG_HMAC(zuc_int_psa_hash(alg));
     h->op   = psa_mac_operation_init();
+    h->generation = zuc_int_generation();
 
     st = import_hmac_key(alg, key, key_len, h->palg, &h->key);
     if (st != ZUC_OK) {
@@ -334,8 +356,13 @@ zuc_status zuc_hmac_new(zuc_alg alg, const uint8_t *key, size_t key_len,
 
 zuc_status zuc_hmac_update(zuc_hmac *hmac, const uint8_t *data, size_t data_len)
 {
+    psa_status_t ps;
+
     if (hmac == NULL || (data == NULL && data_len != 0)) {
         return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (!zuc_int_current(hmac->generation)) {
+        return ZUC_ERR_NOT_READY;
     }
     if (!hmac->active) {
         return ZUC_ERR_INVALID_ARGUMENT;
@@ -343,7 +370,13 @@ zuc_status zuc_hmac_update(zuc_hmac *hmac, const uint8_t *data, size_t data_len)
     if (data_len == 0) {
         return ZUC_OK;
     }
-    return zuc_int_from_psa(psa_mac_update(&hmac->op, data, data_len));
+    ps = psa_mac_update(&hmac->op, data, data_len);
+    if (ps != PSA_SUCCESS) {
+        /* As for the digest: a failed update ends the operation (#108). */
+        psa_mac_abort(&hmac->op);
+        hmac->active = 0;
+    }
+    return zuc_int_from_psa(ps);
 }
 
 zuc_status zuc_hmac_finish(zuc_hmac *hmac,
@@ -353,6 +386,9 @@ zuc_status zuc_hmac_finish(zuc_hmac *hmac,
 
     if (hmac == NULL || out == NULL || out_len == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (!zuc_int_current(hmac->generation)) {
+        return ZUC_ERR_NOT_READY;
     }
     if (!hmac->active) {
         return ZUC_ERR_INVALID_ARGUMENT;
@@ -372,6 +408,11 @@ zuc_status zuc_hmac_reset(zuc_hmac *hmac)
 
     if (hmac == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    /* Reset re-uses the key id, which after a teardown may be another
+     * handle's key (#92). */
+    if (!zuc_int_current(hmac->generation)) {
+        return ZUC_ERR_NOT_READY;
     }
     if (hmac->active) {
         psa_mac_abort(&hmac->op);
@@ -394,8 +435,12 @@ void zuc_hmac_free(zuc_hmac *hmac)
     }
     psa_mac_abort(&hmac->op);
     /* The key is in the backend's store, not in this struct, so wiping the
-     * struct is not enough -- the destroy is what erases the key material. */
-    psa_destroy_key(hmac->key);
+     * struct is not enough -- the destroy is what erases the key material.
+     * After a teardown the store has already erased it, and the id may be
+     * another handle's (#92). */
+    if (zuc_int_current(hmac->generation)) {
+        psa_destroy_key(hmac->key);
+    }
     zuc_secure_zero(hmac, sizeof *hmac);
     free(hmac);
     zuc_int_live_add(-1);

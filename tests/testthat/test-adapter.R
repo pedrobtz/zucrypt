@@ -268,3 +268,66 @@ test_that("the zuc_alg ranges are ordered, contiguous and hold every value", {
   expect_length(ids, 4L)
   expect_true(all(ids >= bounds["DIGEST", "FIRST"] & ids <= bounds["DIGEST", "LAST"]))
 })
+
+test_that("a handle kept across the last zuc_shutdown() refuses (#92)", {
+  # After a teardown the store hands the same volatile key ids out again.
+  # Until #92 the old AES handle then encrypted under the new handle's key
+  # and returned ZUC_OK, and freeing it destroyed the new handle's key.
+  gc()
+  got <- .Call(zucrypt:::zucrypt_test_stale_handles)
+  expect_identical(got$status[["shutdown"]], "ZUC_OK")
+  expect_identical(got$status[["init"]], "ZUC_OK")
+  expect_identical(got$status[["aes_new"]], "ZUC_OK")
+  expect_identical(got$status[["hmac_new"]], "ZUC_OK")
+  old <- grep("_old_", names(got$status), value = TRUE)
+  expect_length(old, 7L)
+  for (call in old) {
+    expect_identical(got$status[[call]], "ZUC_ERR_NOT_READY", info = call)
+  }
+  # The new handles use their own key, before and after the old ones are
+  # freed: the oracle is the exported functions under that key.
+  key2 <- as.raw(rep(2, 16))
+  aes <- crypt_aes_cbc_encrypt_nopad(raw(16), key2, raw(16))
+  mac <- crypt_hmac(charToRaw("abc"), key2, "sha256")
+  expect_identical(got$aes_before_free, aes)
+  expect_identical(got$aes_after_free, aes)
+  expect_identical(got$hmac_before_free, mac)
+  expect_identical(got$hmac_after_free, mac)
+  expect_identical(.Call(zucrypt:::zucrypt_test_live_contexts), 0)
+})
+
+test_that("a failed update ends the operation until reset (#108)", {
+  abc256 <- "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  for (kind in c("hash", "hmac")) {
+    got <- .Call(zucrypt:::zucrypt_test_update_failure, kind)
+    s <- got$status
+    expect_identical(s[["new"]], "ZUC_OK", info = kind)
+    expect_identical(s[["failed_update"]], "ZUC_ERR_MEMORY", info = kind)
+    # Each of these succeeded or reached the dead backend operation before.
+    for (call in c("update_empty", "update_byte", "finish")) {
+      expect_identical(s[[call]], "ZUC_ERR_INVALID_ARGUMENT",
+                       info = paste(kind, call))
+    }
+    for (call in c("reset", "update", "final")) {
+      expect_identical(s[[call]], "ZUC_OK", info = paste(kind, call))
+    }
+    want <- if (kind == "hash") {
+      abc256
+    } else {
+      tohex(crypt_hmac(charToRaw("abc"), as.raw(rep(1, 16)), "sha256"))
+    }
+    expect_identical(tohex(got$digest), want, info = kind)
+  }
+})
+
+test_that("the teardown harnesses refuse under a live handle (#111)", {
+  key <- crypt_ec_keygen("P-256")
+  expect_gt(.Call(zucrypt:::zucrypt_test_live_contexts), 0)
+  expect_error(native_not_ready(), "no live handle")
+  expect_error(.Call(zucrypt:::zucrypt_test_stale_handles), "no live handle")
+  # The key is untouched and still works.
+  sig <- crypt_signature_create(charToRaw("m"), crypt_sha256, key)
+  expect_true(crypt_signature_verify(charToRaw("m"), sig, crypt_sha256,
+                                     key$pubkey))
+  rm(key)
+})

@@ -51,6 +51,14 @@ const char *zuc_int_random_backend(void);
  * rather than undefined behaviour inside the backend. */
 int zuc_int_ready(void);
 
+/* The backend's generation, which the last zuc_shutdown() advances, and
+ * whether a handle made in `generation` may still use the backend: the
+ * backend is up and has not been torn down since (#92). A handle that is
+ * not current refuses with ZUC_ERR_NOT_READY, and its free leaves the key
+ * store alone, because its key id may now belong to another handle. */
+unsigned long zuc_int_generation(void);
+int zuc_int_current(unsigned long generation);
+
 /* Adjust the count zuc_int_live_contexts() reports: +1 when a handle is
  * handed to a caller, -1 when it is freed. Only the constructors and the
  * free functions call it. */
