@@ -14,6 +14,7 @@ a shared file disagree, this file wins for zucrypt.
 @.claude/shared/ci.md
 @.claude/shared/native-code.md
 @.claude/shared/correctness.md
+@.claude/shared/assurance.md
 
 ## What this is
 
@@ -343,6 +344,11 @@ worse than no job.
   `readme.yaml`.
 - `pkgdown.yaml` is this repository's own, deploying to `gh-pages` on push
   to `main`.
+- `assurance.yaml` runs r-actions' `assurance.yml`, which holds
+  [.agents/assurance.md](.agents/assurance.md) to the portfolio standard: a
+  `done` check must be backed by a workflow, and a gap must name an issue.
+  Update the file's rows in the same pull request as a new boundary, object
+  or limit.
 
 **The consumer fixtures** under `tools/` (zukomp's layout) are unreachable
 from `R CMD check`. `tools/zucrypttest` is the table consumer and calls
