@@ -49,7 +49,10 @@
 #'
 #' @section Compared with openssl:
 #' `crypt_ecdsa_parse()` returns raw vectors rather than `bignum`s, and
-#' `as.list()` gives coordinates as raw vectors. There is no Ed25519: the
+#' `as.list()` gives coordinates as raw vectors. `crypt_ecdsa_parse()` reads
+#' strict DER: it refuses bytes after the signature's SEQUENCE, which
+#' `openssl::ecdsa_parse()` ignores, as well as the negative, non-minimal
+#' and truncated encodings both refuse. There is no Ed25519: the
 #' bundled library has no EdDSA. There is no default key.
 #'
 #' @examples

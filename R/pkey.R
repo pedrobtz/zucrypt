@@ -333,26 +333,43 @@ der_sequence <- function(parts) {
   c(as.raw(0x30), der_length(length(body)), body)
 }
 
-# The INTEGERs of a SEQUENCE, as unsigned big-endian raw vectors.
+# The INTEGERs of a DER SEQUENCE, as unsigned big-endian raw vectors, or an
+# error when `der` is not exactly such a SEQUENCE (#91). Every length is
+# checked against the input before it is used, because indexing a raw vector
+# past its end gives 00 rather than an error, and a truncated INTEGER would
+# come back padded with invented zeros. The result must then re-encode to
+# the input byte for byte, which is what makes the reading strict: a
+# negative or non-minimal INTEGER, a non-minimal or indefinite length, and
+# trailing bytes all re-encode differently. The backend's own PKCS#1 output
+# is canonical DER, so as.list() on a key is unaffected.
 der_integers <- function(der) {
+  bad <- function() stop("not a DER SEQUENCE of INTEGERs", call. = FALSE)
+  n <- length(der)
   read_len <- function(pos) {
+    if (pos > n) bad()
     b <- as.integer(der[[pos]])
     if (b < 128L) return(c(b, 1L))
     k <- b - 128L
+    if (k < 1L || k > 4L || pos + k > n) bad()
     c(sum(as.integer(der[pos + seq_len(k)]) * 256^((k - 1):0)), 1L + k)
   }
+  if (n < 2L || der[[1]] != as.raw(0x30)) bad()
   seq_len_at <- read_len(2L)
   pos <- 2L + seq_len_at[[2]]
+  if (pos - 1L + seq_len_at[[1]] != n) bad()
   out <- list()
-  while (pos <= length(der)) {
-    stopifnot(der[[pos]] == as.raw(0x02))
+  while (pos <= n) {
+    if (der[[pos]] != as.raw(0x02)) bad()
     l <- read_len(pos + 1L)
     start <- pos + 1L + l[[2]]
+    if (l[[1]] < 1 || start + l[[1]] - 1L > n) bad()
     value <- der[start + seq_len(l[[1]]) - 1L]
+    if (as.integer(value[[1]]) >= 128L) bad()
     value <- value[cumsum(value != as.raw(0)) > 0]
     out[[length(out) + 1L]] <- if (length(value)) value else as.raw(0)
     pos <- start + l[[1]]
   }
+  if (!identical(der_sequence(lapply(out, der_integer)), der)) bad()
   out
 }
 

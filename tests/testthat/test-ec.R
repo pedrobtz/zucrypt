@@ -260,3 +260,128 @@ test_that("EC keys print their size and type", {
   expect_identical(capture.output(print(crypt_x25519_keygen()$pubkey)),
                    "[255-bit x25519 public key]")
 })
+
+# --- crypt_ecdsa_parse() reads strict DER (#91) --------------------------
+#
+# The oracle is an independent model of the DER rules for
+# SEQUENCE { INTEGER r, INTEGER s } (X.690 8.1.3, 8.3, 10.1), written here
+# rather than shared with R/pkey.R: definite minimal lengths, both INTEGERs
+# present and inside the input, non-negative, minimally encoded, and no
+# byte after the SEQUENCE. It returns list(r, s) as unsigned magnitudes, or
+# NULL when the input is not such a signature.
+der_model <- function(b) {
+  b <- as.integer(b)
+  pos <- 1L
+  length_at <- function() {
+    if (pos > length(b)) return(NULL)
+    first <- b[[pos]]
+    pos <<- pos + 1L
+    if (first < 0x80) return(first)
+    k <- first - 0x80
+    if (k == 0L || k > 4L || pos + k - 1L > length(b)) return(NULL)
+    bytes <- b[pos:(pos + k - 1L)]
+    pos <<- pos + k
+    n <- sum(bytes * 256^((k - 1L):0))
+    if (bytes[[1]] == 0L || n < 0x80) return(NULL)  # not minimal
+    n
+  }
+  integer_at <- function(end) {
+    if (pos > end || b[[pos]] != 0x02) return(NULL)
+    pos <<- pos + 1L
+    n <- length_at()
+    if (is.null(n) || n == 0L || pos + n - 1L > end) return(NULL)
+    v <- b[pos:(pos + n - 1L)]
+    pos <<- pos + n
+    if (v[[1]] >= 0x80) return(NULL)                           # negative
+    if (n > 1L && v[[1]] == 0L && v[[2]] < 0x80) return(NULL)  # padded
+    if (n > 1L && v[[1]] == 0L) v <- v[-1L]
+    as.raw(v)
+  }
+  if (!length(b) || b[[1]] != 0x30) return(NULL)
+  pos <- 2L
+  n <- length_at()
+  if (is.null(n) || pos + n - 1L != length(b)) return(NULL)
+  end <- length(b)
+  r <- integer_at(end)
+  if (is.null(r)) return(NULL)
+  s <- integer_at(end)
+  if (is.null(s) || pos != end + 1L) return(NULL)
+  list(r = r, s = s)
+}
+
+parse_or_null <- function(b) {
+  tryCatch(crypt_ecdsa_parse(b), zucrypt_invalid_argument = function(e) NULL)
+}
+
+test_that("crypt_ecdsa_parse() refuses the malformed DER of #91", {
+  bad <- list(
+    seq_too_long = "307f020105020107",
+    negative_r = "3006020 1ff020101",
+    padded = "30080202000502020007",
+    s_truncated = "3006020105020307",
+    trailing = "3006020105020107dead",
+    empty_integer = "300502000201 07",
+    indefinite = "3080020105020107 0000",
+    long_form_short = "308106020105020107",
+    long_form_padded = "30820006020105020107",
+    wrong_tag = "3106020105020107",
+    third_integer = "3009020105020107020109",
+    one_integer = "3003020105",
+    empty = "",
+    sequence_only = "3000"
+  )
+  for (name in names(bad)) {
+    b <- unhex(gsub(" ", "", bad[[name]]))
+    expect_null(der_model(b), info = name)
+    expect_error(crypt_ecdsa_parse(b), class = "zucrypt_invalid_argument")
+  }
+  # A leading 00 is required, not just allowed, when the top bit is set.
+  ok <- crypt_ecdsa_parse(unhex("3007020200ff020101"))
+  expect_identical(ok, list(r = as.raw(0xff), s = as.raw(1)))
+})
+
+test_that("crypt_ecdsa_parse() agrees with a strict DER model on mutations", {
+  key <- crypt_ec_keygen("P-256")
+  sigs <- lapply(1:8, function(i) {
+    crypt_signature_create(as.raw(i), crypt_sha256, key)
+  })
+  set.seed(91)
+  checked <- 0L
+  for (sig in sigs) {
+    expect_identical(parse_or_null(sig), der_model(sig))
+    for (i in seq_len(60)) {
+      m <- sig
+      switch(sample(4L, 1L),
+        { j <- sample(length(m), 1L); m[[j]] <- as.raw(sample(0:255, 1L)) },
+        { m <- m[seq_len(sample(length(m) - 1L, 1L))] },
+        { m <- c(m, as.raw(sample(0:255, sample(3L, 1L)))) },
+        { j <- sample(length(m), 1L); m <- m[-j] }
+      )
+      expect_identical(parse_or_null(m), der_model(m),
+                       info = paste(format(m), collapse = ""))
+      checked <- checked + 1L
+    }
+  }
+  expect_identical(checked, 480L)
+})
+
+test_that("valid and invalid DER agree with openssl::ecdsa_parse()", {
+  skip_if_not_installed("openssl")
+  key <- crypt_ec_keygen("P-521")
+  for (i in 1:5) {
+    sig <- crypt_signature_create(as.raw(i), crypt_sha512, key)
+    theirs <- openssl::ecdsa_parse(sig)
+    ours <- crypt_ecdsa_parse(sig)
+    expect_identical(ours$r, as.raw(theirs$r))
+    expect_identical(ours$s, as.raw(theirs$s))
+  }
+  # openssl refuses these too. It accepts trailing bytes after the
+  # SEQUENCE, which DER does not; that difference is documented in
+  # ?crypt_ecdsa_parse.
+  for (h in c("307f020105020107", "3006020 1ff020101", "30080202000502020007",
+              "3006020105020307")) {
+    b <- unhex(gsub(" ", "", h))
+    expect_error(openssl::ecdsa_parse(b))
+    expect_error(crypt_ecdsa_parse(b), class = "zucrypt_invalid_argument")
+  }
+})
