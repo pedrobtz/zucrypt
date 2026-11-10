@@ -162,10 +162,8 @@ crypt_hmac <- function(data, key, algorithm = "sha256") {
 crypt_equal <- function(x, y) {
   check_raw(x, "x")
   check_raw(y, "y")
-
-  if (length(x) != length(y)) {
-    return(FALSE)
-  }
+  # Unequal lengths are answered in C, by the true lengths: length() is
+  # generic, and a classed vector can misreport it (#106).
   .Call(zucrypt_equal, x, y)
 }
 

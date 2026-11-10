@@ -180,3 +180,90 @@ test_that("AES conditions say which cipher they are about", {
   expect_s3_class(e, "zucrypt_invalid_argument")
   expect_identical(e$algorithm, "aes-128-cbc")
 })
+
+# --- C checks what it relies on (#106, #107) -----------------------------
+#
+# length() is an internal generic, so a classed raw vector passes is.raw()
+# and reports whatever its method says, while C reads the true XLENGTH().
+# Every precondition that governs a buffer access or a cast is therefore
+# checked in C as well; R's checks remain, for their messages. Each call
+# below either errors or gives the answer for the true bytes.
+
+lying <- function(x, n) {
+  structure(x, class = "zucrypt_test_lying", lie = as.integer(n))
+}
+local({
+  # Registered for the duration of the file: length() dispatches through
+  # the S3 method table, not through the calling environment.
+  registerS3method("length", "zucrypt_test_lying",
+                   function(x) attr(x, "lie"), envir = globalenv())
+})
+
+test_that("crypt_equal() compares true lengths, in both orders (#106)", {
+  short <- lying(raw(0), 1L)
+  expect_identical(length(short), 1L)
+  expect_false(crypt_equal(short, as.raw(1)))
+  expect_false(crypt_equal(as.raw(1), short))
+  long <- lying(as.raw(1:3), 1L)
+  expect_false(crypt_equal(long, as.raw(1)))
+  expect_false(crypt_equal(as.raw(1), long))
+  # Equal true lengths still compare by content.
+  expect_true(crypt_equal(lying(as.raw(1:3), 9L), as.raw(1:3)))
+  # And straight through .Call, past R's length shortcut.
+  expect_false(.Call(zucrypt:::zucrypt_equal, raw(0), as.raw(1)))
+  expect_false(.Call(zucrypt:::zucrypt_equal, as.raw(1), raw(0)))
+})
+
+test_that("the CBC IV is 16 true bytes or refused (#106)", {
+  for (n in c(0L, 1L, 15L, 17L)) {
+    iv <- lying(as.raw(seq_len(n)), 16L)
+    expect_zucrypt_error(
+      crypt_aes_cbc_encrypt_nopad(raw(16), as.raw(1:16), iv),
+      "zucrypt_bad_length"
+    )
+    expect_zucrypt_error(
+      crypt_aes_cbc_decrypt_nopad(raw(16), as.raw(1:16), iv),
+      "zucrypt_bad_length"
+    )
+  }
+})
+
+test_that("crypt_hex() encodes the true bytes (#106)", {
+  expect_identical(crypt_hex(lying(as.raw(1:3), 1L)), "010203")
+})
+
+test_that("a logical flag reaching C must be TRUE or FALSE (#107)", {
+  ns <- asNamespace("zucrypt")
+  call <- function(name, ...) .Call(get(name, envir = ns), ...)
+  key <- crypt_ec_keygen("P-256")
+  for (flag in list(NA, logical(0), c(TRUE, FALSE), 1L, "TRUE")) {
+    expect_error(call("zucrypt_aes_cbc", raw(16), as.raw(1:16), raw(16), flag))
+    expect_error(call("zucrypt_aes_gcm", raw(16), as.raw(1:16), raw(12),
+                      NULL, raw(16), flag))
+    expect_error(call("zucrypt_pkey_parse", crypt_write_der(key), flag))
+    expect_error(call("zucrypt_pkey_write", key, 1L, flag))
+    expect_error(call("zucrypt_pkey_export", key, flag))
+    expect_error(call("zucrypt_pkey_import", "p256", flag, raw(32)))
+    expect_error(call("zucrypt_pkey_crypt", key, "oaep", "sha256", raw(1),
+                      flag))
+  }
+})
+
+test_that("numbers and names reaching C are checked there too (#106)", {
+  ns <- asNamespace("zucrypt")
+  call <- function(name, ...) .Call(get(name, envir = ns), ...)
+  for (n in list(-1, NaN, NA_real_, Inf, 1.5, 2^60, c(1, 2), numeric(0), 1L)) {
+    expect_error(call("zucrypt_rand_bytes", n), info = format(n))
+    expect_error(call("zucrypt_pbkdf2", raw(1), raw(1), 1, n, "sha256"),
+                 info = format(n))
+    expect_error(call("zucrypt_pbkdf2", raw(1), raw(1), n, 16, "sha256"),
+                 info = format(n))
+    expect_error(call("zucrypt_pkey_generate", "rsa", n), info = format(n))
+  }
+  expect_error(call("zucrypt_pbkdf2", raw(1), raw(1), 2^32, 16, "sha256"))
+  for (name in list(character(0), c("sha256", "sha1"), NA_character_, 1)) {
+    expect_error(call("zucrypt_hash", raw(1), name))
+    expect_error(call("zucrypt_hmac", raw(1), raw(1), name))
+    expect_error(call("zucrypt_pkey_generate", name, 0))
+  }
+})

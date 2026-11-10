@@ -27,6 +27,7 @@
  * tests/testthat/test-lifetime.R counts live contexts to hold this.
  */
 
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -110,12 +111,66 @@ static SEXP result(zuc_status status, SEXP value)
 }
 
 /* ------------------------------------------------------------------ *
+ * Arguments C relies on (#106, #107)
+ * ------------------------------------------------------------------ */
+
+/* R validates every argument before calling in, for its messages and
+ * classes. But R measures with length(), an internal generic a classed
+ * vector can answer however it likes, while C reads XLENGTH(); and a value
+ * reaching C through .Call directly has had no check at all. So every
+ * precondition that governs a buffer access, a cast or a branch is checked
+ * again here, where it is relied on. A failure is a bug in the caller, not
+ * a user error, so it is a plain error -- raised before any context or
+ * owning pointer exists, so nothing is stranded. */
+static int flag_arg(SEXP x, const char *what)
+{
+    if (TYPEOF(x) != LGLSXP || XLENGTH(x) != 1 ||
+        LOGICAL(x)[0] == NA_LOGICAL) {
+        Rf_error("zucrypt: `%s` must be TRUE or FALSE", what);
+    }
+    return LOGICAL(x)[0] != 0;
+}
+
+/* A double R has checked is a whole number in [lo, hi]. */
+static double whole_arg(SEXP x, double lo, double hi, const char *what)
+{
+    double v;
+    if (TYPEOF(x) != REALSXP || XLENGTH(x) != 1) {
+        Rf_error("zucrypt: `%s` must be a single number", what);
+    }
+    v = REAL(x)[0];
+    if (!R_FINITE(v) || v != floor(v) || v < lo || v > hi) {
+        Rf_error("zucrypt: `%s` must be a whole number in [%.0f, %.0f]",
+                 what, lo, hi);
+    }
+    return v;
+}
+
+/* A single, non-NA name. */
+static const char *name_arg(SEXP x, const char *what)
+{
+    if (TYPEOF(x) != STRSXP || XLENGTH(x) != 1 ||
+        STRING_ELT(x, 0) == NA_STRING) {
+        Rf_error("zucrypt: `%s` must be a single name", what);
+    }
+    return CHAR(STRING_ELT(x, 0));
+}
+
+static zuc_alg alg_name_arg(SEXP x, const char *what)
+{
+    return zuc_alg_by_name(name_arg(x, what));
+}
+
+/* The largest vector length, as a double: 2^52 on a 64-bit build. */
+#define ZUCRYPT_MAX_LEN ((double) R_XLEN_T_MAX)
+
+/* ------------------------------------------------------------------ *
  * Digest and HMAC
  * ------------------------------------------------------------------ */
 
 SEXP zucrypt_hash(SEXP data, SEXP algorithm)
 {
-    zuc_alg alg = zuc_alg_by_name(CHAR(STRING_ELT(algorithm, 0)));
+    zuc_alg alg = alg_name_arg(algorithm, "algorithm");
     const uint8_t *bytes = (const uint8_t *) RAW(data);
     size_t total = (size_t) XLENGTH(data);
     size_t want = zuc_alg_size(alg);
@@ -172,7 +227,7 @@ SEXP zucrypt_hash(SEXP data, SEXP algorithm)
 
 SEXP zucrypt_hmac(SEXP data, SEXP key, SEXP algorithm)
 {
-    zuc_alg alg = zuc_alg_by_name(CHAR(STRING_ELT(algorithm, 0)));
+    zuc_alg alg = alg_name_arg(algorithm, "algorithm");
     const uint8_t *bytes = (const uint8_t *) RAW(data);
     size_t total = (size_t) XLENGTH(data);
     size_t want = zuc_alg_size(alg);
@@ -267,7 +322,7 @@ static const int *stream_tag(SEXP ptr)
 
 SEXP zucrypt_hash_stream_new(SEXP algorithm)
 {
-    zuc_alg alg = zuc_alg_by_name(CHAR(STRING_ELT(algorithm, 0)));
+    zuc_alg alg = alg_name_arg(algorithm, "algorithm");
     SEXP ptr = PROTECT(stream_ptr(ZUCRYPT_STREAM_HASH, alg));
     zuc_hash *h = NULL;
     zuc_status st = zuc_hash_new(alg, &h);
@@ -281,7 +336,7 @@ SEXP zucrypt_hash_stream_new(SEXP algorithm)
 
 SEXP zucrypt_hmac_stream_new(SEXP key, SEXP algorithm)
 {
-    zuc_alg alg = zuc_alg_by_name(CHAR(STRING_ELT(algorithm, 0)));
+    zuc_alg alg = alg_name_arg(algorithm, "algorithm");
     SEXP ptr = PROTECT(stream_ptr(ZUCRYPT_STREAM_HMAC, alg));
     zuc_hmac *h = NULL;
     zuc_status st = zuc_hmac_new(alg, (const uint8_t *) RAW(key),
@@ -354,11 +409,17 @@ SEXP zucrypt_aes_cbc(SEXP data, SEXP key, SEXP iv, SEXP encrypt)
 {
     const uint8_t *bytes = (const uint8_t *) RAW(data);
     size_t total = (size_t) XLENGTH(data);
-    int do_encrypt = Rf_asLogical(encrypt) == TRUE;
+    int do_encrypt = flag_arg(encrypt, "encrypt");
     SEXP out, ptr, res;
     zuc_aes *aes = NULL;
     zuc_status st;
     size_t offset = 0;
+
+    /* zuc_aes_cbc_set_state() reads exactly one block, and takes no length
+     * to check it against. */
+    if (TYPEOF(iv) != RAWSXP || XLENGTH(iv) != ZUC_AES_BLOCK_SIZE) {
+        return result(ZUC_ERR_BAD_LENGTH, R_NilValue);
+    }
 
     ptr = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
     R_RegisterCFinalizerEx(ptr, aes_finalizer, TRUE);
@@ -410,8 +471,16 @@ SEXP zucrypt_aes_cbc(SEXP data, SEXP key, SEXP iv, SEXP encrypt)
 
 SEXP zucrypt_equal(SEXP x, SEXP y)
 {
-    /* Unequal lengths never reach here: R answers FALSE without calling in,
-     * because zuc_equal() takes a single length and length is not secret. */
+    /* zuc_equal() takes a single length, so unequal ones are answered here,
+     * by their true lengths: R answers FALSE before calling in, but by
+     * length(), which a classed vector can misreport (#106). Length is not
+     * secret. */
+    if (TYPEOF(x) != RAWSXP || TYPEOF(y) != RAWSXP) {
+        Rf_error("zucrypt: `x` and `y` must be raw vectors");
+    }
+    if (XLENGTH(x) != XLENGTH(y)) {
+        return Rf_ScalarLogical(FALSE);
+    }
     return Rf_ScalarLogical(zuc_equal((const uint8_t *) RAW(x),
                                       (const uint8_t *) RAW(y),
                                       (size_t) XLENGTH(x)));
@@ -427,8 +496,14 @@ SEXP zucrypt_hex(SEXP data)
     static const char digits[] = "0123456789abcdef";
     const uint8_t *in = (const uint8_t *) RAW(data);
     size_t n = (size_t) XLENGTH(data), i;
-    char *buf = R_alloc(2 * n + 1, 1);
+    char *buf;
     SEXP chr, out;
+
+    /* The CHARSXP's length is an int. R checks this too, by length(). */
+    if (n > 1073741823u) {
+        Rf_error("zucrypt: `x` is too long to encode as one hex string");
+    }
+    buf = R_alloc(2 * n + 1, 1);
 
     for (i = 0; i < n; i++) {
         buf[2 * i]     = digits[in[i] >> 4];
@@ -474,7 +549,7 @@ SEXP zucrypt_algorithms(void)
  * every byte already drawn is wiped before the vector is dropped. */
 SEXP zucrypt_rand_bytes(SEXP n)
 {
-    R_xlen_t total = (R_xlen_t) REAL(n)[0];
+    R_xlen_t total = (R_xlen_t) whole_arg(n, 0, ZUCRYPT_MAX_LEN, "n");
     SEXP out = PROTECT(Rf_allocVector(RAWSXP, total));
     uint8_t *bytes = (uint8_t *) RAW(out);
     size_t len = (size_t) total, offset = 0;
@@ -517,11 +592,12 @@ SEXP zucrypt_aes_gcm(SEXP data, SEXP key, SEXP iv, SEXP aad, SEXP tag,
     size_t len = (size_t) XLENGTH(data);
     const uint8_t *a = Rf_isNull(aad) ? NULL : (const uint8_t *) RAW(aad);
     size_t aad_len = Rf_isNull(aad) ? 0 : (size_t) XLENGTH(aad);
+    int do_encrypt = flag_arg(encrypt, "encrypt");
     SEXP out, value, res;
     zuc_status st;
 
     out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) len));
-    if (Rf_asLogical(encrypt) == TRUE) {
+    if (do_encrypt) {
         SEXP t = PROTECT(Rf_allocVector(RAWSXP, ZUC_GCM_TAG_SIZE));
         st = zuc_aead_encrypt(ZUC_ALG_AES_GCM,
                               RAW(key), (size_t) XLENGTH(key),
@@ -556,8 +632,10 @@ SEXP zucrypt_aes_gcm(SEXP data, SEXP key, SEXP iv, SEXP aad, SEXP tag,
 SEXP zucrypt_pbkdf2(SEXP password, SEXP salt, SEXP iterations, SEXP size,
                     SEXP algorithm)
 {
-    size_t n = (size_t) REAL(size)[0];
-    zuc_alg alg = zuc_alg_by_name(CHAR(STRING_ELT(algorithm, 0)));
+    size_t n = (size_t) whole_arg(size, 1, ZUCRYPT_MAX_LEN, "size");
+    uint32_t iter = (uint32_t) whole_arg(iterations, 1, 4294967295.0,
+                                         "iterations");
+    zuc_alg alg = alg_name_arg(algorithm, "algorithm");
     size_t plen = (size_t) XLENGTH(password), slen = (size_t) XLENGTH(salt);
     SEXP out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) n));
     SEXP res;
@@ -566,7 +644,7 @@ SEXP zucrypt_pbkdf2(SEXP password, SEXP salt, SEXP iterations, SEXP size,
     st = zuc_pbkdf2_hmac(alg,
                          plen ? RAW(password) : NULL, plen,
                          slen ? RAW(salt) : NULL, slen,
-                         (uint32_t) REAL(iterations)[0],
+                         iter,
                          RAW(out), n);
     res = result(st, st == ZUC_OK ? out : R_NilValue);
     UNPROTECT(1);
@@ -626,10 +704,11 @@ static SEXP pkey_result(zuc_status st, SEXP ptr, zuc_pkey *key)
 
 SEXP zucrypt_pkey_parse(SEXP data, SEXP private_key)
 {
+    int want_private = flag_arg(private_key, "private_key");
     SEXP ptr = PROTECT(pkey_ptr()), res;
     zuc_pkey *key = NULL;
     zuc_status st = zuc_pkey_parse(RAW(data), (size_t) XLENGTH(data),
-                                   Rf_asLogical(private_key) == TRUE, &key);
+                                   want_private, &key);
     res = pkey_result(st, ptr, key);
     UNPROTECT(1);
     return res;
@@ -638,10 +717,11 @@ SEXP zucrypt_pkey_parse(SEXP data, SEXP private_key)
 /* `type` is a zuc_alg name R has checked: "rsa", "p256", ..., "x25519". */
 SEXP zucrypt_pkey_generate(SEXP type, SEXP bits)
 {
+    zuc_alg alg = alg_name_arg(type, "type");
+    size_t nbits = (size_t) whole_arg(bits, 0, 65536, "bits");
     SEXP ptr = PROTECT(pkey_ptr()), res;
     zuc_pkey *key = NULL;
-    zuc_status st = zuc_pkey_generate(zuc_alg_by_name(CHAR(STRING_ELT(type, 0))),
-                                      (size_t) REAL(bits)[0], &key);
+    zuc_status st = zuc_pkey_generate(alg, nbits, &key);
     res = pkey_result(st, ptr, key);
     UNPROTECT(1);
     return res;
@@ -702,12 +782,12 @@ static SEXP trimmed(zuc_status st, SEXP buf, size_t len)
 SEXP zucrypt_pkey_write(SEXP ptr, SEXP format, SEXP public_only)
 {
     const zuc_pkey *key = pkey_get(ptr);
+    int pub = flag_arg(public_only, "public_only");
     SEXP buf = PROTECT(Rf_allocVector(RAWSXP, ZUC_PKEY_MAX_WRITE_SIZE)), res;
     size_t len = 0;
     zuc_status st = key == NULL
         ? ZUC_ERR_INVALID_ARGUMENT
-        : zuc_pkey_write(key, (zuc_pkey_format) Rf_asInteger(format),
-                         Rf_asLogical(public_only) == TRUE,
+        : zuc_pkey_write(key, (zuc_pkey_format) Rf_asInteger(format), pub,
                          RAW(buf), (size_t) XLENGTH(buf), &len);
     res = trimmed(st, buf, len);
     UNPROTECT(1);
@@ -717,8 +797,7 @@ SEXP zucrypt_pkey_write(SEXP ptr, SEXP format, SEXP public_only)
 /* `scheme` and `hash` arrive as zuc_alg names R has checked. */
 static zuc_alg alg_arg(SEXP name)
 {
-    return Rf_isNull(name) ? ZUC_ALG_NONE
-                           : zuc_alg_by_name(CHAR(STRING_ELT(name, 0)));
+    return Rf_isNull(name) ? ZUC_ALG_NONE : alg_name_arg(name, "scheme or hash");
 }
 
 SEXP zucrypt_pkey_sign(SEXP ptr, SEXP scheme, SEXP hash, SEXP digest)
@@ -754,6 +833,7 @@ SEXP zucrypt_pkey_crypt(SEXP ptr, SEXP scheme, SEXP hash, SEXP data,
                         SEXP encrypt)
 {
     const zuc_pkey *key = pkey_get(ptr);
+    int do_encrypt = flag_arg(encrypt, "encrypt");
     size_t cap = key == NULL ? 1 : zuc_pkey_bits(key) / 8 + 1, len = 0;
     size_t n = (size_t) XLENGTH(data);
     SEXP buf = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) cap)), res;
@@ -761,7 +841,7 @@ SEXP zucrypt_pkey_crypt(SEXP ptr, SEXP scheme, SEXP hash, SEXP data,
 
     if (key == NULL) {
         st = ZUC_ERR_INVALID_ARGUMENT;
-    } else if (Rf_asLogical(encrypt) == TRUE) {
+    } else if (do_encrypt) {
         st = zuc_pkey_encrypt(key, alg_arg(scheme), alg_arg(hash),
                               n ? RAW(data) : NULL, n, RAW(buf), cap, &len);
     } else {
@@ -777,10 +857,11 @@ SEXP zucrypt_pkey_crypt(SEXP ptr, SEXP scheme, SEXP hash, SEXP data,
 /* A key from its raw material (zucrypt.h, zuc_pkey_import()). */
 SEXP zucrypt_pkey_import(SEXP type, SEXP private_key, SEXP data)
 {
+    zuc_alg alg = alg_name_arg(type, "type");
+    int want_private = flag_arg(private_key, "private_key");
     SEXP ptr = PROTECT(pkey_ptr()), res;
     zuc_pkey *key = NULL;
-    zuc_status st = zuc_pkey_import(zuc_alg_by_name(CHAR(STRING_ELT(type, 0))),
-                                    Rf_asLogical(private_key) == TRUE,
+    zuc_status st = zuc_pkey_import(alg, want_private,
                                     RAW(data), (size_t) XLENGTH(data), &key);
     res = pkey_result(st, ptr, key);
     UNPROTECT(1);
@@ -790,11 +871,12 @@ SEXP zucrypt_pkey_import(SEXP type, SEXP private_key, SEXP data)
 SEXP zucrypt_pkey_export(SEXP ptr, SEXP public_only)
 {
     const zuc_pkey *key = pkey_get(ptr);
+    int pub = flag_arg(public_only, "public_only");
     SEXP buf = PROTECT(Rf_allocVector(RAWSXP, ZUC_PKEY_MAX_WRITE_SIZE)), res;
     size_t len = 0;
     zuc_status st = key == NULL
         ? ZUC_ERR_INVALID_ARGUMENT
-        : zuc_pkey_export(key, Rf_asLogical(public_only) == TRUE,
+        : zuc_pkey_export(key, pub,
                           RAW(buf), (size_t) XLENGTH(buf), &len);
     res = trimmed(st, buf, len);
     UNPROTECT(1);
