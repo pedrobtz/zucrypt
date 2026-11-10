@@ -102,6 +102,10 @@
 * C interface: a digest or HMAC update that fails in the backend ends the
   operation until reset, as a finish does (#108). The handle had stayed
   "active", and an empty update on it reported success.
+* C interface: `zuc_aead_decrypt()` zeroes the output on every
+  `ZUC_ERR_AUTH`, including a tag of the wrong length, which is refused
+  before the backend runs and used to leave the buffer as it was. Found by
+  the new GCM fuzz target's oracle.
 
 ## Backend
 

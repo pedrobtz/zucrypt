@@ -33,7 +33,7 @@ call to r-actions.
 | analyzers     | done       | native-checks.yaml  |
 | alloc-failure | done       | alloc-failure.yaml  |
 | mutation      | done       | mutation.yaml       |
-| fuzz          | gap #94  |                     |
+| fuzz          | done       | fuzz.yaml (own)     |
 | fuzz-reach    | gap #95  |                     |
 
 ## Boundaries
@@ -61,19 +61,19 @@ One row per boundary the package crosses. An oracle knows the answer:
 | Hash, HMAC and AES-CBC at arbitrary lengths, keys and split points | gap #68 | gap #68 |
 | AES-GCM encrypt | McGrew-Viega test cases 1-4, 7, 8, 13-16; ciphertext equals openssl's at 1 B to 1 MiB + 3 (openssl returns no tag, so the tag is checked by the vectors only) | test-aead.R |
 | AES-GCM decrypt (ciphertext, tag, nonce and AAD from elsewhere) | the vectors, decrypted; every single alteration (ciphertext, tag, AAD, nonce, key, truncated or empty tag, AAD added or dropped, shortened ciphertext) is `zucrypt_auth_error`; the C contract checks the output buffer is zeroed on failure | test-aead.R, zucrypt_test.c (`wiped_on_failure`) |
-| AES-GCM decrypt against attack vectors | gap #70 | gap #70 |
+| AES-GCM decrypt against attack vectors | Wycheproof: gap #70. fuzz_gcm: the round trip holds; one bit changed in the ciphertext, tag, AAD or nonce, and every other tag length, is `ZUC_ERR_AUTH` with the output all zeros; an arbitrary ciphertext accepted under the input's tag must re-encrypt to itself | fuzz/fuzz_gcm.c, fuzz.yaml |
 | PBKDF2-HMAC | RFC 6070 and RFC 7914 vectors; Python `hashlib` for SHA-384/512; a shorter output is a prefix of a longer one | test-kdf.R |
 | Key read: RSA PKCS#1, PKCS#8 and SPKI; EC SEC1 and PKCS#8; X25519 RFC 8410; PEM and DER | openssl reads every encoding zucrypt writes and zucrypt reads every encoding openssl writes, compared as the re-written bytes; from a file, a connection and PEM text | test-rsa.R, test-ec.R |
-| Key read: malformed and hostile PEM and DER | gap #94 | gap #94 |
+| Key read: malformed and hostile PEM and DER | fuzz_pkey: a refusal is a documented status with no handle left; an accepted key is a fixed point of write-then-read in all four formats and both halves, and of raw export and import; an RSA key is at most 4096 bits. Seeds: every fixture key in every encoding, and regress-93/regress-91 inputs. Differential against openssl: gap #68 | fuzz/fuzz_pkey.c, fuzz.yaml |
 | Key write: the same encodings | byte-for-byte equal to openssl's | test-rsa.R, test-ec.R |
 | Keys from integers and coordinates (`crypt_rsa_key()`, `crypt_ec_key()`) | the RFC vectors reproduce from the key's integers; round trip through `as.list()`; off-curve and mismatched points refused | test-rsa.R, test-ec.R |
 | RSA signatures, PKCS#1 v1.5 and PSS | RFC 7515 A.2 vector signed and verified; PSS signatures made by Python `cryptography` verified; cross-verified with openssl both ways | test-rsa.R |
-| RSA signature verification against attack vectors | gap #70 | gap #70 |
+| RSA signature verification against attack vectors | Wycheproof: gap #70. fuzz_verify (PKCS#1 v1.5 and PSS, SHA-256/384/512): a fresh signature verifies; one bit changed in it or the digest, or its length changed, is refused; the fuzzer's bytes offered as a signature are refused | fuzz/fuzz_verify.c, fuzz.yaml |
 | RSA encryption, OAEP and PKCS#1 v1.5 | RFC 7516 A.1 and A.2 ciphertexts decrypted; OAEP-SHA256/384/512 ciphertexts made by Python `cryptography` decrypted; openssl decrypts ours and we decrypt openssl's | test-rsa.R |
 | RSA decryption against attack vectors | gap #70 | gap #70 |
 | ECDSA P-256/384/521 sign and verify | RFC 6979 vectors (24, deterministic), RFC 7515 A.3 and A.4; cross-verified with openssl both ways | test-ec.R |
-| ECDSA verification against attack vectors | gap #70 | gap #70 |
-| ECDSA DER signature read by `crypt_ecdsa_parse()` | an independent strict-DER model in the test: the 14 malformed shapes of #91 refused, and 480 random mutations of real signatures accepted or refused exactly as the model says, with the same `r` and `s`; `openssl::ecdsa_parse()` agrees on valid signatures and on the malformed inputs it refuses (it accepts trailing bytes, a documented difference) | test-ec.R |
+| ECDSA verification against attack vectors | Wycheproof: gap #70. fuzz_verify (P-256): as for RSA, with the digest flips kept inside the bits ECDSA reads (FIPS 186-5 6.4.2) | fuzz/fuzz_verify.c, fuzz.yaml |
+| ECDSA DER signature read by `crypt_ecdsa_parse()` (coverage-guided fuzzing: gap #123) | an independent strict-DER model in the test: the 14 malformed shapes of #91 refused, and 480 random mutations of real signatures accepted or refused exactly as the model says, with the same `r` and `s`; `openssl::ecdsa_parse()` agrees on valid signatures and on the malformed inputs it refuses (it accepts trailing bytes, a documented difference) | test-ec.R |
 | ECDSA DER signature write | equals `openssl::ecdsa_write()`; verification re-encodes the input and refuses any non-canonical form | test-ec.R |
 | ECDH P-256/384/521 | RFC 5903 vectors; openssl agrees both ways | test-ec.R |
 | X25519 | RFC 7748 6.1 vector; openssl agrees; an all-zero shared secret refused | test-ec.R |

@@ -1,0 +1,120 @@
+# Fuzz the adapter's untrusted-input boundaries (#94): the key reader,
+# AES-GCM decryption and signature verification. Each harness in fuzz/
+# carries an oracle and aborts when it does not hold, so a wrong answer is a
+# finding just as a memory error is.
+#
+# Bespoke rather than r-actions' fuzz.yml, for two things it does not do:
+# replay the committed corpus on every OS (Rtools included), and run several
+# targets from one Makefile that already knows the backend's build. The
+# pattern is zuhttp's fuzz.yaml.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 5 * * 2'
+  workflow_dispatch:
+    inputs:
+      soak_seconds:
+        description: Seconds per target for the soak
+        required: false
+        default: '3600'
+
+name: fuzz.yaml
+
+permissions: read-all
+
+jobs:
+  # The corpus as a cross-platform regression suite: every seed, regress-*
+  # included, through every oracle, with no special compiler.
+  replay:
+    runs-on: ${{ matrix.os }}
+    name: Corpus replay (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: r-lib/actions/setup-r@v2
+        if: runner.os == 'Windows'
+        with:
+          r-version: release
+
+      - name: Replay every seed
+        working-directory: fuzz
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            make -j4 replay-run CC="$(R CMD config CC)"
+          else
+            make -j4 replay-run
+          fi
+
+      # ASan is what makes an over-read in a replayed seed a failure rather
+      # than a silent pass.
+      - name: Replay under ASan + UBSan
+        if: runner.os != 'Windows'
+        working-directory: fuzz
+        run: make -j4 replay-asan FUZZ_CC=clang
+
+  # Coverage-guided fuzzing, a short budget per target on every change.
+  smoke:
+    runs-on: ubuntu-latest
+    name: libFuzzer smoke (120 s per target)
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install clang
+        run: sudo apt-get update && sudo apt-get install -y clang
+      - name: Build and run
+        working-directory: fuzz
+        run: make -j4 fuzz-run SECS=120 FUZZ_CC=clang
+      - name: Upload any crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes
+          path: fuzz/crash-*
+          if-no-files-found: ignore
+
+  soak:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    name: libFuzzer soak (${{ matrix.target }})
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [pkey, gcm, verify]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install clang
+        run: sudo apt-get update && sudo apt-get install -y clang
+      - name: Soak ${{ matrix.target }}
+        working-directory: fuzz
+        run: |
+          SECS="${{ github.event.inputs.soak_seconds || 3600 }}"
+          make -j4 fuzz_${{ matrix.target }} FUZZ_CC=clang
+          mkdir -p work/${{ matrix.target }}
+          ./fuzz_${{ matrix.target }} work/${{ matrix.target }} \
+            corpus/${{ matrix.target }} -max_total_time="$SECS" \
+            -print_final_stats=1 -artifact_prefix=./crash-${{ matrix.target }}-
+      - name: Upload any crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: soak-crashes-${{ matrix.target }}
+          path: fuzz/crash-*
+          if-no-files-found: ignore
+      # A soak that finds new coverage keeps it: merge the grown corpus into
+      # fuzz/corpus by hand when it is worth committing.
+      - name: Upload the grown corpus
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-${{ matrix.target }}
+          path: fuzz/work/${{ matrix.target }}
+          if-no-files-found: ignore

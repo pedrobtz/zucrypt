@@ -22,6 +22,8 @@
 ^tools/make-derivation-kat\.py$
 # The standalone C driver over the adapter, run by mutation.yaml (#96).
 ^ctest$
+# The fuzz targets and their corpus (#94), run by fuzz.yaml.
+^fuzz$
 ^\.check-linking$
 ^cran-comments\.md$
 ^README\.Rmd$
