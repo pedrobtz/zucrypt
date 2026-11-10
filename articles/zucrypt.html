@@ -289,7 +289,7 @@ simply not equal.</p>
 cryptographic source:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes</a></span><span class="op">(</span><span class="fl">16</span><span class="op">)</span></span>
-<span><span class="co">#&gt;  [1] ee bb 92 69 d2 d4 fb 78 ed 8e 16 ba 35 d6 5c 9b</span></span></code></pre></div>
+<span><span class="co">#&gt;  [1] 42 eb 72 35 54 61 26 7a 46 31 cc aa 21 d9 ae c1</span></span></code></pre></div>
 <p>R’s own random number generator is not involved, so
 <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> does not make it repeat, and drawing bytes does
 not disturb a simulation that relies on <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code>:</p>
@@ -313,11 +313,11 @@ message unless you supply one:</p>
 <code class="sourceCode R"><span><span class="va">key</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes</a></span><span class="op">(</span><span class="fl">32</span><span class="op">)</span></span>
 <span><span class="va">sealed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_encrypt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"meet at noon"</span><span class="op">)</span>, <span class="va">key</span><span class="op">)</span></span>
 <span><span class="va">sealed</span></span>
-<span><span class="co">#&gt;  [1] 59 d4 60 4b 2f 25 35 2d ca c9 14 5e</span></span>
+<span><span class="co">#&gt;  [1] 95 d2 16 f0 25 d0 b3 04 11 88 95 af</span></span>
 <span><span class="co">#&gt; attr(,"iv")</span></span>
-<span><span class="co">#&gt;  [1] 5c 34 f4 e2 d2 49 40 17 da 81 8d f6</span></span>
+<span><span class="co">#&gt;  [1] 1f 8d 5c 4a 3c c0 bd 29 b4 2a 20 90</span></span>
 <span><span class="co">#&gt; attr(,"tag")</span></span>
-<span><span class="co">#&gt;  [1] 7e d6 3d d7 76 f2 6a 6b 3e 43 c9 65 6e 82 00 5b</span></span></code></pre></div>
+<span><span class="co">#&gt;  [1] fa f8 56 e9 81 f8 9c 13 7a 5a 5f 15 86 bd ac 24</span></span></code></pre></div>
 <p><code><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_decrypt()</a></code> reads the nonce and tag back
 from those attributes, checks the tag, and only then returns the
 plaintext:</p>
@@ -405,13 +405,13 @@ them:</p>
 <span><span class="co">#&gt; [2048-bit rsa private key]</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_rsa_keys.html">crypt_write_pem</a></span><span class="op">(</span><span class="va">key</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; -----BEGIN PUBLIC KEY-----</span></span>
-<span><span class="co">#&gt; MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2FIgZsbE7fTqHJGmU/OK</span></span>
-<span><span class="co">#&gt; NlX2J8WG4JJ8KG3wOvJajC+0JPEslg4o3Ed9FiDnY8A9cfnEe0yAMIxAB3sJyU5n</span></span>
-<span><span class="co">#&gt; abmGhYAb742xDowdctspPNURLmanljYGzsAyV0DBQJyOs4xqz+wRg/EIpNYHwJSn</span></span>
-<span><span class="co">#&gt; GYti2Jyaitk9Ae1aKyuQwZiYr9cqKXtdaQLm+h4NhaLBiB62evAOPoS/JVt2iLoK</span></span>
-<span><span class="co">#&gt; 8gWscRmB+k/wxckkORd+3GYj61R4ICqEJKJyB0ZuqEkFLahhSZBGJDTSSduQto2Z</span></span>
-<span><span class="co">#&gt; kqkUOvTJnFh4EebT/bazVV0xnjgiEYhkuUdYp9o52gNqAfp8C8BLf78V9fR/mVzF</span></span>
-<span><span class="co">#&gt; YwIDAQAB</span></span>
+<span><span class="co">#&gt; MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAka7MelJz7LwlrwR+vmWK</span></span>
+<span><span class="co">#&gt; Xnl63eP/N970VRr8c6RzA9iHlaJs3SltDv2fLiKBETgGZ+06dW2GP904uKz+tzES</span></span>
+<span><span class="co">#&gt; co+/4dNEGJDpX1EFgeF5yGRd1Dr8vOYBxhQcxU+VjYVvaA7klz5jxdC7oDtEyQW6</span></span>
+<span><span class="co">#&gt; LlkhYOFk9yPLF4ZtO1cujLLcrml2cViNu6GmgQTwyKyk9oFtEDI3yvB12xyh0mg7</span></span>
+<span><span class="co">#&gt; cmrgU+UHggueGLPE1ZTGTwVz6gOVE1B8knOdyu97Ht6ZieqTaG7NDh3blB7Mv1M4</span></span>
+<span><span class="co">#&gt; 17uH5RPE+AuwXKa/2zbOMYAMlhV0MhUpEOVvSQxtKzrSslJH+4scziHWJOZpMKNX</span></span>
+<span><span class="co">#&gt; QQIDAQAB</span></span>
 <span><span class="co">#&gt; -----END PUBLIC KEY-----</span></span></code></pre></div>
 <p>A signature covers a digest of the data. <code>hash</code> names the
 digest function, as in <code>openssl</code>:</p>
