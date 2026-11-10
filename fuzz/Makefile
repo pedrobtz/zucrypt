@@ -42,14 +42,18 @@ build-$(1)/%.o: $(SRC)/%.c
 	$(2) $(CPPFLAGS) $(BASE) $(3) -c $$< -o $$@
 endef
 
-$(eval $(call flavour,plain,$(CC),))
+$(eval $(call flavour,plain,$(CC),$(REPLAY_FLAGS)))
 $(eval $(call flavour,asan,$(FUZZ_CC),$(SAN)))
 $(eval $(call flavour,fuzz,$(FUZZ_CC),$(SAN) -fsanitize=fuzzer-no-link))
 
 HDRS := fuzz_common.h fuzz_keys.h
 
+# REPLAY_FLAGS is for tools/coverage/fuzz-lcov.sh, which builds the plain
+# flavour with coverage instrumentation; clean-bin before and after keeps
+# instrumented and plain objects apart.
 replay_%: fuzz_%.c replay_main.c $(HDRS) $(call objs,plain)
-	$(CC) $(CPPFLAGS) $(BASE) -o $@ fuzz_$*.c replay_main.c $(call objs,plain)
+	$(CC) $(CPPFLAGS) $(BASE) $(REPLAY_FLAGS) -o $@ fuzz_$*.c replay_main.c \
+	  $(call objs,plain)
 
 asan_%: fuzz_%.c replay_main.c $(HDRS) $(call objs,asan)
 	$(FUZZ_CC) $(CPPFLAGS) $(BASE) $(SAN) -o $@ fuzz_$*.c replay_main.c \
@@ -75,5 +79,12 @@ fuzz-run: fuzz
 	    -print_final_stats=1 -artifact_prefix=./crash-$$t- || exit 1; \
 	done
 
-.PHONY: replay fuzz replay-run replay-asan fuzz-run
+# The binaries only; the library objects stay. fuzz-lcov.sh calls it before
+# and after an instrumented build, so neither is mixed with the other.
+clean-bin:
+	rm -f $(addprefix replay_,$(TARGETS)) $(addprefix asan_,$(TARGETS)) \
+	  $(addprefix fuzz_,$(TARGETS))
+	rm -f build-plain/*.o
+
+.PHONY: replay fuzz replay-run replay-asan fuzz-run clean-bin
 .SECONDARY:
