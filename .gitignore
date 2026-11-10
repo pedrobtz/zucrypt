@@ -14,3 +14,13 @@ tools/zucryptlink/src/Makevars.win
 # Written by testthat when a run fails; a record of one local run, not source.
 tests/testthat/_problems/
 tests/testthat/testthat-problems.rds
+/fuzz/build-*/
+/fuzz/replay_*
+!/fuzz/replay_main.c
+/fuzz/asan_*
+/fuzz/fuzz_pkey
+/fuzz/fuzz_gcm
+/fuzz/fuzz_verify
+/fuzz/work/
+/fuzz/crash-*
+*.dSYM/
