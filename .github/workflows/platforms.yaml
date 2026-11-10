@@ -1,0 +1,42 @@
+# zucrypt's own per-OS checks, one job per OS: tools/ci/platform.sh on
+# macOS and Windows, through r-actions' platforms.yml.
+#
+# Until this, abi.yaml, aes-paths.yaml, consumer.yaml, revdep.yaml and
+# fuzz.yaml each ran their own macOS and Windows jobs: five macOS and four
+# Windows jobs a pull request, beside R-CMD-check's, on an account that runs
+# about five macOS jobs at once, so pull requests queued and jobs were
+# cancelled unacquired. Their Linux legs stay in those files.
+#
+# `profile: auto` is `quick` on a pull request and `full` on the schedule, a
+# dispatch or a `full-ci` pull request; tools/ci/platform.sh runs its slow,
+# secondary checks (the fuzz replay, zuxlsx) on `full` only.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+  workflow_dispatch:
+  schedule:
+    - cron: "41 4 * * 1"
+
+name: platforms.yaml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  platforms:
+    # v1.35.0 is the first release with platforms.yml; move to @v1 once the
+    # v1 tag has reached it.
+    uses: pedrobtz/r-actions/.github/workflows/platforms.yml@v1.35.0
+    with:
+      profile: auto
+      # The script installs zucrypt and runs its suite and the fixtures, so
+      # it needs testthat and openssl (Suggests).
+      r-dependencies: true
+      # The full profile builds zuxlsx and runs the whole suite twice over.
+      timeout-minutes: 60

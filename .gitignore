@@ -26,3 +26,4 @@ tests/testthat/testthat-problems.rds
 /fuzz/work/
 /fuzz/crash-*
 *.dSYM/
+/.revdep/

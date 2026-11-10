@@ -24,6 +24,7 @@
 ^ctest$
 # The fuzz targets and their corpus (#94), run by fuzz.yaml.
 ^fuzz$
+^\.revdep$
 ^\.check-linking$
 ^cran-comments\.md$
 ^README\.Rmd$

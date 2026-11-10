@@ -56,8 +56,8 @@ jobs:
       matrix:
         include:
           - {os: ubuntu-latest,  expect: aesni,    cppflags: ""}
-          - {os: windows-latest, expect: aesni,    cppflags: ""}
-          - {os: macos-latest,   expect: aesce,    cppflags: ""}
+          # Windows (aesni) and macOS (aesce) run in platforms.yaml, from
+          # tools/ci/platform.sh, which takes the expected path from the CPU.
           - {os: ubuntu-latest,  expect: software, cppflags: "-DZUC_AES_SOFTWARE_ONLY"}
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}

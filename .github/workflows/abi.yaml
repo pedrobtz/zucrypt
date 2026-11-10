@@ -41,7 +41,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # macOS runs in platforms.yaml (tools/ci/platform.sh).
+        os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -51,89 +52,7 @@ jobs:
         with:
           use-public-rspm: true
 
-      - name: compiles as C99 with no R and no backend headers
-        run: |
-          printf '#include <zucrypt.h>\nint main(void){return 0;}\n' > probe.c
-          cc -std=c99 -Wall -Wextra -Wpedantic -Werror \
-             -Iinst/include -c probe.c -o /dev/null
-          echo "ok  C99"
-
-      - name: compiles as C++ through the extern "C" wrapper
-        run: |
-          printf '#include <zucrypt.h>\nint main(){return 0;}\n' > probe.cpp
-          c++ -std=c++11 -Wall -Wextra -Werror \
-              -Iinst/include -c probe.cpp -o /dev/null
-          echo "ok  C++"
-
-      # Stands in for a downstream package's translation unit, built with
-      # strict flags. A warning here is a build failure for *them*, which is
-      # exactly the kind of breakage that is invisible from inside zucrypt.
-      - name: a consumer compiles against zucrypt-r.h with -Werror
-        run: |
-          cat > probe_consumer.c <<'C'
-          #include <zucrypt-r.h>
-          SEXP probe(void) {
-              const zucrypt_api_v1 *api = zucrypt_api();
-              if (api == NULL) return Rf_ScalarLogical(0);
-              /* ZUCRYPT_API_HAS expands offsetof/sizeof arithmetic in the
-               * consumer's translation unit, under the consumer's flags. */
-              if (!ZUCRYPT_API_HAS(api, secure_zero)) return Rf_ScalarLogical(0);
-              return Rf_ScalarLogical(api->alg_by_name("sha256") == ZUC_ALG_SHA256);
-          }
-          C
-          cc -std=c99 -Wall -Wextra -Werror \
-             -Iinst/include -I"$(R RHOME)/include" \
-             -c probe_consumer.c -o /dev/null
-          echo "ok  consumer build"
-
-      # A consumer that includes the header without calling anything in it
-      # must not be warned at. A header-defined plain `static` function is an
-      # unused-function error under -Werror: a build failure in their tree and
-      # warning-free in ours, which is why it needs its own probe.
-      - name: including zucrypt-r.h without using it is warning-free
-        run: |
-          printf '#include <zucrypt-r.h>\nSEXP other(void){ return R_NilValue; }\n' \
-            > probe_unused.c
-          cc -std=c99 -Wall -Wextra -Werror \
-             -Iinst/include -I"$(R RHOME)/include" \
-             -c probe_unused.c -o /dev/null
-          echo "ok  header is inert when unused"
-
-      # Comments are stripped first, matching tests/testthat/helper-linking.R:
-      # the rule is about what the header *declares*. A comment explaining
-      # that no PSA type appears here is worth keeping; a declaration is not.
-      - name: declares nothing from R or the backend
-        run: |
-          python3 - <<'PY'
-          import re, sys
-          src = open("inst/include/zucrypt.h", encoding="utf-8").read()
-          code = re.sub(r"/\*.*?\*/", " ", src, flags=re.S)
-          code = re.sub(r"//[^\n]*", " ", code)
-          banned = ("mbedtls", "psa_", "PSA_", "MBEDTLS_", "tf-psa", "TF_PSA",
-                    "SEXP", "Rf_", "Rinternals", "R_xlen_t",
-                    # design.md section 3: zuhttp links the system libcrypto on
-                    # Linux, so no OpenSSL-ABI name may appear either.
-                    "SHA256_Init", "SHA256_Update", "AES_encrypt", "EVP_")
-          bad = [p for p in banned if p in code]
-          for p in bad:
-              print(f"FAIL inst/include/zucrypt.h declares '{p}'")
-          sys.exit(1 if bad else print("ok  no leaked vocabulary") or 0)
-          PY
-
-      # The zu_ prefix belongs to zukomp's public header, which zuxlsx
-      # includes in the same translation unit as this one. A zu_ declaration
-      # here would not compile beside it, and would not be caught by anything
-      # that builds zucrypt alone.
-      - name: uses the zuc_ prefix and never zu_
-        run: |
-          python3 - <<'PY'
-          import re, sys
-          src = open("inst/include/zucrypt.h", encoding="utf-8").read()
-          code = re.sub(r"/\*.*?\*/", " ", src, flags=re.S)
-          bad = sorted(set(re.findall(r"\bzu_[a-z_]+", code)) |
-                       set(re.findall(r"\bZU_[A-Z0-9_]+", code)))
-          for name in bad:
-              print(f"FAIL inst/include/zucrypt.h declares '{name}', "
-                    f"which belongs to zukomp")
-          sys.exit(1 if bad else print("ok  prefix is zuc_/ZUC_") or 0)
-          PY
+      # The same checks run on macOS from tools/ci/platform.sh
+      # (platforms.yaml); the script is shared so the two cannot drift.
+      - name: zucrypt.h and zucrypt-r.h compile standalone
+        run: bash tools/ci/check-header.sh
