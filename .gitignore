@@ -15,5 +15,3 @@ tools/zucryptlink/src/Makevars.win
 tests/testthat/_problems/
 tests/testthat/testthat-problems.rds
 
-# Written by devtools::submit_cran(): the version and commit of a submission.
-CRAN-SUBMISSION
