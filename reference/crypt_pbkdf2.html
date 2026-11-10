@@ -125,8 +125,8 @@ is <code>zucrypt_unsupported_algorithm</code>.</p>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">salt</span> <span class="op">&lt;-</span> <span class="fu"><a href="crypt_rand_bytes.html">crypt_rand_bytes</a></span><span class="op">(</span><span class="fl">16</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">key</span> <span class="op">&lt;-</span> <span class="fu">crypt_pbkdf2</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"correct horse"</span><span class="op">)</span>, <span class="va">salt</span>, iterations <span class="op">=</span> <span class="fl">10000</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">key</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] c9 76 1c f7 81 c9 6a 63 32 cd 38 ba 14 5a 64 12 97 b3 c1 1c 97 80 c6 41 09</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [26] 8c 88 a5 8f ec 16 4c</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 76 d7 54 7e 37 39 f7 50 3d 2c 26 f1 44 4e 64 fd 62 5e cd 75 68 96 a1 53 b0</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [26] fe 4e bf 02 df c7 2d</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># RFC 6070, test case 2.</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu">crypt_pbkdf2</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"password"</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"salt"</span><span class="op">)</span>,</span></span>

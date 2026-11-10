@@ -237,7 +237,7 @@ draws them from the operating system’s cryptographic source:
 ``` r
 
 crypt_rand_bytes(16)
-#>  [1] 20 cd 89 c5 72 c3 81 6d 24 35 af 4d cc 43 43 56
+#>  [1] e6 31 b3 59 fe d2 5e 56 7c e2 99 4e e5 b7 74 53
 ```
 
 R’s own random number generator is not involved, so
@@ -268,11 +268,11 @@ nonce is drawn fresh for each message unless you supply one:
 key <- crypt_rand_bytes(32)
 sealed <- crypt_aes_gcm_encrypt(charToRaw("meet at noon"), key)
 sealed
-#>  [1] 65 cd 8b 22 9c 0b 2d 57 fc 2d 82 c2
+#>  [1] 7a 2a 65 23 b2 ac 4f f9 99 86 30 10
 #> attr(,"iv")
-#>  [1] f8 9d c8 c2 ee d5 b6 55 cc 53 a5 fb
+#>  [1] 6e bc ab 47 e1 c2 ba f4 f2 21 05 eb
 #> attr(,"tag")
-#>  [1] 55 d4 c7 df 83 8d 1f 5d 4c fc 59 a0 8d 4c 32 80
+#>  [1] c8 54 6b 4c 6e 1f ee 74 d7 2e af d8 ce 09 97 1a
 ```
 
 [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
@@ -377,13 +377,13 @@ key
 #> [2048-bit rsa private key]
 cat(crypt_write_pem(key$pubkey))
 #> -----BEGIN PUBLIC KEY-----
-#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6jQTQPljUrGwJCB42PMi
-#> 8BTm1/cQFIOl6Q6KGLMz9Pq05bCmhsSDkLcllWvDI6Hwny7xREJ1Q+6Izugyce0/
-#> a+l6HGySJ3yGpMWXLrk7C5hLgJ3T1AONC86oekbK7eUrGjCtdHPW5HWEIkWE0Hg3
-#> J4+/DSIHMJHkgPuU/MYaiIcnZFpYDrHEPQ9K5L+dBwgdqYP9Jfb6HzbVUsXUX33J
-#> f195Qe5KDOYfq9ZQ63Wvvu4aOTqyFZsAhdVlOXshTouZPZ4uWg5DnxT+uKuSYFpd
-#> jPzJOeEqi0GCEKfyQE9ZQzQM0cwU+7Gkzo924hDQh+EHnLoBYST9rqbDSokGIz8A
-#> 6QIDAQAB
+#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtpFGbuM4FxKza8TfKLsq
+#> fyAknhxKDgfTdIn8+CYhrfvNWkPOZVzaO65G9FWYLP6VVbS9RdnvixHeGhZLjam8
+#> GcnUEkyN7LRF99gFra8scjl/XoKsAfgzuZPXM4f4pd1y8lP8jjEZpYX9nAp+Ia/b
+#> fIaFc2ADOY6Zygrvr7W51W6oWmfNCKm3qRD8EtqnRXZFIuj3AX5eQlw+tvCax4Zb
+#> 67yLyvCOqYLDs14YLMGMrY+elFybVOnNnj+XagGmo2fAa/dt7K7c6aJLT3hk36yn
+#> V1MgmGcVHzoXE1icasPJGHhqpgr2DDX3fl4vf0zXj5FOTfYnFGDeuWCO+GCfR0Ju
+#> JwIDAQAB
 #> -----END PUBLIC KEY-----
 ```
 
