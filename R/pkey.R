@@ -175,7 +175,8 @@ parse_key <- function(bytes, private, call) {
     if (identical(name, "ZUC_ERR_UNSUPPORTED")) {
       zucrypt_abort(
         "zucrypt_unsupported_algorithm",
-        "Only RSA, P-256, P-384, P-521 and X25519 keys are supported.",
+        paste0("Only RSA keys of up to 4096 bits, and P-256, P-384, P-521 ",
+               "and X25519 keys, are supported."),
         call = call
       )
     }

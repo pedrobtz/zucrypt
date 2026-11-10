@@ -260,13 +260,18 @@ test_that("key generation takes 1024 to 4096 bits, and randomness", {
   expect_identical(as.list(key)$size, 1024)
   expect_false(identical(crypt_write_der(key),
                          crypt_write_der(crypt_rsa_keygen(1024))))
-  for (bad in list(512, 1023.5, 4097, 8192, "2048", NA)) {
+  for (bad in list(512, 1023, 1023.5, 4097, 8192, "2048", NA)) {
     expect_error(crypt_rsa_keygen(bad), class = "zucrypt_invalid_argument")
   }
   native_random_fail(TRUE)
   err <- tryCatch(crypt_rsa_keygen(1024), error = identity,
                   finally = native_random_fail(FALSE))
   expect_s3_class(err, "zucrypt_entropy_error")
+})
+
+test_that("key generation reaches the 4096-bit limit (#93)", {
+  skip_on_cran()  # an RSA-4096 key takes seconds to generate
+  expect_equal(as.list(crypt_rsa_keygen(4096))$size, 4096)
 })
 
 test_that("what is not an RSA key is refused, and says which way", {
@@ -324,4 +329,36 @@ test_that("crypt_sha*() mirror openssl's digests and HMACs on raw input", {
     expect_identical(hash_fun(h)(x, key = k), theirs(x, key = k), info = h)
   }
   expect_error(crypt_sha256("abc"), class = "zucrypt_invalid_argument")
+})
+
+test_that("RSA keys straddling 4096 bits get one answer on every path (#93)", {
+  # openssl's keys of 4088, 4096, 4104 and 8192 bits, in every encoding both
+  # readers take (tools/make-rsa-limit-kat.R). A key over the backend's
+  # limit is refused as unsupported whichever reader and encoding reach it;
+  # until #93 the public reader called it "not a key".
+  rows <- utils::read.delim(test_path("fixtures", "rsa-limit.tsv"),
+                            colClasses = "character")
+  expect_identical(nrow(rows), 24L)
+  for (i in seq_len(nrow(rows))) {
+    r <- rows[i, ]
+    bytes <- unhex(r$data)
+    bits <- as.integer(r$bits)
+    private <- startsWith(r$encoding, "private")
+    readers <- if (private) {
+      list(key = crypt_read_key, pubkey = crypt_read_pubkey)
+    } else {
+      list(pubkey = crypt_read_pubkey)
+    }
+    for (name in names(readers)) {
+      what <- paste(r$id, name)
+      if (bits <= 4096L) {
+        k <- readers[[name]](bytes)
+        expect_equal(as.list(k)$size, bits, info = what)
+      } else {
+        e <- tryCatch(readers[[name]](bytes), zucrypt_error = function(e) e)
+        expect_s3_class(e, "zucrypt_unsupported_algorithm")
+        expect_match(conditionMessage(e), "4096 bits", info = what)
+      }
+    }
+  }
 })
