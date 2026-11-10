@@ -30,41 +30,35 @@
 ## the compiler out of the window. What is left in the window is the crypt_*
 ## calls themselves: R's argument checks and result vectors, and the adapter.
 ##
-## expect-pattern in the workflow is what makes this "behaved" rather than
-## "did not crash": surviving a failed allocation while returning a truncated
-## digest would pass a crash test and be worse than crashing.
+## Every result is checked against fixed bytes (#115). A run that survives
+## a failed allocation must have produced the right answer, not just an
+## answer: a truncated digest or a ciphertext under the wrong key would pass
+## a crash test and be worse than crashing. The answers are in
+## tools/alloc-expected.tsv, computed by openssl and Python's hashlib
+## (tools/alloc-expected.R); a round trip alone would miss a fault shared by
+## encryption and decryption. An operation that fails prints its condition's
+## class and message and exits 1, which expect-pattern must match; a wrong
+## result exits 3 and matches nothing, so the sweep reports it as silent.
+## Every namespace the workload touches is loaded in the prefix, and the run
+## exits 4 if the window loaded another, since a failure there would be in
+## loading code, not in zucrypt.
 
 baseline <- identical(commandArgs(trailingOnly = TRUE), "--baseline")
 
 ## --- prefix: run by the baseline too, so it sits under the floor ----------
 
 suppressMessages(library(zucrypt))
+source(file.path("tools", "alloc-inputs.R"))
+inp <- alloc_inputs()
+unhex <- inp$unhex
+data <- inp$data
+key <- inp$key
+iv <- inp$iv
 algorithms <- crypt_info()$algorithms
-data <- as.raw(rep(seq.int(0L, 255L), length.out = 4096L))
-key <- as.raw(rep(0x2b, 32))
-iv <- as.raw(seq.int(0L, 15L))
 
-## RSA (Stage 15a): a fixed key's integers from the fixtures, never a
-## generated one. Generation searches for primes, so its allocation count
-## differs from run to run, and every sweep position would shift with it.
-rsa_parts <- utils::read.delim(
-  file.path("tests", "testthat", "fixtures", "rsa-keys.tsv"),
-  colClasses = "character"
-)
-rsa_parts <- rsa_parts[rsa_parts$id == "rfc7515-a2", ]
-unhex <- function(x) {
-  as.raw(strtoi(substring(x, seq(1, nchar(x), 2), seq(2, nchar(x), 2)), 16L))
-}
-rsa_parts <- lapply(rsa_parts[c("n", "e", "d", "p", "q", "dp", "dq", "qi")],
-                    unhex)
-
-## EC (Stage 16a): fixed keys again, and only deterministic operations, so
-## the allocation count is the same on every run.
-ec_parts <- utils::read.delim(
-  file.path("tests", "testthat", "fixtures", "ec-keys.tsv"),
-  colClasses = "character"
-)
-ec_row <- function(id) ec_parts[ec_parts$id == id, ]
+want_rows <- utils::read.delim(file.path("tools", "alloc-expected.tsv"),
+                               colClasses = "character")
+want <- stats::setNames(lapply(want_rows$hex, unhex), want_rows$name)
 
 ## The EC keys are built here, in the prefix, so that the sweep's window
 ## holds only the operations below. Measured on macOS, 2026-11-03: building
@@ -74,10 +68,34 @@ ec_row <- function(id) ec_parts[ec_parts$id == id, ]
 ## and X25519, which between them pass through every EC path of the adapter
 ## (key import, sign, agree, the allocation watch); verification and P-256
 ## ECDH would multiply the sweep's length by five for the same adapter code.
-p256 <- with(ec_row("rfc6979-p256"),
-             crypt_ec_key(curve, unhex(x), unhex(y), unhex(d)))
-alice <- crypt_read_x25519_key(unhex(ec_row("rfc7748-alice")$d))
-bob <- crypt_read_x25519_pubkey(unhex(ec_row("rfc7748-bob")$x))
+p256 <- with(inp$ec_p256, crypt_ec_key(curve, x, y, d))
+alice <- crypt_read_x25519_key(inp$x25519_alice)
+bob <- crypt_read_x25519_pubkey(inp$x25519_bob)
+
+## One failure-free pass of the helpers, so nothing the window calls is
+## loaded or compiled for the first time inside it.
+check <- function(what, got, expected) {
+  if (!identical(got, expected)) {
+    cat(what, ": WRONG RESULT, ", length(got), " bytes\n", sep = "")
+    quit(status = 3, save = "no")
+  }
+}
+## Both arguments are forced inside the handler: `expected` is lazy, and an
+## expected value computed by a crypt_* call (crypt_write_der(rsa) below)
+## would otherwise fail outside it, printing R's bare "Error in" rather than
+## the class. The first sweep (2026-11-10) reported two such correct
+## ZUC_ERR_MEMORY refusals as silent for exactly that reason.
+run <- function(what, expr, expected = NULL) {
+  got <- tryCatch(list(expr, expected), error = function(e) e)
+  if (inherits(got, "error")) {
+    cat(what, ": ", class(got)[1], ": ", conditionMessage(got), "\n", sep = "")
+    quit(status = 1, save = "no")
+  }
+  if (!is.null(got[[2]])) check(what, got[[1]], got[[2]])
+  invisible(got[[1]])
+}
+run("prefix", crypt_hash(raw(1)), crypt_hash(raw(1)))
+namespaces <- sort(loadedNamespaces())
 
 if (baseline) quit(save = "no")
 
@@ -86,56 +104,67 @@ if (baseline) quit(save = "no")
 ## Each of these allocates a native context and frees it, which is the
 ## lifecycle the sweep is aimed at. Every digest, because each one takes a
 ## different branch through the backend's setup.
-for (algorithm in algorithms) {
-  digest <- crypt_hash(data, algorithm)
-  stopifnot(is.raw(digest), length(digest) > 0L)
-
-  tag <- crypt_hmac(data, key, algorithm)
-  stopifnot(is.raw(tag), length(tag) == length(digest))
+for (a in algorithms) {
+  run(paste("hash", a), crypt_hash(data, a), want[[paste0("hash_", a)]])
+  run(paste("hmac", a), crypt_hmac(data, key, a), want[[paste0("hmac_", a)]])
 }
 
 ## One key per AES context now (#30), in a key store that allocates as it
 ## grows -- so a failure can land in the context, in the store, or in the
 ## backend's cipher setup, and each has to come back as ZUC_ERR_MEMORY.
-ciphertext <- crypt_aes_cbc_encrypt_nopad(data, key, iv)
-stopifnot(identical(crypt_aes_cbc_decrypt_nopad(ciphertext, key, iv), data))
-
-stopifnot(crypt_equal(crypt_hash(data), crypt_hash(data)))
+ct <- run("aes-cbc encrypt", crypt_aes_cbc_encrypt_nopad(data, key, iv),
+          want$aes_cbc)
+run("aes-cbc decrypt", crypt_aes_cbc_decrypt_nopad(want$aes_cbc, key, iv),
+    data)
+run("equal", crypt_equal(want$aes_cbc, ct), TRUE)
 
 ## AES-GCM and PBKDF2 (Stage 14a). Neither keeps a handle, but each imports a
 ## volatile key or builds a derivation in the backend per call, so a failure
 ## can land in the key store, the AEAD setup or the derivation's HMAC, and
 ## must come back as ZUC_ERR_MEMORY, never as a wrong ciphertext or key.
-nonce <- iv[1:12]
-sealed <- crypt_aes_gcm_encrypt(data, key, nonce, aad = iv)
-stopifnot(identical(crypt_aes_gcm_decrypt(sealed, key, aad = iv), data))
+sealed <- run("aes-gcm encrypt",
+              crypt_aes_gcm_encrypt(data, key, inp$nonce, aad = iv))
+check("aes-gcm ciphertext", as.vector(sealed), want$aes_gcm_ciphertext)
+check("aes-gcm tag", attr(sealed, "tag"), want$aes_gcm_tag)
+run("aes-gcm decrypt", crypt_aes_gcm_decrypt(sealed, key, aad = iv), data)
+run("pbkdf2", crypt_pbkdf2(key, iv, iterations = 2, length = 40),
+    want$pbkdf2_sha256)
+
 ## RSA (Stage 15a): building, encoding and reading a key, both signature
 ## schemes and OAEP. Every bignum the backend allocates is in the window.
-rsa <- do.call(crypt_rsa_key, unname(rsa_parts))
-pem <- crypt_write_pem(rsa)
-stopifnot(identical(crypt_write_der(crypt_read_key(pem)), crypt_write_der(rsa)))
-for (pss in c(FALSE, TRUE)) {
-  sig <- crypt_signature_create(data, crypt_sha256, rsa, pss = pss)
-  stopifnot(crypt_signature_verify(data, sig, crypt_sha256, rsa, pss = pss))
-}
-sealed_key <- crypt_rsa_encrypt(key, rsa, oaep = TRUE, oaep_hash = "sha256")
-stopifnot(identical(
-  crypt_rsa_decrypt(sealed_key, rsa, oaep = TRUE, oaep_hash = "sha256"),
-  key
-))
-## EC (Stage 16a): deterministic ECDSA, checked only for its shape (its value
-## is test-ec.R's concern), and X25519, checked against RFC 7748. See the
-## prefix for what is left out of the window, and why.
-ec_sig <- crypt_signature_create(data, crypt_sha256, p256, deterministic = TRUE)
-stopifnot(is.raw(ec_sig), length(ec_sig) >= 70L)
-stopifnot(identical(
-  crypt_x25519_diffie_hellman(alice, bob),
-  unhex("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742")
-))
-derived <- crypt_pbkdf2(key, iv, iterations = 2, length = 40)
-stopifnot(identical(
-  derived,
-  crypt_pbkdf2(key, iv, iterations = 2, length = 40)
-))
+rsa <- run("rsa key", do.call(crypt_rsa_key, unname(inp$rsa_parts)))
+pem <- run("rsa pem", crypt_write_pem(rsa))
+check("rsa pem", charToRaw(pem), want$rsa_pem)
+run("rsa read", crypt_write_der(crypt_read_key(pem)), crypt_write_der(rsa))
+run("rsa pkcs1 sign", crypt_signature_create(data, crypt_sha256, rsa),
+    want$rsa_pkcs1v15_sha256)
+run("rsa pkcs1 verify",
+    crypt_signature_verify(data, want$rsa_pkcs1v15_sha256, crypt_sha256, rsa),
+    TRUE)
+pss <- run("rsa pss sign",
+           crypt_signature_create(data, crypt_sha256, rsa, pss = TRUE))
+run("rsa pss verify",
+    crypt_signature_verify(data, pss, crypt_sha256, rsa, pss = TRUE), TRUE)
+run("rsa oaep decrypt",
+    crypt_rsa_decrypt(want$rsa_oaep_sha1_ciphertext, rsa, oaep = TRUE), key)
+sealed_key <- run("rsa oaep encrypt",
+                  crypt_rsa_encrypt(key, rsa, oaep = TRUE,
+                                    oaep_hash = "sha256"))
+run("rsa oaep round trip",
+    crypt_rsa_decrypt(sealed_key, rsa, oaep = TRUE, oaep_hash = "sha256"), key)
 
+## EC (Stage 16a): deterministic ECDSA, whose bytes openssl verified when
+## they were recorded, and X25519, checked against RFC 7748. See the prefix
+## for what is left out of the window, and why.
+run("ecdsa sign",
+    crypt_signature_create(data, crypt_sha256, p256, deterministic = TRUE),
+    want$ecdsa_p256_deterministic)
+run("x25519", crypt_x25519_diffie_hellman(alice, bob),
+    unhex("4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"))
+
+if (!identical(sort(loadedNamespaces()), namespaces)) {
+  cat("the workload loaded a namespace:",
+      setdiff(loadedNamespaces(), namespaces), "\n")
+  quit(status = 4, save = "no")
+}
 cat("ok\n")
