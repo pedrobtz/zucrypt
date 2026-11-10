@@ -25,6 +25,7 @@
 # The fuzz targets and their corpus (#94), run by fuzz.yaml.
 ^fuzz$
 ^\.revdep$
+^tools/coverage$
 ^\.check-linking$
 ^cran-comments\.md$
 ^README\.Rmd$
