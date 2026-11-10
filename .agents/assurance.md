@@ -32,7 +32,7 @@ call to r-actions.
 | gctorture     | done       | native-checks.yaml  |
 | analyzers     | done       | native-checks.yaml  |
 | alloc-failure | done       | alloc-failure.yaml  |
-| mutation      | gap #96  |                     |
+| mutation      | done       | mutation.yaml       |
 | fuzz          | done       | fuzz.yaml (own)     |
 | fuzz-reach    | gap #95  |                     |
 

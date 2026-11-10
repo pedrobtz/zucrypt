@@ -1,0 +1,46 @@
+# Mutation testing of the adapter's C (#96): which small edits to
+# src/zuc_*.c no test notices.
+#
+# Coverage says a line ran; it cannot say whether anything checked what the
+# line did. Mull changes the code one operator at a time and reruns
+# ctest/zuc_ctest, the standalone driver over the adapter, whose every check
+# compares an output with something that knows the answer (the fixtures,
+# the equivalences the specification states, zucrypt.h's statuses, and an
+# allocation-failure sweep). A surviving mutant is a statement nothing
+# checks. Reported, never gated: the survivors want reading and triage into
+# issues, not a score to defend. The R suite is not in this run; a mutant
+# only the R suite would kill shows here as a survivor, which is itself
+# worth knowing.
+#
+# Weekly and by dispatch, as it is slow: one run per mutant.
+on:
+  schedule:
+    - cron: '0 7 * * 4'
+  workflow_dispatch:
+
+name: mutation.yaml
+
+permissions: read-all
+
+jobs:
+  mutation:
+    uses: pedrobtz/r-actions/.github/workflows/mutation.yml@v1
+    with:
+      # One object per source (ctest/Makefile); $MULL_CC is clang with the
+      # Mull plugin. The vendored backend is compiled with it too, so that
+      # everything links, and excluded below.
+      build: make -C ctest zuc_ctest CC="$MULL_CC"
+      # Run from the repository root, where the driver finds
+      # tests/testthat/fixtures by default.
+      tests: ctest/zuc_ctest
+      # The adapter only. Paths are matched as compiled, ctest/../src/zuc_x.c,
+      # so the default `.*/ctest/.*` exclusion would drop everything.
+      include: |
+        .*/src/zuc_[a-z0-9_]+\.c$
+      exclude: |
+        .*/vendor/.*
+      # One zuc_ctest run takes about 2 s at -O1 on a laptop; Mull builds at
+      # -O0. A mutant that makes a loop endless waits for this, so it bounds
+      # the run (zuhttp's first run at Mull's 30 s default did not finish).
+      mutant-timeout: 10000
+      timeout-minutes: 240
