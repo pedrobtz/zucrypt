@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <mbedtls/asn1.h>
 #include <mbedtls/pk.h>
 #include <mbedtls/pem.h>
 
@@ -290,6 +291,129 @@ static zuc_status parse_status(int ret)
     }
 }
 
+/* An RSA key's modulus length, read from whichever of the four encodings
+ * the readers take holds it -- SubjectPublicKeyInfo, RSAPublicKey,
+ * PKCS#8 PrivateKeyInfo or RSAPrivateKey -- or 0 if `der` is none of them.
+ * `*is_private` says which half it was. Only ever asked after the PK reader
+ * has refused the input, to tell a well-formed key over the backend's size
+ * limit, which the reader reports as malformed or as unavailable depending
+ * on the encoding, from input that is not a key (#93). It reads; it
+ * validates nothing it does not need. */
+static const unsigned char rsa_oid[] = {
+    0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01
+};
+
+static int is_rsa_alg(unsigned char **p, const unsigned char *end)
+{
+    mbedtls_asn1_buf oid, params;
+    return mbedtls_asn1_get_alg(p, end, &oid, &params) == 0 &&
+           oid.len == sizeof rsa_oid &&
+           memcmp(oid.p, rsa_oid, sizeof rsa_oid) == 0;
+}
+
+static size_t integer_bits(const unsigned char *p, size_t n)
+{
+    size_t bits;
+    unsigned int top;
+
+    while (n > 0 && *p == 0) {
+        p++;
+        n--;
+    }
+    if (n == 0) {
+        return 0;
+    }
+    bits = (n - 1) * 8;
+    for (top = *p; top != 0; top >>= 1) {
+        bits++;
+    }
+    return bits;
+}
+
+static size_t rsa_key_bits(const uint8_t *der, size_t len, int depth,
+                           int *is_private)
+{
+    const int seq = MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE;
+    unsigned char *p = (unsigned char *) der, *end = p + len, *q, *first;
+    size_t n, first_len;
+
+    if (depth > 1 || mbedtls_asn1_get_tag(&p, end, &n, seq) != 0) {
+        return 0;
+    }
+    end = p + n;
+    q = p;
+    if (is_rsa_alg(&q, end)) {
+        /* SubjectPublicKeyInfo: the RSAPublicKey is in a BIT STRING. */
+        if (mbedtls_asn1_get_bitstring_null(&q, end, &n) != 0) {
+            return 0;
+        }
+        return rsa_key_bits(q, n, depth + 1, is_private);
+    }
+    if (mbedtls_asn1_get_tag(&p, end, &first_len, MBEDTLS_ASN1_INTEGER) != 0) {
+        return 0;
+    }
+    first = p;
+    p += first_len;
+    if (!(first_len == 1 && first[0] == 0)) {
+        /* RSAPublicKey: the modulus comes first. */
+        *is_private = 0;
+        return integer_bits(first, first_len);
+    }
+    /* Version 0: PrivateKeyInfo, with the RSAPrivateKey in an OCTET
+     * STRING, or the RSAPrivateKey itself, with the modulus next. */
+    q = p;
+    if (is_rsa_alg(&q, end)) {
+        if (mbedtls_asn1_get_tag(&q, end, &n, MBEDTLS_ASN1_OCTET_STRING) != 0) {
+            return 0;
+        }
+        return rsa_key_bits(q, n, depth + 1, is_private);
+    }
+    if (mbedtls_asn1_get_tag(&p, end, &n, MBEDTLS_ASN1_INTEGER) != 0) {
+        return 0;
+    }
+    *is_private = 1;
+    return integer_bits(p, n);
+}
+
+/* Is this a well-formed RSA key, of the half the reader was asked for,
+ * whose modulus is over the backend's limit? `pem` is the NUL-terminated
+ * copy when the input is PEM, else NULL. */
+static int rsa_over_limit(const uint8_t *in, size_t len, const uint8_t *pem,
+                          int want_private)
+{
+    static const char *const labels[][2] = {
+        {"-----BEGIN PUBLIC KEY-----", "-----END PUBLIC KEY-----"},
+        {"-----BEGIN RSA PUBLIC KEY-----", "-----END RSA PUBLIC KEY-----"},
+        {"-----BEGIN PRIVATE KEY-----", "-----END PRIVATE KEY-----"},
+        {"-----BEGIN RSA PRIVATE KEY-----", "-----END RSA PRIVATE KEY-----"}
+    };
+    size_t i, bits = 0;
+    int is_private = 0;
+
+    if (pem == NULL) {
+        bits = rsa_key_bits(in, len, 0, &is_private);
+    }
+    for (i = 0; pem != NULL && i < sizeof labels / sizeof labels[0] &&
+                bits == 0; i++) {
+        mbedtls_pem_context ctx;
+        const unsigned char *der;
+        size_t der_len, used = 0;
+
+        mbedtls_pem_init(&ctx);
+        if (mbedtls_pem_read_buffer(&ctx, labels[i][0], labels[i][1], pem,
+                                    NULL, 0, &used) == 0) {
+            der = mbedtls_pem_get_buffer(&ctx, &der_len);
+            bits = rsa_key_bits(der, der_len, 0, &is_private);
+        }
+        mbedtls_pem_free(&ctx);
+    }
+    /* A private reader handed a public key is refusing the right thing. */
+    if (want_private && !is_private) {
+        return 0;
+    }
+    return bits > PSA_VENDOR_RSA_MAX_KEY_BITS;
+}
+
 static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key,
                                   zuc_pkey **out)
 {
@@ -341,6 +465,13 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
         if (ret != 0 && parse_status(first) == ZUC_ERR_UNSUPPORTED) {
             ret = first;
         }
+    }
+    /* A well-formed RSA key over the backend's limit is refused by the
+     * reader as unavailable or as malformed, depending on the encoding and
+     * the half. It is unsupported, whichever reader met it (#93). */
+    if (ret != 0 && parse_status(ret) == ZUC_ERR_INVALID_ARGUMENT &&
+        rsa_over_limit(in, len, copy, private_key)) {
+        ret = MBEDTLS_ERR_PK_FEATURE_UNAVAILABLE;
     }
     if (copy != NULL) {
         zuc_secure_zero(copy, len + 1);

@@ -27,4 +27,10 @@ long zuc_int_live_contexts(void);
  * Only the test harness calls it, and it always switches it back off. */
 void zuc_int_random_fail(int on);
 
+/* Make the backend's `n`th allocation from now fail (n >= 1), once; 0
+ * switches it off. Only allocations through zuc_int_calloc() count -- the
+ * backend's, not the adapter's own -- so a test can fail an operation at a
+ * chosen point inside the backend (#108, #116). Test harness only. */
+void zuc_int_alloc_fail_at(long n);
+
 #endif /* ZUC_LIVE_H */

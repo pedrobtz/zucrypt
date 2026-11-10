@@ -75,6 +75,34 @@
   `ZUC_ALG_X25519 = 196`, `ZUC_ALG_ECDH = 197`, `ZUC_ALG_ECDSA = 226` and
   `ZUC_ALG_ECDSA_DETERMINISTIC = 227`.
 
+## Bug fixes
+
+* `crypt_equal()` and the AES-CBC functions read past the end of a buffer
+  when given a classed raw vector whose `length()` method misreports its
+  length: `crypt_equal()` could answer `TRUE` wrongly or crash R, and a
+  1-byte IV was read as 16 (#106). The native code now checks every length,
+  number, name and flag it relies on, rather than trusting R's checks; a
+  logical `NA` reaching it is an error rather than `FALSE` (#107).
+* `crypt_ecdsa_parse()` reads strict DER (#91). It accepted a SEQUENCE or
+  INTEGER whose length ran past the input, padding a truncated INTEGER with
+  invented zero bytes, and negative and non-minimal INTEGERs. It now refuses
+  them, and bytes after the signature too, which `openssl::ecdsa_parse()`
+  ignores. Signature verification was not affected.
+* An RSA key over 4096 bits, the bundled library's limit, is
+  `zucrypt_unsupported_algorithm` from both `crypt_read_key()` and
+  `crypt_read_pubkey()`, in every encoding, and the message names the limit
+  (#93). A public key was reported as "not a key", and a private key in DER
+  depended on its encoding.
+* C interface: a `zuc_hash`, `zuc_hmac` or `zuc_aes` handle kept across the
+  last `zuc_shutdown()` returns `ZUC_ERR_NOT_READY` after a later
+  `zuc_init()`, and its free leaves the key store alone (#92). Before, the
+  new backend could give its key id to a new handle, and the old handle
+  then encrypted under the new handle's key, returning `ZUC_OK`, and its
+  free destroyed that key.
+* C interface: a digest or HMAC update that fails in the backend ends the
+  operation until reset, as a finish does (#108). The handle had stayed
+  "active", and an empty update on it reported success.
+
 ## Backend
 
 * `PSA_WANT_ALG_GCM` and `PSA_WANT_ALG_PBKDF2_HMAC` are enabled. Re-deriving

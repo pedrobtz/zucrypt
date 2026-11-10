@@ -49,6 +49,24 @@ int zuc_int_ready(void)
     return zuc_refcount > 0;
 }
 
+/* How many times the backend has been torn down (#92). The last
+ * zuc_shutdown() destroys every key in the store, and a later zuc_init()
+ * hands the same volatile key ids out again, so a handle made before the
+ * teardown would otherwise use, and on free destroy, another handle's key.
+ * Each handle records the generation it was made in and is usable only
+ * while that generation is current. Same threading argument as above. */
+static unsigned long zuc_generation = 0;
+
+unsigned long zuc_int_generation(void)
+{
+    return zuc_generation;
+}
+
+int zuc_int_current(unsigned long generation)
+{
+    return zuc_refcount > 0 && generation == zuc_generation;
+}
+
 zuc_status zuc_init(void)
 {
     psa_status_t status;
@@ -83,6 +101,7 @@ zuc_status zuc_shutdown(void)
     }
     if (--zuc_refcount == 0) {
         mbedtls_psa_crypto_free();
+        zuc_generation++;
     }
     return ZUC_OK;
 }

@@ -245,6 +245,13 @@ size_t zuc_alg_size(zuc_alg alg);
  * the last one returns. A consumer holding a context must therefore keep its
  * own reference, or the context can outlive the backend.
  *
+ * A zuc_hash, zuc_hmac or zuc_aes handle that does outlive it stays
+ * unusable, even after a later zuc_init() brings the backend back: every
+ * operation on it returns ZUC_ERR_NOT_READY, reset included, and
+ * zuc_*_free() releases it without touching the key store, whose key ids
+ * the new backend may have given to other handles. A zuc_pkey holds its
+ * key itself and works again once the backend is back.
+ *
  * Main thread only, and not reentrant. The backend's key store needs
  * upstream's threading support, which needs pthreads, which this build does
  * not enable. Calls from more than one thread are undefined; this is
@@ -313,7 +320,12 @@ zuc_status zuc_hash_new(zuc_alg alg, zuc_hash **out);
 
 /* Feed more input. A zero-length update is valid and does nothing, and
  * `data` may then be NULL; with a nonzero length, NULL is
- * ZUC_ERR_INVALID_ARGUMENT. */
+ * ZUC_ERR_INVALID_ARGUMENT.
+ *
+ * An update that fails in the backend (ZUC_ERR_MEMORY, say) ends the
+ * operation, as zuc_hash_finish() does: later updates and finishes return
+ * ZUC_ERR_INVALID_ARGUMENT until zuc_hash_reset(). The same holds for
+ * zuc_hmac_update(). */
 zuc_status zuc_hash_update(zuc_hash *hash, const uint8_t *data, size_t data_len);
 
 /* Produce the digest. The handle is finished afterwards and must be reset

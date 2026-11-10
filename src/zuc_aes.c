@@ -29,8 +29,9 @@
 #include "zuc_internal.h"
 
 struct zuc_aes {
-    psa_key_id_t key;
-    uint8_t      chain[ZUC_AES_BLOCK_SIZE];
+    psa_key_id_t  key;
+    uint8_t       chain[ZUC_AES_BLOCK_SIZE];
+    unsigned long generation;   /* zuc_int_current() */
 };
 
 /* One volatile key per handle, in the dynamic key store
@@ -81,6 +82,7 @@ zuc_status zuc_aes_new(const uint8_t *key, size_t key_len, zuc_aes **out)
         return ZUC_ERR_MEMORY;
     }
 
+    aes->generation = zuc_int_generation();
     st = import_aes_key(key, key_len, PSA_ALG_CBC_NO_PADDING, &aes->key);
     if (st != ZUC_OK) {
         zuc_secure_zero(aes, sizeof *aes);
@@ -97,7 +99,10 @@ void zuc_aes_free(zuc_aes *aes)
     if (aes == NULL) {
         return;
     }
-    psa_destroy_key(aes->key);
+    /* A handle from before the last teardown no longer owns its key id. */
+    if (zuc_int_current(aes->generation)) {
+        psa_destroy_key(aes->key);
+    }
     /* The chaining state is not secret in the way a key is, but it is
      * derived from the data, so it goes too. */
     zuc_secure_zero(aes, sizeof *aes);
@@ -130,7 +135,7 @@ static zuc_status check_block_args(const zuc_aes *aes, const uint8_t *in,
     if (aes == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
     }
-    if (!zuc_int_ready()) {
+    if (!zuc_int_current(aes->generation)) {
         return ZUC_ERR_NOT_READY;
     }
     if (len == 0) {

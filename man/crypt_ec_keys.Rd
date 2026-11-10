@@ -90,7 +90,10 @@ refused.
 \section{Compared with openssl}{
 
 \code{crypt_ecdsa_parse()} returns raw vectors rather than \code{bignum}s, and
-\code{as.list()} gives coordinates as raw vectors. There is no Ed25519: the
+\code{as.list()} gives coordinates as raw vectors. \code{crypt_ecdsa_parse()} reads
+strict DER: it refuses bytes after the signature's SEQUENCE, which
+\code{openssl::ecdsa_parse()} ignores, as well as the negative, non-minimal
+and truncated encodings both refuse. There is no Ed25519: the
 bundled library has no EdDSA. There is no default key.
 }
 
