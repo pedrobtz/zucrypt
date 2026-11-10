@@ -34,7 +34,7 @@ call to r-actions.
 | alloc-failure | done       | alloc-failure.yaml  |
 | mutation      | done       | mutation.yaml       |
 | fuzz          | done       | fuzz.yaml (own)     |
-| fuzz-reach    | gap #95  |                     |
+| fuzz-reach    | done       | fuzz.yaml (own)     |
 
 ## Boundaries
 

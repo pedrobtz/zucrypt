@@ -80,6 +80,39 @@ jobs:
           path: fuzz/crash-*
           if-no-files-found: ignore
 
+  # What the committed corpus reaches (#95): a floor a little under the
+  # first measurement (43.8% of the adapter's lines on 2026-11-10), and the
+  # gap lists -- per-file table, functions no fuzzer enters, one-sided
+  # conditions, unreached lines -- in the job summary and an artifact. The
+  # targets are the untrusted-input boundaries (the key reader, GCM
+  # decryption, signature verification), so AES-CBC, the digests and PBKDF2
+  # are expected in the "never entered" list; a target that stops reaching
+  # its own code is what the floor catches.
+  reach:
+    runs-on: ubuntu-latest
+    name: Fuzz reach
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install clang and llvm
+        run: sudo apt-get update && sudo apt-get install -y clang llvm
+      - name: Reach against the floor
+        run: |
+          floor=$(sed -n 's/^fuzz_reach: //p' tools/coverage/floor.dcf)
+          tools/coverage/fuzz-lcov.sh fuzz.lcov corpus "$floor"
+      - name: Gap lists
+        if: always()
+        run: |
+          set -o pipefail
+          tools/coverage/fuzz-gaps.sh fuzz.lcov | tee fuzz-gaps.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fuzz-gaps
+          path: |
+            fuzz-gaps.txt
+            fuzz.lcov
+          retention-days: 30
+
   soak:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
