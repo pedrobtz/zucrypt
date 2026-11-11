@@ -36,6 +36,21 @@ void zuc_secure_zero(void *buffer, size_t len)
     mbedtls_platform_zeroize(buffer, len);
 }
 
+/* Whether [a, a + an) and [b, b + bn) share a byte. Unlike
+ * zuc_int_overlaps() an exact match counts: this is for buffers that may
+ * not share memory at all. NULL or empty never overlaps. */
+int zuc_int_spans_overlap(const void *a, size_t an, const void *b, size_t bn)
+{
+    uintptr_t pa, pb;
+
+    if (a == NULL || b == NULL || an == 0 || bn == 0) {
+        return 0;
+    }
+    pa = (uintptr_t) a;
+    pb = (uintptr_t) b;
+    return pa < pb ? pa + an > pb : pb + bn > pa;
+}
+
 int zuc_int_overlaps(const void *in, const void *out, size_t len)
 {
     const unsigned char *a = (const unsigned char *) in;

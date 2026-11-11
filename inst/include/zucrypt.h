@@ -454,8 +454,12 @@ zuc_status zuc_aes_cbc_decrypt(zuc_aes *aes,
  *
  * A pointer may be NULL only when its length is 0: `aad` with `aad_len` 0,
  * the data buffers with `len` 0. The output and the input may be the same
- * pointer (exact in-place); any other overlap is ZUC_ERR_OVERLAP. The key is
- * imported for the call and destroyed before it returns.
+ * pointer (exact in-place). Otherwise a buffer the call writes -- the
+ * output, and on encryption the tag -- may share no byte with any other
+ * buffer (key, nonce, aad, input, tag, output): that is ZUC_ERR_OVERLAP,
+ * checked before any length, so a short tag beside an overlap is an overlap
+ * and nothing is zeroed. Buffers that are only read may share bytes. The key
+ * is imported for the call and destroyed before it returns.
  *
  * THE NONCE MUST NEVER REPEAT UNDER ONE KEY. Two messages encrypted with the
  * same key and nonce disclose the XOR of their plaintexts, and let anyone
