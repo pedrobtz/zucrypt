@@ -94,8 +94,13 @@ jobs:
       # The whole suite, on that implementation: every published vector, the
       # OpenSSL comparisons up to 4 MiB, the split-point sweeps and the live-
       # handle tests all run through the AES this runner selected.
+      # ZUCRYPT_CAVP adds every NIST CAVP vector (#67) to test-cavp.R, so
+      # each AES implementation passes AESAVS, not only the shipped subset.
+      # Relative to tests/testthat, where testthat runs the files.
       - name: Run the test suite against the installed package
         shell: Rscript {0}
+        env:
+          ZUCRYPT_CAVP: ../../tools/cavp/cavp.tsv.gz
         run: |
           res <- as.data.frame(testthat::test_local(".", load_package = "installed",
                                                     reporter = "summary",

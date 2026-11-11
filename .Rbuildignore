@@ -38,3 +38,5 @@
 # Written by devtools::submit_cran(); never part of the tarball.
 ^CRAN-SUBMISSION$
 ^\.claude$
+# The full NIST CAVP set (#67), run by aes-paths.yaml and platforms.yaml.
+^tools/cavp$

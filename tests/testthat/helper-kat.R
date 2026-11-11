@@ -136,3 +136,24 @@ ec_fixture_key <- function(id) {
   crypt_ec_key(k$curve, unhex(k$x), unhex(k$y), unhex(k$d))
 }
 native_ec_contract <- function() .Call(zucrypt:::zucrypt_test_ec_contract)
+
+# NIST CAVP vectors (#67): the shipped subset in fixtures/cavp.tsv, or, when
+# ZUCRYPT_CAVP names it, every vector (tools/cavp/cavp.tsv.gz, written by
+# tools/make-cavp.py, kept out of the tarball). A path that does not exist is
+# an error, never a quiet fall back to the subset.
+CAVP_FULL_COUNT <- 5110L
+cavp_full <- function() nzchar(Sys.getenv("ZUCRYPT_CAVP"))
+cavp_vectors <- function(family = NULL) {
+  path <- Sys.getenv("ZUCRYPT_CAVP")
+  if (!nzchar(path)) path <- test_path("fixtures", "cavp.tsv")
+  if (!file.exists(path)) stop("ZUCRYPT_CAVP names a missing file: ", path)
+  v <- utils::read.delim(path, colClasses = "character", na.strings = NULL)
+  if (!is.null(family)) v <- v[v$family == family, , drop = FALSE]
+  v
+}
+native_sha_monte <- function(algorithm, seed, n) {
+  .Call(zucrypt:::zucrypt_test_sha_monte, algorithm, seed, as.integer(n))
+}
+native_cbc_mct <- function(encrypt, key, iv, text, n) {
+  .Call(zucrypt:::zucrypt_test_cbc_mct, encrypt, key, iv, text, as.integer(n))
+}

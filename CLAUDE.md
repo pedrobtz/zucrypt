@@ -127,6 +127,7 @@ python3 tools/check-kat.py                # aead.tsv, kdf.tsv vs cryptography
 python3 tools/make-rsa-kat.py --check     # rsa.tsv, rsa-keys.tsv vs the RFCs
 python3 tools/make-ec-kat.py --check      # ec.tsv, ec-keys.tsv vs the RFCs
 python3 tools/make-derivation-kat.py ZUXLSX_CHECKOUT --check
+python3 tools/make-cavp.py --check       # cavp.tsv, tools/cavp/ vs NIST's archives
 sh tools/check-layering.sh                # adapter R-free, glue backend-free
 bash tools/check-linking.sh               # the archive, as a consumer links it
 make -C ctest run                         # the adapter's C driver (ZUC_CTEST_FULL=1: every alloc)
@@ -293,8 +294,11 @@ CRAN or security reviewer reads.
   compatibility. A self round trip is not sufficient. Tests run offline
   from synthetic fixtures.
 - **Fixtures** are in `tests/testthat/fixtures/` (`kat.tsv`, `aead.tsv`,
-  `kdf.tsv`, `rsa*.tsv`, `ec*.tsv`), with provenance in `MANIFEST.tsv`, read
-  as committed and never regenerated at test time. Generators and oracles
+  `kdf.tsv`, `rsa*.tsv`, `ec*.tsv`, `cavp.tsv`), with provenance in
+  `MANIFEST.tsv`, read as committed and never regenerated at test time.
+  `cavp.tsv` is a subset of the NIST CAVP set in `tools/cavp/cavp.tsv.gz`
+  (kept out of the tarball), which `test-cavp.R` runs whole when
+  `ZUCRYPT_CAVP` names it, as `aes-paths.yaml` and `platform.sh` do. Generators and oracles
   are under Commands.
 - **Helpers**: `helper-kat.R` (fixture access and `zucrypt_test_*` harness
   wrappers), `helper-abi.R` (symbol audit of the loaded shared object),

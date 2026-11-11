@@ -54,8 +54,10 @@ ZUCRYPT_TEST_CPPFLAGS="" R CMD INSTALL --preclean .
 # passes against the installed package on that path.
 step "aes-paths: the runner selects $expect_aes"
 ZUCRYPT_EXPECT_AES=$expect_aes Rscript tools/ci/aes-check.R
-step "aes-paths: the test suite against the installed package ($expect_aes)"
-ZUCRYPT_EXPECT_AES=$expect_aes Rscript tools/ci/test-installed.R
+# With every NIST CAVP vector (#67), relative to tests/testthat.
+step "aes-paths: the test suite against the installed package ($expect_aes, full CAVP)"
+ZUCRYPT_EXPECT_AES=$expect_aes ZUCRYPT_CAVP=../../tools/cavp/cavp.tsv.gz \
+  Rscript tools/ci/test-installed.R
 
 # consumer.yaml: both consumer shapes.
 step "consumer: install the table fixture"
