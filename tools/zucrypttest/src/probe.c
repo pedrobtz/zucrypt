@@ -548,6 +548,9 @@ SEXP zucrypttest_segments(SEXP data, SEXP key, SEXP iv, SEXP segment,
     return out;
 }
 
+/* src/cxx.cpp: the same table, resolved and called from C++ (#113). */
+SEXP zucrypttest_cxx_sha256(SEXP data);
+
 static const R_CallMethodDef call_methods[] = {
     {"zucrypttest_api_available", (DL_FUNC) &zucrypttest_api_available, 0},
     {"zucrypttest_abi_reject",    (DL_FUNC) &zucrypttest_abi_reject,    1},
@@ -555,6 +558,7 @@ static const R_CallMethodDef call_methods[] = {
     {"zucrypttest_derive",        (DL_FUNC) &zucrypttest_derive,        3},
     {"zucrypttest_segments",      (DL_FUNC) &zucrypttest_segments,      5},
     {"zucrypttest_backend",       (DL_FUNC) &zucrypttest_backend,       0},
+    {"zucrypttest_cxx_sha256",    (DL_FUNC) &zucrypttest_cxx_sha256,    1},
     {NULL, NULL, 0}
 };
 

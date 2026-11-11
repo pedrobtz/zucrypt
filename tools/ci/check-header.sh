@@ -39,6 +39,20 @@ cc -std=c99 -Wall -Wextra -Werror \
    -c "$dir/probe_consumer.c" -o /dev/null
 echo "ok  consumer build"
 
+echo "== a C++ consumer compiles against zucrypt-r.h, strictly (#113)"
+# In C++ the resolver converts with reinterpret_cast, not the union C uses:
+# ISO C++ does not define reading a union through another member. No
+# compiler diagnoses the union, so this checks the C++ branch itself is
+# clean under strict flags; tools/zucrypttest calls it at run time.
+sed -e 's/^SEXP probe(void)/extern "C" SEXP probe(void)/' \
+  "$dir/probe_consumer.c" > "$dir/probe_consumer.cpp"
+for std in c++11 c++17; do
+  c++ -std=$std -Wall -Wextra -Wpedantic -Werror \
+      -I"$inc" -I"$rinc" \
+      -c "$dir/probe_consumer.cpp" -o /dev/null
+done
+echo "ok  C++11 and C++17 consumer builds"
+
 echo "== including zucrypt-r.h without using it is warning-free"
 printf '#include <zucrypt-r.h>\nSEXP other(void){ return R_NilValue; }\n' \
   > "$dir/probe_unused.c"

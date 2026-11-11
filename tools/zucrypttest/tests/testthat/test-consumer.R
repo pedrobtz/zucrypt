@@ -33,3 +33,13 @@ test_that("the consumer sees the same backend zucrypt reports", {
   expect_identical(unname(linked[["name"]]), reported$source)
   expect_identical(unname(linked[["version"]]), reported$version)
 })
+
+test_that("the table works from C++ too (#113)", {
+  # zucrypt-r.h's C++ branch, compiled from src/cxx.cpp under the consumer's
+  # C++ compiler: SHA-256 of "abc" through the resolved table.
+  got <- cxx_sha256(charToRaw("abc"))
+  expect_identical(
+    paste(format(got, width = 2), collapse = ""),
+    "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+  )
+})

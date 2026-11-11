@@ -29,3 +29,10 @@ decrypt_segments <- function(data, key, iv, segment, encrypt = FALSE) {
 }
 
 linked_backend <- function() .Call(zucrypttest_backend)
+
+# SHA-256 through the table, resolved and called from C++ (src/cxx.cpp):
+# the header's C++ branch (#113). NULL if the table is unavailable.
+cxx_sha256 <- function(data) {
+  stopifnot(is.raw(data))
+  .Call(zucrypttest_cxx_sha256, data)
+}
