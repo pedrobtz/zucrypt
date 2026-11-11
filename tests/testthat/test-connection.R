@@ -1,16 +1,6 @@
 # Connection input to crypt_hash() and crypt_hmac() (#11): a file or any
 # other connection, read in 1 MiB chunks and never held whole in memory.
 
-chunk <- 1048576L
-
-write_temp <- function(bytes) {
-  path <- tempfile()
-  writeBin(bytes, path)
-  path
-}
-
-open_connections <- function() nrow(showConnections(all = FALSE))
-
 test_that("a file hashes to the digest of its bytes, across chunk boundaries", {
   # The raw-vector path is pinned by the published vectors, so agreeing with
   # it at sizes around the chunk length pins the connection path's chunking.

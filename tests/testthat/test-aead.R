@@ -4,13 +4,6 @@
 # section 12 fixes the contract: every alteration fails with
 # zucrypt_auth_error and releases no plaintext, in C and in R.
 
-gcm_args <- function(row) {
-  list(key = unhex(row$key), iv = unhex(row$iv),
-       aad = if (nzchar(row$aad)) unhex(row$aad),
-       input = unhex(row$input), output = unhex(row$output),
-       tag = unhex(row$tag))
-}
-
 test_that("every published GCM vector reproduces, both directions", {
   v <- aead_vectors()
   expect_gt(nrow(v), 0L)

@@ -299,9 +299,12 @@ CRAN or security reviewer reads.
 - **Helpers**: `helper-kat.R` (fixture access and `zucrypt_test_*` harness
   wrappers), `helper-abi.R` (symbol audit of the loaded shared object),
   `helper-linking.R` (audits of the installed `LinkingTo` surface, which
-  skip under `load_all()`). They are helpers rather than file-scope code
+  skip under `load_all()`), and `helper-<name>.R` for what one
+  `test-<name>.R` uses. They are helpers rather than file-scope code
   because testthat's parallel workers (`Config/testthat/parallel: true`)
-  source `helper-*.R` but not a test file's file scope.
+  source `helper-*.R` but not a test file's file scope, and
+  `shuffle = TRUE` runs it in a random place; `test-package.R` fails on any
+  top-level expression in a test file other than `test_that()`.
 - `zuc_int_random_fail()` (`src/zuc_live.h`) makes the entropy source fail
   for the harness.
 - **The `nosuggests` leg** checks with no `Suggests` installed, so
