@@ -85,24 +85,23 @@ key_input <- function(file, arg = "file", call = sys.call(-1L)) {
     return(file)
   }
   if (inherits(file, "connection")) {
-    if (!isOpen(file)) {
-      open(file, "rb")
-      on.exit(close(file))
-    }
-    out <- raw()
-    repeat {
-      chunk <- readBin(file, "raw", 65536L)
-      if (!length(chunk)) break
-      out <- c(out, chunk)
-    }
-    return(out)
+    return(read_all(file, call))
   }
   if (is.character(file) && length(file) == 1L && !is.na(file)) {
     if (grepl("-----BEGIN", file, fixed = TRUE)) {
       return(charToRaw(file))
     }
+    if (dir.exists(file)) {
+      zucrypt_abort(
+        "zucrypt_invalid_argument",
+        sprintf("`%s` names a directory, not a file.", arg),
+        call = call
+      )
+    }
     if (file.exists(file)) {
-      return(readBin(file, "raw", file.size(file)))
+      # Read to its end through a connection rather than by file.size(),
+      # which a growing file outruns: the bytes read are the bytes there.
+      return(read_all(file(file), call))
     }
   }
   zucrypt_abort(
@@ -111,6 +110,15 @@ key_input <- function(file, arg = "file", call = sys.call(-1L)) {
                    "existing file, or a connection."), arg),
     call = call
   )
+}
+
+# A connection's bytes, through read_connection()'s guards (#145).
+read_all <- function(con, call) {
+  chunks <- list(raw())
+  read_connection(con, function(chunk) {
+    chunks[[length(chunks) + 1L]] <<- chunk
+  }, call = call)
+  do.call(c, chunks)
 }
 
 no_password <- function(password, call = sys.call(-1L)) {
