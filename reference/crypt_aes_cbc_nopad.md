@@ -60,8 +60,10 @@ A raw vector the same length as `data`. `data` itself is never modified.
 ## Side channels
 
 AES runs on the CPU's AES instructions where it has them – AES-NI on
-x86, the Cryptography Extension on 64-bit Arm – chosen at run time, and
-falls back to a software implementation where it does not.
+x86, the Cryptography Extension on 64-bit Arm under Linux and macOS –
+chosen at run time, and falls back to a software implementation where it
+does not. On Arm under other systems, where the extension cannot be
+detected, the software implementation is the one built.
 [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md)
 says which one this machine uses, in `build_flags$aes_implementation`.
 

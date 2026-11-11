@@ -81,6 +81,14 @@ upgrading zucrypt does nothing for you until your package is reinstalled
 – including a security fix – so report the version you actually linked,
 by calling `zuc_get_info()` rather than reading a macro.
 
+The archive is built from the objects zucrypt was compiled into, with
+zucrypt's flags. If zucrypt was installed with link-time optimisation
+(`LTO = -flto` in `~/.R/Makevars`), those objects hold compiler bytecode
+rather than machine code, and only a linker that reads that compiler's
+bytecode can use them: build your package with the same compiler. A
+different one (clang against a GCC LTO build) finds no symbols in the
+archive. An ordinary installation is not affected (#144).
+
 ## What the interface promises
 
 - Every function that can fail returns a `zuc_status`; the rest are

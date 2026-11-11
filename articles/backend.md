@@ -83,16 +83,19 @@ Key generation, PSS and randomised ECDSA signing, RSA encryption and RSA
 blinding draw through the backend, which zucrypt points at the same
 source. The backend still links a random-number entry point, and zucrypt
 supplies it from the operating system (`rand_s`, `arc4random_buf`,
-`getrandom` or `/dev/urandom`, chosen at compile time), never from R’s
-random number generator.
+`getrandom` or `/dev/urandom`, chosen at compile time, with
+`/dev/urandom` behind `getrandom` where the kernel refuses that call),
+never from R’s random number generator.
 
 **Hardware AES.** AES uses AES-NI on x86 and the Cryptography Extension
 on 64-bit Arm where the CPU has them, detected at run time, and falls
-back to upstream’s table-based software AES otherwise. Every path
-produces the same bytes; the published vectors check that on every
-platform CI reaches. Upstream’s security policy says the software path
-can leak the key through cache timing to an attacker who can observe it.
-zucrypt documents that rather than refusing to run;
+back to upstream’s table-based software AES otherwise. Upstream detects
+the Arm extension only on Linux, so zucrypt builds it only there and on
+macOS, where every Arm CPU has it; Arm under other systems runs the
+software path. Every path produces the same bytes; the published vectors
+check that on every platform CI reaches. Upstream’s security policy says
+the software path can leak the key through cache timing to an attacker
+who can observe it. zucrypt documents that rather than refusing to run;
 [`?crypt_aes_cbc_nopad`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_cbc_nopad.md)
 explains when it matters.
 

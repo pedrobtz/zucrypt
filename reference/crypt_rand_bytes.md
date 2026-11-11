@@ -2,9 +2,11 @@
 
 Draws `n` bytes from the operating system's cryptographic random source:
 `rand_s` on Windows, `arc4random_buf` on macOS and the BSDs, `getrandom`
-on Linux with glibc 2.25 or later, and `/dev/urandom` elsewhere.
+on Linux with glibc 2.25 or later, and `/dev/urandom` elsewhere. Where
+the kernel or a seccomp filter refuses `getrandom` (a kernel before
+3.17), it reads `/dev/urandom` instead.
 [`crypt_info()`](https://pedrobtz.github.io/zucrypt/reference/crypt_info.md)
-names the one compiled in, in `build_flags$random_backend`. Use these
+names the source in use, in `build_flags$random_backend`. Use these
 bytes for keys, initialisation vectors, nonces and salts.
 
 ## Usage
@@ -54,11 +56,11 @@ is one.
 
 ``` r
 crypt_rand_bytes(16)
-#>  [1] 5c 0a 57 73 98 91 f1 45 36 13 7d a5 cb 68 f4 34
+#>  [1] ff b4 2a 15 09 00 53 ab 90 c4 fd cf 94 b2 43 ed
 
 # A 256-bit key, printed as hex.
 crypt_hex(crypt_rand_bytes(32))
-#> [1] "a03954b1e8def180a3ce17d37cf31889070e655ddbef4fbeff88194e15d481e7"
+#> [1] "80179dfb6adb55d706fb18de33022f2d9d47902615be3856ffa6a11948cca633"
 
 # set.seed() does not repeat it.
 set.seed(1)
