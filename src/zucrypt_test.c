@@ -1463,7 +1463,9 @@ SEXP zucrypt_test_residue(SEXP key, SEXP private_key, SEXP op, SEXP needle)
     }
     if (st != ZUC_OK) {
         zuc_secure_zero(buf, sizeof buf);
-        UNPROTECT(2);
+        /* Raised with `out` still protected: R resets the protection stack
+         * when the error unwinds, and rchk cannot see that stop_on() does
+         * not return. */
         stop_on(st, "residue");
     }
     written = Rf_allocVector(RAWSXP, (R_xlen_t) out_len);
