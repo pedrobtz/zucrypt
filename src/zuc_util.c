@@ -82,7 +82,7 @@ int zuc_int_overlaps(const void *in, const void *out, size_t len)
 }
 
 /* The backend's allocator (zuc_crypto_config.h): calloc(), remembering a
- * failure until zuc_int_alloc_watch() clears it. Main thread only, as the
+ * failure until zuc_int_watch() clears it. Main thread only, as the
  * whole library is. A zero-sized request may legitimately return NULL and
  * is not a failure. */
 static int alloc_failed = 0;
@@ -115,12 +115,24 @@ void *zuc_int_calloc(size_t n, size_t size)
     return p;
 }
 
-void zuc_int_alloc_watch(void)
+/* The random source's half of the watch (#140). */
+static int random_failed = 0;
+
+void zuc_int_random_failed(void)
 {
-    alloc_failed = 0;
+    random_failed = 1;
 }
 
-zuc_status zuc_int_memory_or(zuc_status st)
+void zuc_int_watch(void)
 {
-    return (st != ZUC_OK && alloc_failed) ? ZUC_ERR_MEMORY : st;
+    alloc_failed = 0;
+    random_failed = 0;
+}
+
+zuc_status zuc_int_watched_or(zuc_status st)
+{
+    if (st == ZUC_OK) return st;
+    if (alloc_failed) return ZUC_ERR_MEMORY;
+    if (random_failed) return ZUC_ERR_ENTROPY;
+    return st;
 }

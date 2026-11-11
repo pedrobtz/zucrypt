@@ -137,6 +137,7 @@ psa_status_t mbedtls_psa_external_get_random(
     (void) context;
     *output_length = 0;
     if (os_random(output, output_size) != 0) {
+        zuc_int_random_failed();
         return PSA_ERROR_INSUFFICIENT_ENTROPY;
     }
     *output_length = output_size;

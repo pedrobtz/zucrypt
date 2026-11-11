@@ -65,12 +65,17 @@ int zuc_int_current(unsigned long generation);
  * free functions call it. */
 void zuc_int_live_add(int delta);
 
-/* Allocation failures inside the backend (src/zuc_util.c). An operation
- * calls zuc_int_alloc_watch() first and passes its result through
- * zuc_int_memory_or(), which turns any failure that followed a failed
- * allocation into ZUC_ERR_MEMORY, whatever status the backend gave it. */
+/* Allocation and entropy failures inside the backend (src/zuc_util.c). An
+ * operation calls zuc_int_watch() first and passes its result through
+ * zuc_int_watched_or(), which turns any failure that followed a failed
+ * allocation into ZUC_ERR_MEMORY, and otherwise any that followed a failed
+ * draw from the random source into ZUC_ERR_ENTROPY, whatever status the
+ * backend gave it: upstream reports both as "invalid key", "bad padding"
+ * or a generic error on some paths (#140). zuc_int_random_failed() is the
+ * random source's report of a failed draw. */
 void *zuc_int_calloc(size_t n, size_t size);
-void zuc_int_alloc_watch(void);
-zuc_status zuc_int_memory_or(zuc_status st);
+void zuc_int_random_failed(void);
+void zuc_int_watch(void);
+zuc_status zuc_int_watched_or(zuc_status st);
 
 #endif /* ZUC_INTERNAL_H */
