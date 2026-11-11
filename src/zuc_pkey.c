@@ -992,17 +992,32 @@ static zuc_status pkey_write_impl(const zuc_pkey *key, zuc_pkey_format format,
         strcpy(footer, "-----END ");
         strcat(footer, label);
         strcat(footer, "-----\n");
-        ret = mbedtls_pem_write_buffer(header, footer, der, der_len,
-                                       out, out_size, &olen);
-        if (ret == PSA_ERROR_BUFFER_TOO_SMALL) {
-            st = ZUC_ERR_BAD_LENGTH;
-        } else if (ret != 0) {
-            st = zuc_int_from_psa((psa_status_t) ret);
-        } else if (olen == 0) {
-            st = ZUC_ERR_BACKEND;
+        /* The writer needs room for a terminating NUL that is not part of
+         * PEM, so it writes into a buffer one byte longer than the caller's
+         * (capped: no encoding is longer than ZUC_PKEY_MAX_WRITE_SIZE), and
+         * exactly the PEM is copied out (#142). */
+        size_t cap = (out_size < ZUC_PKEY_MAX_WRITE_SIZE
+                      ? out_size : ZUC_PKEY_MAX_WRITE_SIZE) + 1;
+        uint8_t *pem = malloc(cap);
+
+        if (pem == NULL) {
+            st = ZUC_ERR_MEMORY;
         } else {
-            /* olen counts the terminating NUL, which is not part of PEM. */
-            *out_len = olen - 1;
+            ret = mbedtls_pem_write_buffer(header, footer, der, der_len,
+                                           pem, cap, &olen);
+            if (ret == PSA_ERROR_BUFFER_TOO_SMALL) {
+                st = ZUC_ERR_BAD_LENGTH;
+            } else if (ret != 0) {
+                st = zuc_int_from_psa((psa_status_t) ret);
+            } else if (olen == 0 || olen - 1 > out_size) {
+                st = ZUC_ERR_BACKEND;
+            } else {
+                /* olen counts the terminating NUL. */
+                memcpy(out, pem, olen - 1);
+                *out_len = olen - 1;
+            }
+            zuc_secure_zero(pem, cap);
+            free(pem);
         }
     }
     zuc_secure_zero(der, der_len);
@@ -1500,12 +1515,27 @@ zuc_status zuc_pkey_encrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
     return zuc_int_watched_or(pkey_encrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
 }
 
+/* zucrypt.h promises a zeroed output on any failure of these two, so it is
+ * done here, once, for every return the _impl functions have (#142). */
+static zuc_status zeroed_on_failure(zuc_status st, uint8_t *out,
+                                    size_t out_size, size_t *out_len)
+{
+    if (st != ZUC_OK) {
+        if (out != NULL) zuc_secure_zero(out, out_size);
+        if (out_len != NULL) *out_len = 0;
+    }
+    return st;
+}
+
 zuc_status zuc_pkey_decrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
                             const uint8_t *in, size_t len,
                             uint8_t *out, size_t out_size, size_t *out_len)
 {
     zuc_int_watch();
-    return zuc_int_watched_or(pkey_decrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
+    return zeroed_on_failure(
+        zuc_int_watched_or(pkey_decrypt_impl(key, scheme, hash, in, len, out,
+                                             out_size, out_len)),
+        out, out_size, out_len);
 }
 
 zuc_status zuc_pkey_import(zuc_alg type, int private_key,
@@ -1528,6 +1558,7 @@ zuc_status zuc_pkey_agree(const zuc_pkey *key, const zuc_pkey *peer,
                           uint8_t *out, size_t out_size, size_t *out_len)
 {
     zuc_int_watch();
-    return zuc_int_watched_or(pkey_agree_impl(key, peer, out, out_size,
-                                             out_len));
+    return zeroed_on_failure(
+        zuc_int_watched_or(pkey_agree_impl(key, peer, out, out_size, out_len)),
+        out, out_size, out_len);
 }

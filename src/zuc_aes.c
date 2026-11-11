@@ -115,6 +115,10 @@ zuc_status zuc_aes_cbc_set_state(zuc_aes *aes, const uint8_t *state)
     if (aes == NULL || state == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
     }
+    /* A handle that outlived the backend does nothing (zucrypt.h, #142). */
+    if (!zuc_int_current(aes->generation)) {
+        return ZUC_ERR_NOT_READY;
+    }
     memcpy(aes->chain, state, ZUC_AES_BLOCK_SIZE);
     return ZUC_OK;
 }
@@ -123,6 +127,9 @@ zuc_status zuc_aes_cbc_get_state(const zuc_aes *aes, uint8_t *state)
 {
     if (aes == NULL || state == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
+    }
+    if (!zuc_int_current(aes->generation)) {
+        return ZUC_ERR_NOT_READY;
     }
     memcpy(state, aes->chain, ZUC_AES_BLOCK_SIZE);
     return ZUC_OK;

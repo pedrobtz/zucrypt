@@ -77,6 +77,17 @@
 
 ## Bug fixes
 
+* C interface: three places where the adapter broke a promise of
+  `zucrypt.h` (#142). `zuc_pkey_write()` refused a PEM encoding written
+  into a buffer of exactly its length, and wrote a NUL past it into a
+  larger one; it now needs exactly the length it reports and writes
+  nothing more. `zuc_aes_cbc_set_state()` and `zuc_aes_cbc_get_state()`
+  on a handle kept across the last `zuc_shutdown()` returned `ZUC_OK`
+  rather than `ZUC_ERR_NOT_READY`. `zuc_pkey_decrypt()` and
+  `zuc_pkey_agree()` left the output buffer as it was when they refused an
+  argument (a public key, an unsupported scheme, a peer on another curve),
+  rather than zeroing it. The R functions were not affected.
+
 * RSA keys follow one size rule everywhere: a modulus of 1024 to 4096 bits,
   a whole number of bytes (#141). `crypt_read_key()`, `crypt_read_pubkey()`
   and `crypt_rsa_key()` now refuse a key under 1024 bits, which they read and
