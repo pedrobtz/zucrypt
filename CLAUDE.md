@@ -131,6 +131,8 @@ python3 tools/make-cavp.py --check       # cavp.tsv, tools/cavp/ vs NIST's archi
 sh tools/check-layering.sh                # adapter R-free, glue backend-free
 bash tools/ci/check-abi.sh                # ABI 1 against the frozen v0.1.0 headers
 bash tools/check-linking.sh               # the archive, as a consumer links it
+bash tools/check-rebuild.sh               # incremental installs follow header changes
+bash tools/ci/check-aes-config.sh         # hardware AES only where it is detected
 make -C ctest run                         # the adapter's C driver (ZUC_CTEST_FULL=1: every alloc)
 make -C fuzz replay-run                   # the fuzz corpus through every oracle
 make -C fuzz replay-asan                  # the same under ASan + UBSan
@@ -183,7 +185,9 @@ drives the adapter at caller-chosen split points.
 An opaque `zuc_pkey` holds RSA (PKCS#1 DER), EC and X25519 key material, its
 `ptype` the backend type, and imports it into PSA per operation, so one key
 serves every scheme and digest. Randomness reads `src/zuc_random.c`'s
-operating-system source directly, not through `psa_generate_random()`.
+operating-system source directly, not through `psa_generate_random()`;
+where the kernel or a seccomp filter refuses `getrandom()` (`ENOSYS`,
+`EPERM`), it falls back to `/dev/urandom` and `crypt_info()` says so (#144).
 
 Naming (design §3, `zukomp`'s CLAUDE.md is the reference): C ABI prefix
 `zuc_`/`ZUC_`, never `zu_` (that is `zukomp`'s public namespace and
@@ -225,6 +229,13 @@ CRAN or security reviewer reads.
   never `Rf_error()` below the outermost `.Call`. `src/zuc_live.h` counts
   live handles; `test-lifetime.R` interrupts each `crypt_*` loop with
   `setTimeLimit()` and checks the count returns to baseline after `gc()`.
+- **Every finalizer goes through `register_finalizer()`**
+  (`src/zucrypt_crypt.c`), never `R_RegisterCFinalizerEx()` directly. It
+  keeps the weak reference in a registry that `.onUnload()` runs before
+  the DLL is unmapped (#144); a finalizer left to run after that is a
+  segfault at the next `gc()`. `test-unload.R` checks it in a subprocess.
+  Not an `R_unload_zucrypt()`: R does not find it under
+  `R_useDynamicSymbols(FALSE)`.
 - **Key objects are tagged external pointers.** Never strip their
   attributes: an external pointer is not duplicated.
 - **Allocation failures are reported as such.** The backend allocates
@@ -248,11 +259,15 @@ CRAN or security reviewer reads.
   of 16/24/32 bytes, IVs of exactly 16, data a multiple of 16. The GCM pair
   is one-shot, with a 12-byte nonce and a 16-byte tag; a received tag of
   another length is `ZUC_ERR_AUTH`.
-- **Hardware AES stays on.** AES-NI or the Arm Cryptography Extension is
-  selected at run time, with table-based software AES as fallback (#51);
-  that fallback leaks key material through cache timing and is documented,
-  not refused; `crypt_info()$build_flags$aes_implementation` reports the
-  path. Never turn hardware AES off to make platforms "run the same C":
+- **Hardware AES stays on where it is detected.** AES-NI, on every OS, or
+  the Arm Cryptography Extension, on Linux and macOS only, is selected at
+  run time, with table-based software AES as fallback (#51). Upstream
+  detects the Arm extension only on Linux and assumes it elsewhere, so
+  `zuc_crypto_config.h` builds `MBEDTLS_AESCE_C` only for `__linux__` and
+  `__APPLE__` (#144; `tools/ci/check-aes-config.sh`). The software path
+  leaks key material through cache timing and is documented, not refused;
+  `crypt_info()$build_flags$aes_implementation` reports the path. Never
+  turn hardware AES off to make platforms "run the same C":
   `aes-paths.yaml` checks each path, including a `ZUC_AES_SOFTWARE_ONLY`
   build.
 - **SHA-1 is for Office compatibility**, never a default for new formats.
@@ -417,7 +432,12 @@ Local patches, in `tools/patches/tf-psa-crypto/`:
 The configuration is `src/zuc_crypto_config.h` (forty-eight defines); the
 trim is 43 objects and 153 files, with `aesce.c` kept by hand because it has
 symbols only on Arm. `src/Makevars` is portable make with an explicit
-`OBJECTS` list (no CMake, no GNU make).
+`OBJECTS` list (no CMake, no GNU make). Every object depends on every
+header (#109): the first-party ones by name, the vendored ones through
+`VENDOR_HEADERS`, which `tools/vendor/record` writes and `verify` checks,
+because portable make cannot glob. `libzucrypt.a` is written under a
+temporary name and renamed, since testthat's parallel workers can both
+build in `src/` when the DLL is missing.
 
 Departures from the family layout, both recorded in
 `.agents/stage-1-spike.md`: the trim is a two-column keep list
