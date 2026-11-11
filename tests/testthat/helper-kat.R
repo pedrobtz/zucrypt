@@ -157,3 +157,41 @@ native_sha_monte <- function(algorithm, seed, n) {
 native_cbc_mct <- function(encrypt, key, iv, text, n) {
   .Call(zucrypt:::zucrypt_test_cbc_mct, encrypt, key, iv, text, as.integer(n))
 }
+native_residue <- function(key, private_key, op, needle = raw()) {
+  .Call(zucrypt:::zucrypt_test_residue, key, private_key, op, needle)
+}
+
+# The base64 characters that encode `secret` inside `der`, as they appear in
+# the unwrapped body of the PEM of `der` (#137): a run of whole 3-byte groups
+# lying inside the secret, so the 4-character groups depend on it alone.
+base64_needle <- function(der, secret, nchar = 24L) {
+  pos <- NULL
+  for (i in seq_len(length(der) - length(secret) + 1L)) {
+    if (identical(der[i:(i + length(secret) - 1L)], secret)) {
+      pos <- i - 1L
+      break
+    }
+  }
+  stopifnot(!is.null(pos))
+  first <- ((pos + 2L) %/% 3L) * 3L       # the first group inside the secret
+  stopifnot(first + nchar / 4L * 3L <= pos + length(secret))
+  b64 <- base64_encode_raw(der)
+  start <- first %/% 3L * 4L + 1L
+  charToRaw(substr(b64, start, start + nchar - 1L))
+}
+
+base64_encode_raw <- function(x) {
+  # RFC 4648 base64, so the needle does not trust the code under test.
+  tbl <- c(LETTERS, letters, 0:9, "+", "/")
+  pad <- (3L - length(x) %% 3L) %% 3L
+  v <- as.integer(x)
+  v <- c(v, integer(pad))
+  out <- character(length(v) / 3L * 4L)
+  for (g in seq_len(length(v) / 3L)) {
+    n <- v[3L * g - 2L] * 65536L + v[3L * g - 1L] * 256L + v[3L * g]
+    out[4L * g - 3:0] <- tbl[c(n %/% 262144L, n %/% 4096L %% 64L,
+                               n %/% 64L %% 64L, n %% 64L) + 1L]
+  }
+  if (pad) out[length(out) - seq_len(pad) + 1L] <- "="
+  paste(out, collapse = "")
+}

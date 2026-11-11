@@ -39,4 +39,20 @@ void zuc_int_alloc_fail_at(long n);
  * the position it was asked to fail, and has been swept to its end. */
 long zuc_int_alloc_fail_pending(void);
 
+/* The residue scan (#137). While armed with `needle`, every block the
+ * backend allocates through zuc_int_calloc() is remembered, and when the
+ * backend frees it through zuc_int_free() it is searched for `needle`
+ * first: a hit is a secret left in freed memory. Blocks allocated before
+ * arming are not searched. Disarming returns the number of hits, or -1 if
+ * more blocks were live at once than the scan can remember (a test that
+ * sees -1 has checked nothing). `needle` must outlive the armed period; a
+ * zero length arms the bookkeeping with nothing to find. Test harness only. */
+void zuc_int_residue_arm(const unsigned char *needle, size_t len);
+long zuc_int_residue_disarm(void);
+
+/* The scan's positive control: a backend block freed with a needle in it
+ * counts 1, and the same block wiped before it is freed counts 10. Returns
+ * the sum, 1 when the scan works. */
+long zuc_int_residue_control(void);
+
 #endif /* ZUC_LIVE_H */

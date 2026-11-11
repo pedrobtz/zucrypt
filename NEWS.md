@@ -77,6 +77,13 @@
 
 ## Bug fixes
 
+* Writing a private key as PEM (`crypt_write_pem()`, and the PEM forms of
+  the C API's `zuc_pkey_write()`) left the key's base64 in freed memory: the
+  vendored PEM writer released its buffer without wiping it (#137). A
+  fourth local patch to TF-PSA-Crypto wipes it. A new test searches every
+  block the backend frees during a key write or read, for RSA, P-256, P-384,
+  P-521 and X25519 in every encoding, for a piece of the private key.
+
 * `crypt_signature_create()` and `crypt_signature_verify()` given a
   non-blocking connection whose data had not all arrived signed or verified
   the part received so far, as if it were the whole (#145). Every function

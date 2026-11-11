@@ -69,6 +69,7 @@ void zuc_int_live_add(int delta);
  * zuc_int_memory_or(), which turns any failure that followed a failed
  * allocation into ZUC_ERR_MEMORY, whatever status the backend gave it. */
 void *zuc_int_calloc(size_t n, size_t size);
+void zuc_int_free(void *p);
 void zuc_int_alloc_watch(void);
 zuc_status zuc_int_memory_or(zuc_status st);
 

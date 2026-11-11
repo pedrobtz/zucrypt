@@ -408,7 +408,7 @@ int mbedtls_pem_write_buffer(const char *header, const char *footer,
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     unsigned char *encode_buf = NULL, *c, *p = buf;
-    size_t len = 0, use_len, add_len = 0;
+    size_t len = 0, use_len, add_len = 0, encode_size;
 
     mbedtls_base64_encode(NULL, 0, &use_len, der_data, der_len);
     add_len = strlen(header) + strlen(footer) + (((use_len > 2) ? (use_len - 2) : 0) / 64) + 1;
@@ -418,6 +418,7 @@ int mbedtls_pem_write_buffer(const char *header, const char *footer,
         return MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL;
     }
 
+    encode_size = use_len;
     if (use_len != 0 &&
         ((encode_buf = mbedtls_calloc(1, use_len)) == NULL)) {
         return MBEDTLS_ERR_PEM_ALLOC_FAILED;
@@ -425,7 +426,7 @@ int mbedtls_pem_write_buffer(const char *header, const char *footer,
 
     if ((ret = mbedtls_base64_encode(encode_buf, use_len, &use_len, der_data,
                                      der_len)) != 0) {
-        mbedtls_free(encode_buf);
+        mbedtls_zeroize_and_free(encode_buf, encode_size);
         return ret;
     }
 
@@ -451,7 +452,7 @@ int mbedtls_pem_write_buffer(const char *header, const char *footer,
     /* Clean any remaining data previously written to the buffer */
     memset(buf + *olen, 0, buf_len - *olen);
 
-    mbedtls_free(encode_buf);
+    mbedtls_zeroize_and_free(encode_buf, encode_size);
     return 0;
 }
 #endif /* MBEDTLS_PEM_WRITE_C */
