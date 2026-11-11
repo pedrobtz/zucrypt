@@ -204,7 +204,10 @@ echo "==> 10. library paths with characters sed and the shell treat specially (#
 # configure substitutes the path into sed and into a single-quoted PKG_LIBS.
 # A path with & or | must still link; one with ' cannot be quoted there and
 # must be refused with a message, not turned into a broken Makevars.
-for odd in "r&lib" "r|lib"; do
+# Windows does not allow | in a file name, so it checks & alone there.
+odds="r&lib r|lib"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) odds="r&lib" ;; esac
+for odd in $odds; do
   OLIB="$WORK/$odd"
   mkdir -p "$OLIB"
   cp -R "$LIB/zucrypt" "$OLIB/"

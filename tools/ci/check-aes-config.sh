@@ -15,14 +15,24 @@ set -eu
 cfg=src/zuc_crypto_config.h
 fail=0
 
+# The configuration includes <stddef.h>, and the host's copy reacts to the
+# simulated macros (GCC's includes a FreeBSD header under __FreeBSD__, which
+# a Linux host does not have). A stub keeps the check about the
+# configuration alone, and a failed preprocess is a failure, never "off".
+stub=$(mktemp -d)
+trap 'rm -rf "$stub"' EXIT
+: > "$stub/stddef.h"
+
 defines() {  # $@: the platform's predefined macros, as -U/-D flags
-  cc -E -dM -undef -I src "$@" -include "$cfg" -x c /dev/null 2>/dev/null |
-    awk '$1 == "#define" { print $2 }'
+  out=$(cc -E -dM -undef -nostdinc -I "$stub" -I src "$@" -include "$cfg" \
+          -x c /dev/null) || { echo "FAIL could not preprocess for: $*" >&2; exit 1; }
+  printf '%s\n' "$out" | awk '$1 == "#define" { print $2 }'
 }
 expect() {  # name, define, want (yes/no), flags...
   name=$1 def=$2 want=$3
   shift 3
-  if defines "$@" | grep -qx "$def"; then got=yes; else got=no; fi
+  d=$(defines "$@")
+  if printf '%s\n' "$d" | grep -qx "$def"; then got=yes; else got=no; fi
   if [ "$got" = "$want" ]; then
     echo "ok  $name: $def $([ "$want" = yes ] && echo on || echo off)"
   else
