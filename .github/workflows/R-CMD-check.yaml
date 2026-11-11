@@ -26,8 +26,11 @@
 # runner's own GCC, which matches no CRAN flavor and is strictly worse than
 # the containers that now cover it.
 on:
-  push:
-    branches: [main, master]
+  # No `push:`: a pull request already checks its merge with main,
+  # and the schedule checks main (r-actions README, "Pushes to main").
+  schedule:
+    - cron: "23 19 * * 6"
+  workflow_dispatch:
   pull_request:
 
 name: R-CMD-check.yaml

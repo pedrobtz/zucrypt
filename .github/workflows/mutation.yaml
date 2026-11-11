@@ -15,7 +15,7 @@
 # Weekly and by dispatch, as it is slow: one run per mutant.
 on:
   schedule:
-    - cron: '0 7 * * 4'
+    - cron: '8 20 * * 6'
   workflow_dispatch:
 
 name: mutation.yaml

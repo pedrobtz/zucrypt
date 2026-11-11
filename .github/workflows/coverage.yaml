@@ -8,18 +8,10 @@
 # package. Stage 3 is where R/ first holds functions, so it is where this can
 # report anything at all.
 on:
-  push:
-    branches: [main, master]
-    # The badge path prevents a push loop when this workflow commits an
-    # updated badge; the rest are prose -- nothing in a .md file or in
-    # .agents/ changes what fraction of the code the tests execute.
-    paths-ignore:
-      - ".github/badges/coverage.svg"
-      - '**.md'
-      - 'vignettes/**'
-      - '_pkgdown.yml'
-      - '.agents/**'
-      - 'docs/**'
+  # No `push:`: a pull request already checks its merge with main,
+  # and the schedule checks main (r-actions README, "Pushes to main").
+  schedule:
+    - cron: "58 19 * * 6"
   pull_request:
     paths-ignore:
       - '**.md'

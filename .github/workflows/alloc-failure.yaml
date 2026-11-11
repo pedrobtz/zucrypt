@@ -11,7 +11,7 @@
 # the paths it covers change rarely.
 on:
   schedule:
-    - cron: '0 6 * * 3'
+    - cron: '38 19 * * 6'
   workflow_dispatch:
 
 name: alloc-failure.yaml

@@ -17,7 +17,7 @@
 # waited until a release was near rather than running from Stage 5.
 on:
   schedule:
-    - cron: '0 6 * * 2'
+    - cron: '43 19 * * 6'
   workflow_dispatch:
 
 name: arch.yaml
