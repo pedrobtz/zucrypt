@@ -130,3 +130,60 @@ test_that("a finished stream cannot be updated or finished again", {
   expect_identical(.Call(zucrypt:::zucrypt_stream_update, stream, raw(1)), bad)
   expect_identical(.Call(zucrypt:::zucrypt_stream_finish, stream)$status, bad)
 })
+
+test_that("an unfinished non-blocking connection is refused by every reader (#145)", {
+  skip_on_cran()
+  for (name in names(readers <- connection_readers())) {
+    con <- half_open_socket(charToRaw("first-half-"))
+    e <- tryCatch(readers[[name]](con), error = identity)
+    # Nothing is returned: a signature over a prefix is the bug.
+    expect_s3_class(e, "zucrypt_connection_error")
+    expect_s3_class(e, "zucrypt_error")
+  }
+})
+
+test_that("every reader refuses a text-mode connection and an unopenable one (#145)", {
+  path <- write_temp(as.raw(0:255))
+  on.exit(unlink(path))
+  for (name in names(readers <- connection_readers())) {
+    con <- file(path, "r")
+    e <- tryCatch(readers[[name]](con), error = identity)
+    close(con)
+    expect_s3_class(e, "zucrypt_invalid_argument")
+
+    before <- open_connections()
+    e <- tryCatch(
+      expect_no_warning(
+        readers[[name]](file(file.path(tempdir(), "no-such-file")))
+      ),
+      error = identity
+    )
+    expect_s3_class(e, "zucrypt_connection_error")
+    expect_identical(open_connections(), before)
+  }
+})
+
+test_that("every reader leaves an open connection open and closes one it opened (#145)", {
+  k <- crypt_ec_keygen("P-256")
+  path <- write_temp(charToRaw(crypt_write_pem(k)))
+  on.exit(unlink(path))
+  for (name in names(readers <- connection_readers())) {
+    before <- open_connections()
+    try(readers[[name]](file(path)), silent = TRUE)
+    expect_identical(open_connections(), before)
+
+    con <- file(path, "rb")
+    try(readers[[name]](con), silent = TRUE)
+    expect_true(isOpen(con))
+    close(con)
+  }
+})
+
+test_that("a key path that is a directory is refused by class, without warnings (#145)", {
+  expect_no_warning(
+    expect_error(crypt_read_key(tempdir()), class = "zucrypt_invalid_argument")
+  )
+  expect_no_warning(
+    expect_error(crypt_read_pubkey(tempdir()), class = "zucrypt_invalid_argument")
+  )
+})

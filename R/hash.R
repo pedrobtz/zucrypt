@@ -167,20 +167,29 @@ crypt_equal <- function(x, y) {
   .Call(zucrypt_equal, x, y)
 }
 
-# Stream a connection through a native digest or HMAC context (#11). R reads
-# and C hashes: each chunk is a readBin() of at most 1 MiB, so memory stays
-# flat, and the loop is R code, so an interrupt lands between chunks. The
-# context lives in an external pointer from zucrypt_*_stream_new() onwards;
-# finish releases it eagerly, and an interrupt or error leaves it to the
-# finalizer (tests/testthat/test-lifetime.R).
-digest_connection <- function(con, algorithm, key = NULL,
-                              call = sys.call(-1L)) {
+# Read a connection to its end, handing each chunk of at most 1 MiB to
+# `each()` (#11, #145). Every reader of a connection goes through this one
+# function -- crypt_hash() and crypt_hmac() here, and key_input() for keys,
+# signature data and signatures -- so a guard added here cannot be missing
+# at a sibling: the connection is opened (and then closed) here if it was
+# not open; it must be readable and binary; and a non-blocking connection
+# that had nothing *yet* is refused rather than read as a prefix.
+# `start()`, if given, runs once the connection has passed those checks and
+# before the first read, so a refused connection never creates native state.
+read_connection <- function(
+  con,
+  each,
+  start = NULL,
+  algorithm = NA_character_,
+  call = sys.call(-1L)
+) {
   open_now <- tryCatch(isOpen(con), error = function(e) e)
   if (inherits(open_now, "error")) {
     zucrypt_abort(
       "zucrypt_connection_error",
       sprintf("Not a usable connection: %s", conditionMessage(open_now)),
-      algorithm = algorithm, call = call
+      algorithm = algorithm,
+      call = call
     )
   }
   if (!open_now) {
@@ -201,34 +210,36 @@ digest_connection <- function(con, algorithm, key = NULL,
     if (!is.null(failed)) {
       zucrypt_abort(
         "zucrypt_connection_error",
-        sprintf("Cannot open the connection for reading: %s",
-                conditionMessage(failed)),
-        algorithm = algorithm, call = call
+        sprintf(
+          "Cannot open the connection for reading: %s",
+          conditionMessage(failed)
+        ),
+        algorithm = algorithm,
+        call = call
       )
     }
   }
 
   info <- summary(con)
-  if (!identical(info[["can read"]], "yes") ||
-      !identical(info[["text"]], "binary")) {
+  if (
+    !identical(info[["can read"]], "yes") ||
+      !identical(info[["text"]], "binary")
+  ) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      paste0("The connection must be readable and in binary mode (\"rb\"). ",
-             "A text-mode connection may re-encode the bytes before they ",
-             "are hashed; open it with open = \"rb\", or pass it unopened."),
-      algorithm = algorithm, call = call
+      paste0(
+        "The connection must be readable and in binary mode (\"rb\"). ",
+        "A text-mode connection may re-encode the bytes before they ",
+        "are read; open it with open = \"rb\", or pass it unopened."
+      ),
+      algorithm = algorithm,
+      call = call
     )
   }
 
-  res <- if (is.null(key)) {
-    .Call(zucrypt_hash_stream_new, algorithm)
-  } else {
-    .Call(zucrypt_hmac_stream_new, key, algorithm)
+  if (!is.null(start)) {
+    start()
   }
-  if (res$status != 0L) {
-    abort_native(res$status, algorithm = algorithm, call = call)
-  }
-  stream <- res$value
 
   # readBin() is deliberately not wrapped: a handler here would also catch
   # an interrupt-time error (setTimeLimit()) and misreport it as the
@@ -238,22 +249,56 @@ digest_connection <- function(con, algorithm, key = NULL,
     if (length(chunk) == 0L) {
       break
     }
+    each(chunk)
+  }
+
+  # A non-blocking connection returns nothing when it has nothing *yet*;
+  # stopping there would take a prefix for the whole: hash it, or sign it.
+  if (isIncomplete(con)) {
+    zucrypt_abort(
+      "zucrypt_connection_error",
+      paste0(
+        "The connection had no more data available before its end ",
+        "(is it non-blocking?); reading a prefix as the whole would ",
+        "be wrong."
+      ),
+      algorithm = algorithm,
+      call = call
+    )
+  }
+  invisible(NULL)
+}
+
+# Stream a connection through a native digest or HMAC context (#11). R reads
+# and C hashes, so memory stays flat, and the loop is R code, so an
+# interrupt lands between chunks. The context lives in an external pointer
+# from zucrypt_*_stream_new() onwards; finish releases it eagerly, and an
+# interrupt or error leaves it to the finalizer (test-lifetime.R).
+digest_connection <- function(
+  con,
+  algorithm,
+  key = NULL,
+  call = sys.call(-1L)
+) {
+  stream <- NULL
+  start <- function() {
+    res <- if (is.null(key)) {
+      .Call(zucrypt_hash_stream_new, algorithm)
+    } else {
+      .Call(zucrypt_hmac_stream_new, key, algorithm)
+    }
+    if (res$status != 0L) {
+      abort_native(res$status, algorithm = algorithm, call = call)
+    }
+    stream <<- res$value
+  }
+  each <- function(chunk) {
     status <- .Call(zucrypt_stream_update, stream, chunk)
     if (status != 0L) {
       abort_native(status, algorithm = algorithm, call = call)
     }
   }
-
-  # A non-blocking connection returns nothing when it has nothing *yet*;
-  # stopping there would hash a prefix and report it as the whole.
-  if (isIncomplete(con)) {
-    zucrypt_abort(
-      "zucrypt_connection_error",
-      paste0("The connection had no more data available before its end ",
-             "(is it non-blocking?); hashing a prefix would be wrong."),
-      algorithm = algorithm, call = call
-    )
-  }
+  read_connection(con, each, start, algorithm = algorithm, call = call)
 
   res <- .Call(zucrypt_stream_finish, stream)
   if (res$status != 0L) {

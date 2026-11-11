@@ -77,6 +77,18 @@
 
 ## Bug fixes
 
+* `crypt_signature_create()` and `crypt_signature_verify()` given a
+  non-blocking connection whose data had not all arrived signed or verified
+  the part received so far, as if it were the whole (#145). Every function
+  that reads a connection (`crypt_hash()`, `crypt_hmac()`,
+  `crypt_read_key()`, `crypt_read_pubkey()`, and the signature functions'
+  `data` and `sig`) now goes through one reader, which refuses such a
+  connection with `zucrypt_connection_error`, refuses a text-mode one with
+  `zucrypt_invalid_argument`, and reports a connection or file that cannot
+  be opened, or a directory given as a key path, as a zucrypt condition
+  rather than R's own error. A key file is read to its end rather than to
+  the size it had when the read began.
+
 * `crypt_equal()` and the AES-CBC functions read past the end of a buffer
   when given a classed raw vector whose `length()` method misreports its
   length: `crypt_equal()` could answer `TRUE` wrongly or crash R, and a
