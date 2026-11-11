@@ -1091,6 +1091,70 @@ static void test_ec(void)
 }
 
 /* ------------------------------------------------------------------ *
+ * The RSA size rule: 1024 to 4096 bits, whole bytes (#93, #141)
+ * ------------------------------------------------------------------ */
+
+static int rsa_size_ok(size_t bits)
+{
+    return bits >= 1024 && bits <= 4096 && bits % 8 == 0;
+}
+
+static void test_rsa_limits(void)
+{
+    table t = read_table("rsa-limit.tsv");
+    static const size_t gen_ok[] = {1024, 1032};
+    static const size_t gen_bad[] = {0, 512, 1016, 1023, 1025, 1026, 1028,
+                                     4097, 4104, 8192};
+    zuc_pkey *key;
+    size_t i;
+    int r, want_private;
+
+    for (r = 1; r < t.nrow; r++) {
+        const char *enc = get(&t, r, "encoding");
+        size_t bits = (size_t) strtoul(get(&t, r, "bits"), NULL, 10), n;
+        uint8_t *der = unhex(get(&t, r, "data"), &n);
+        int is_private = strncmp(enc, "private", 7) == 0;
+
+        context = get(&t, r, "id");
+        for (want_private = 0; want_private <= is_private; want_private++) {
+            key = NULL;
+            if (rsa_size_ok(bits)) {
+                ST(zuc_pkey_parse(der, n, want_private, &key), ZUC_OK);
+                CHECK(zuc_pkey_bits(key) == bits, "read at %zu bits, not %zu",
+                      zuc_pkey_bits(key), bits);
+            } else {
+                ST(zuc_pkey_parse(der, n, want_private, &key),
+                   ZUC_ERR_UNSUPPORTED);
+                CHECK(key == NULL, "no handle for a refused key");
+            }
+            zuc_pkey_free(key);
+        }
+        /* The raw form is PKCS#1 DER: the same rule through import. */
+        if (strstr(enc, "pkcs1_der") != NULL) {
+            key = NULL;
+            ST(zuc_pkey_import(ZUC_ALG_RSA, is_private, der, n, &key),
+               rsa_size_ok(bits) ? ZUC_OK : ZUC_ERR_UNSUPPORTED);
+            zuc_pkey_free(key);
+        }
+        free(der);
+    }
+
+    context = "rsa generate";
+    for (i = 0; i < sizeof gen_ok / sizeof gen_ok[0]; i++) {
+        key = NULL;
+        ST(zuc_pkey_generate(ZUC_ALG_RSA, gen_ok[i], &key), ZUC_OK);
+        CHECK(zuc_pkey_bits(key) == gen_ok[i], "generated %zu bits, not %zu",
+              zuc_pkey_bits(key), gen_ok[i]);
+        zuc_pkey_free(key);
+    }
+    for (i = 0; i < sizeof gen_bad / sizeof gen_bad[0]; i++) {
+        key = NULL;
+        ST(zuc_pkey_generate(ZUC_ALG_RSA, gen_bad[i], &key), ZUC_ERR_BAD_LENGTH);
+        CHECK(key == NULL, "no handle for %zu bits", gen_bad[i]);
+    }
+}
+
+/* ------------------------------------------------------------------ *
  * A failing entropy source is reported as ZUC_ERR_ENTROPY (#140)
  * ------------------------------------------------------------------ */
 
@@ -1337,6 +1401,7 @@ int main(int argc, char **argv)
     RUN(test_util);
     RUN(test_info);
     RUN(test_rsa);
+    RUN(test_rsa_limits);
     RUN(test_ec);
     RUN(test_entropy);
     RUN(test_alloc_sweep);

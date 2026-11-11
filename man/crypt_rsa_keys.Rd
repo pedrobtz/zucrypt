@@ -44,8 +44,8 @@ later version. Must be \code{NULL}.}
 \item{der}{Accepted for compatibility with \code{openssl}; the encoding is
 recognised from the content.}
 
-\item{bits}{The modulus size, from 1024 to 4096. 2048 is the minimum for
-new keys; use 3072 or more for keys meant to last.}
+\item{bits}{The modulus size, a multiple of 8 from 1024 to 4096. 2048 is
+the minimum for new keys; use 3072 or more for keys meant to last.}
 
 \item{x}{A key from \code{crypt_read_key()}, \code{crypt_read_pubkey()},
 \code{crypt_rsa_keygen()} or \code{crypt_rsa_key()}.}
@@ -101,8 +101,9 @@ another type, such as an EC key, is \code{zucrypt_unsupported_algorithm}.
 
 \section{Compared with openssl}{
 
-Only RSA keys are read in this version, of at most 4096 bits; encrypted
-keys, SSH formats and fingerprints come later. \code{as.list()} gives the
+An RSA key is read only if its modulus is 1024 to 4096 bits, a whole
+number of bytes; \code{openssl} also reads smaller keys, which are weak, and
+larger ones. Encrypted keys, SSH formats and fingerprints come later. \code{as.list()} gives the
 integers as raw vectors rather than \code{bignum}s. There is no default key:
 \code{openssl} reads \verb{~/.ssh/id_rsa}, and this package never reads your files
 unless you name them.

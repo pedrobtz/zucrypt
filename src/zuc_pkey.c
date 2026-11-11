@@ -80,12 +80,25 @@ static zuc_status pkey_agree_impl(const zuc_pkey *key, const zuc_pkey *peer,
  * Key types
  * ------------------------------------------------------------------ */
 
+/* The RSA size rule (zucrypt.h, #141): a modulus of 1024 to 4096 bits,
+ * a whole number of bytes. The backend refuses moduli over 4096 bits or not
+ * byte-aligned, and zucrypt refuses the weak ones under 1024. */
+#define ZUC_RSA_MIN_BITS 1024
+
+static int rsa_size_ok(size_t bits)
+{
+    return bits >= ZUC_RSA_MIN_BITS && bits <= PSA_VENDOR_RSA_MAX_KEY_BITS &&
+           bits % 8 == 0;
+}
+
 /* The zuc_alg of a backend key type, or ZUC_ALG_NONE for one this build
- * does not offer. */
+ * does not offer, an RSA key outside the size rule included. Every handle
+ * is made by pkey_from_psa(), which asks this, so the rule holds however a
+ * key arrived: parsed, imported or generated. */
 static zuc_alg alg_of_psa(psa_key_type_t type, size_t bits)
 {
     if (PSA_KEY_TYPE_IS_RSA(type)) {
-        return ZUC_ALG_RSA;
+        return rsa_size_ok(bits) ? ZUC_ALG_RSA : ZUC_ALG_NONE;
     }
     if (PSA_KEY_TYPE_IS_ECC(type)) {
         psa_ecc_family_t family = PSA_KEY_TYPE_ECC_GET_FAMILY(type);
@@ -376,9 +389,9 @@ static size_t rsa_key_bits(const uint8_t *der, size_t len, int depth,
 }
 
 /* Is this a well-formed RSA key, of the half the reader was asked for,
- * whose modulus is over the backend's limit? `pem` is the NUL-terminated
- * copy when the input is PEM, else NULL. */
-static int rsa_over_limit(const uint8_t *in, size_t len, const uint8_t *pem,
+ * whose modulus is outside the size rule? `pem` is the NUL-terminated copy
+ * when the input is PEM, else NULL. */
+static int rsa_outside_rule(const uint8_t *in, size_t len, const uint8_t *pem,
                           int want_private)
 {
     static const char *const labels[][2] = {
@@ -411,7 +424,7 @@ static int rsa_over_limit(const uint8_t *in, size_t len, const uint8_t *pem,
     if (want_private && !is_private) {
         return 0;
     }
-    return bits > PSA_VENDOR_RSA_MAX_KEY_BITS;
+    return bits != 0 && !rsa_size_ok(bits);
 }
 
 static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key,
@@ -466,11 +479,12 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
             ret = first;
         }
     }
-    /* A well-formed RSA key over the backend's limit is refused by the
-     * reader as unavailable or as malformed, depending on the encoding and
-     * the half. It is unsupported, whichever reader met it (#93). */
+    /* A well-formed RSA key outside the size rule -- over the backend's
+     * limit or not byte-aligned -- is refused by the reader as unavailable
+     * or as malformed, depending on the encoding and the half. It is
+     * unsupported, whichever reader met it (#93, #141). */
     if (ret != 0 && parse_status(ret) == ZUC_ERR_INVALID_ARGUMENT &&
-        rsa_over_limit(in, len, copy, private_key)) {
+        rsa_outside_rule(in, len, copy, private_key)) {
         ret = MBEDTLS_ERR_PK_FEATURE_UNAVAILABLE;
     }
     if (copy != NULL) {
@@ -552,7 +566,7 @@ static zuc_status pkey_generate_impl(zuc_alg type, size_t bits, zuc_pkey **out)
         return ZUC_ERR_UNSUPPORTED;
     }
     if (type == ZUC_ALG_RSA) {
-        if (bits < 1024 || bits > 4096) {
+        if (!rsa_size_ok(bits)) {
             return ZUC_ERR_BAD_LENGTH;
         }
         psa_set_key_type(&attr, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -1300,8 +1314,20 @@ static zuc_status pkey_import_impl(zuc_alg type, int private_key,
     ps = psa_import_key(&attr, data, len, &id);
     psa_reset_key_attributes(&attr);
     if (ps != PSA_SUCCESS) {
-        return ps == PSA_ERROR_INSUFFICIENT_MEMORY ? ZUC_ERR_MEMORY
-                                                   : ZUC_ERR_INVALID_ARGUMENT;
+        int is_private = 0;
+        size_t rsa_bits;
+        if (ps == PSA_ERROR_INSUFFICIENT_MEMORY) {
+            return ZUC_ERR_MEMORY;
+        }
+        /* As in the reader: a well-formed RSA key outside the size rule is
+         * unsupported, not malformed (#141). */
+        rsa_bits = type == ZUC_ALG_RSA
+                 ? rsa_key_bits(data, len, 0, &is_private) : 0;
+        if (rsa_bits != 0 && !rsa_size_ok(rsa_bits) &&
+            (is_private || !private_key)) {
+            return ZUC_ERR_UNSUPPORTED;
+        }
+        return ZUC_ERR_INVALID_ARGUMENT;
     }
     st = pkey_from_psa(id, private_key, out);
     psa_destroy_key(id);

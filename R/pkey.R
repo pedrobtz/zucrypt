@@ -32,8 +32,8 @@
 #' @param x A key from `crypt_read_key()`, `crypt_read_pubkey()`,
 #'   `crypt_rsa_keygen()` or `crypt_rsa_key()`.
 #' @param path `NULL` to return the encoding, or a file to write it to.
-#' @param bits The modulus size, from 1024 to 4096. 2048 is the minimum for
-#'   new keys; use 3072 or more for keys meant to last.
+#' @param bits The modulus size, a multiple of 8 from 1024 to 4096. 2048 is
+#'   the minimum for new keys; use 3072 or more for keys meant to last.
 #' @param n,e The modulus and the public exponent, as raw big-endian
 #'   unsigned integers.
 #' @param d,p,q,dp,dq,qi The private exponent, the primes and the CRT
@@ -55,8 +55,9 @@
 #' another type, such as an EC key, is `zucrypt_unsupported_algorithm`.
 #'
 #' @section Compared with openssl:
-#' Only RSA keys are read in this version, of at most 4096 bits; encrypted
-#' keys, SSH formats and fingerprints come later. `as.list()` gives the
+#' An RSA key is read only if its modulus is 1024 to 4096 bits, a whole
+#' number of bytes; `openssl` also reads smaller keys, which are weak, and
+#' larger ones. Encrypted keys, SSH formats and fingerprints come later. `as.list()` gives the
 #' integers as raw vectors rather than `bignum`s. There is no default key:
 #' `openssl` reads `~/.ssh/id_rsa`, and this package never reads your files
 #' unless you name them.
@@ -183,8 +184,8 @@ parse_key <- function(bytes, private, call) {
     if (identical(name, "ZUC_ERR_UNSUPPORTED")) {
       zucrypt_abort(
         "zucrypt_unsupported_algorithm",
-        paste0("Only RSA keys of up to 4096 bits, and P-256, P-384, P-521 ",
-               "and X25519 keys, are supported."),
+        paste0("Only RSA keys of 1024 to 4096 bits, in whole bytes, and ",
+               "P-256, P-384, P-521 and X25519 keys, are supported."),
         call = call
       )
     }
@@ -230,10 +231,10 @@ public_of <- function(key, call) {
 #' @export
 crypt_rsa_keygen <- function(bits = 2048) {
   call <- sys.call()
-  if (!is_count(bits, 1024, 4096)) {
+  if (!is_count(bits, 1024, 4096) || bits %% 8 != 0) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      "`bits` must be a whole number from 1024 to 4096.",
+      "`bits` must be a multiple of 8 from 1024 to 4096.",
       algorithm = "rsa",
       call = call
     )

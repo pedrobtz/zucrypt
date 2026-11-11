@@ -77,6 +77,16 @@
 
 ## Bug fixes
 
+* RSA keys follow one size rule everywhere: a modulus of 1024 to 4096 bits,
+  a whole number of bytes (#141). `crypt_read_key()`, `crypt_read_pubkey()`
+  and `crypt_rsa_key()` now refuse a key under 1024 bits, which they read and
+  used before, as `zucrypt_unsupported_algorithm`; `openssl` still reads
+  such keys. A key of 1028 or 2047 bits, which the bundled library cannot
+  use, is refused with a message naming the rule rather than "up to 4096
+  bits". `crypt_rsa_keygen()` refuses a size that is not a multiple of 8 as
+  `zucrypt_invalid_argument` up front; 1025 used to pass the check and fail
+  in the backend as an unsupported algorithm.
+
 * A failing operating-system random source is reported as
   `zucrypt_entropy_error` (`ZUC_ERR_ENTROPY` in C) by every key operation
   (#140). `crypt_rsa_decrypt()` reported it as `zucrypt_auth_error`, as if

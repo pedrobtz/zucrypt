@@ -108,30 +108,6 @@ ec.tsv	rfc5903-p384	RFC 5903 section 8.2 (ECDH P-384)	tools/make-ec-kat.py
 ec.tsv	rfc5903-p521	RFC 5903 section 8.3 (ECDH P-521)	tools/make-ec-kat.py
 ec.tsv	rfc7515-a3	RFC 7515 A.3 (ES256 signature)	tools/make-ec-kat.py
 ec.tsv	rfc7515-a4	RFC 7515 A.4 (ES512 signature)	tools/make-ec-kat.py
-rsa-limit.tsv	rsa4088-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (private_pkcs8_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4088-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (private_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4088-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (private_pkcs8_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4088-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (public_spki_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4088-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (public_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4088-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (public_spki_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4096-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (private_pkcs8_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4096-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (private_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4096-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (private_pkcs8_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4096-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (public_spki_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4096-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (public_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4096-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (public_spki_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4104-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (private_pkcs8_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4104-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (private_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4104-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (private_pkcs8_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4104-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (public_spki_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4104-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (public_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa4104-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (public_spki_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa8192-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (private_pkcs8_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa8192-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (private_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa8192-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (private_pkcs8_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa8192-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (public_spki_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa8192-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (public_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
-rsa-limit.tsv	rsa8192-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (public_spki_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
 cavp.tsv	cavp-SHA1Monte-000	NIST CAVP SHAVS, shabytetestvectors.zip SHA1Monte.rsp	tools/make-cavp.py
 cavp.tsv	cavp-SHA1Monte-001	NIST CAVP SHAVS, shabytetestvectors.zip SHA1Monte.rsp	tools/make-cavp.py
 cavp.tsv	cavp-SHA256ShortMsg-000000	NIST CAVP SHAVS, shabytetestvectors.zip SHA256ShortMsg.rsp	tools/make-cavp.py
@@ -317,3 +293,69 @@ cavp.tsv	cavp-CBCMCT256-enc-000	NIST CAVP AESAVS, aesmct.zip CBCMCT256.rsp	tools
 cavp.tsv	cavp-CBCMCT256-enc-001	NIST CAVP AESAVS, aesmct.zip CBCMCT256.rsp	tools/make-cavp.py
 cavp.tsv	cavp-CBCMCT256-dec-000	NIST CAVP AESAVS, aesmct.zip CBCMCT256.rsp	tools/make-cavp.py
 cavp.tsv	cavp-CBCMCT256-dec-001	NIST CAVP AESAVS, aesmct.zip CBCMCT256.rsp	tools/make-cavp.py
+rsa-limit.tsv	rsa4088-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (private_pkcs8_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4088-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (private_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4088-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (private_pkcs8_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4088-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (public_spki_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4088-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (public_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4088-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4088 (public_spki_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4096-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (private_pkcs8_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4096-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (private_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4096-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (private_pkcs8_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4096-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (public_spki_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4096-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (public_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4096-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4096 (public_spki_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4104-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (private_pkcs8_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4104-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (private_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4104-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (private_pkcs8_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4104-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (public_spki_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4104-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (public_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa4104-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-4104 (public_spki_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa8192-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (private_pkcs8_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa8192-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (private_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa8192-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (private_pkcs8_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa8192-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (public_spki_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa8192-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (public_pkcs1_der), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa8192-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-8192 (public_spki_pem), the 4096-bit backend limit	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa512-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-512 (private_pkcs8_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa512-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-512 (private_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa512-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-512 (private_pkcs8_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa512-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-512 (public_spki_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa512-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-512 (public_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa512-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-512 (public_spki_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1000-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1000 (private_pkcs8_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1000-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1000 (private_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1000-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1000 (private_pkcs8_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1000-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1000 (public_spki_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1000-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1000 (public_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1000-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1000 (public_spki_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1016-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1016 (private_pkcs8_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1016-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1016 (private_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1016-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1016 (private_pkcs8_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1016-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1016 (public_spki_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1016-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1016 (public_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1016-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1016 (public_spki_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1024-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1024 (private_pkcs8_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1024-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1024 (private_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1024-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1024 (private_pkcs8_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1024-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1024 (public_spki_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1024-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1024 (public_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1024-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1024 (public_spki_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1028-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1028 (private_pkcs8_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1028-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1028 (private_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1028-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1028 (private_pkcs8_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1028-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1028 (public_spki_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1028-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1028 (public_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa1028-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-1028 (public_spki_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2047-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2047 (private_pkcs8_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2047-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2047 (private_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2047-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2047 (private_pkcs8_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2047-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2047 (public_spki_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2047-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2047 (public_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2047-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2047 (public_spki_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2048-private-pkcs8-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2048 (private_pkcs8_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2048-private-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2048 (private_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2048-private-pkcs8-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2048 (private_pkcs8_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2048-public-spki-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2048 (public_spki_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2048-public-pkcs1-der	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2048 (public_pkcs1_der), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
+rsa-limit.tsv	rsa2048-public-spki-pem	openssl OpenSSL 3.6.1 27 Jan 2026, RSA-2048 (public_spki_pem), the 1024 to 4096-bit rule	tools/make-rsa-limit-kat.R
