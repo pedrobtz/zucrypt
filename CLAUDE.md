@@ -129,6 +129,7 @@ python3 tools/make-ec-kat.py --check      # ec.tsv, ec-keys.tsv vs the RFCs
 python3 tools/make-derivation-kat.py ZUXLSX_CHECKOUT --check
 python3 tools/make-cavp.py --check       # cavp.tsv, tools/cavp/ vs NIST's archives
 sh tools/check-layering.sh                # adapter R-free, glue backend-free
+bash tools/ci/check-abi.sh                # ABI 1 against the frozen v0.1.0 headers
 bash tools/check-linking.sh               # the archive, as a consumer links it
 make -C ctest run                         # the adapter's C driver (ZUC_CTEST_FULL=1: every alloc)
 make -C fuzz replay-run                   # the fuzz corpus through every oracle
@@ -205,6 +206,8 @@ CRAN or security reviewer reads.
   `struct_size` cannot see renames the registered callable instead, so an
   old consumer fails at `R_GetCCallable()` rather than reading a moved
   structure. `?zucrypt_c_api` is the published statement.
+  `tools/ci/check-abi.sh` holds the current headers and archive to the
+  frozen v0.1.0 headers in `tools/abi/v0.1.0/` (#139); never edit those.
 - **Layering.** Including `R.h` in the adapter compiles fine here and fails
   much later in a consumer's build; a backend header in the R glue is the
   start of PSA types in an installed header. `tools/check-layering.sh`

@@ -50,6 +50,14 @@ fi
 step "Install zucrypt"
 ZUCRYPT_TEST_CPPFLAGS="" R CMD INSTALL --preclean .
 
+# abi.yaml: ABI 1 against the frozen v0.1.0 headers, with the archive just
+# installed (its Linux leg runs in abi.yaml).
+if [ "$os" = macos ]; then
+  step "abi: ABI 1 against the v0.1.0 headers"
+  ZUCRYPT_LIB=$(Rscript -e 'cat(system.file("lib", package = "zucrypt"))') \
+    bash tools/ci/check-abi.sh
+fi
+
 # aes-paths.yaml: the runner selects its hardware AES, and the whole suite
 # passes against the installed package on that path.
 step "aes-paths: the runner selects $expect_aes"
