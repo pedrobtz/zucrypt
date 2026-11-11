@@ -16,6 +16,10 @@
 ##   regress-91-*     the malformed DER of #91, offered to the key reader
 ##
 ##   Rscript fuzz/make-seeds.R      (from the repository root)
+##
+## A coercion warning is an error: as.raw() writes 0 for a value out of
+## range, which silently changes a seed (#155).
+options(warn = 2)
 
 pkgload::load_all(".", quiet = TRUE)
 fx <- file.path("tests", "testthat", "fixtures")
@@ -91,7 +95,7 @@ for (i in seq_len(nrow(aead))) {
 ## --- verify ----------------------------------------------------------------
 for (ctl in 0:8) {
   put("verify", sprintf("scheme-%d", ctl),
-      c(as.raw(ctl), as.raw(ctl * 37), charToRaw("message to sign")))
+      c(as.raw(ctl), as.raw((ctl * 37) %% 256), charToRaw("message to sign")))
 }
 put("verify", "empty-message", as.raw(c(2, 0)))
 

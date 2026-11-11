@@ -30,3 +30,26 @@ vendored_files() {
     find "src/vendor/$1" -type f ! -name '*.o' ! -name '*.so' ! -name '*.dll' \
         | LC_ALL=C sort
 }
+
+# The vendored headers, as src/Makevars lists them in VENDOR_HEADERS (#109):
+# every object depends on them, so a re-vendored or patched header rebuilds
+# the objects compiled against the old one. Portable make has no $(wildcard),
+# so the list is written out, by tools/vendor/record, and checked by verify.
+makevars_headers() {
+    printf 'VENDOR_HEADERS = \\\n'
+    for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
+        vendored_files "$src" | grep '\.h$' | sed "s|^src/vendor/$src/|\$(VENDOR)/|"
+    done | awk '{ lines[NR] = $0 } END {
+                  for (i = 1; i <= NR; i++)
+                    printf "  %s%s\n", lines[i], (i < NR ? " \\" : "")
+                }'
+}
+
+# src/Makevars with its VENDOR_HEADERS block replaced by makevars_headers.
+makevars_with_headers() {
+    ZUC_BLOCK=$(makevars_headers) awk '
+        /^# BEGIN VENDOR_HEADERS/ { print; print ENVIRON["ZUC_BLOCK"]; skip = 1; next }
+        /^# END VENDOR_HEADERS/ { skip = 0 }
+        !skip { print }
+    ' src/Makevars
+}

@@ -93,6 +93,21 @@ jobs:
             stop("expected ", Sys.getenv("ZUCRYPT_EXPECT_AES"), ", got ", flags$aes_implementation)
           }
 
+      # An incremental install rebuilds what a changed header affects (#109):
+      # ZUC_AES_SOFTWARE_ONLY defined in zuc_crypto_config.h and removed
+      # again without --preclean, then a touched installed and vendored
+      # header. On the hardware leg only, which has a path to switch from.
+      - name: Incremental rebuilds follow header changes
+        if: matrix.expect == 'aesni'
+        run: bash tools/check-rebuild.sh
+
+      # Hardware AES is configured only where upstream can rely on it: the
+      # Arm extension on Linux and Apple platforms, AES-NI everywhere (#144).
+      # Preprocessor-only, so one leg is enough.
+      - name: Hardware AES is enabled only where it is detected
+        if: matrix.expect == 'aesni'
+        run: bash tools/ci/check-aes-config.sh
+
       # The whole suite, on that implementation: every published vector, the
       # OpenSSL comparisons up to 4 MiB, the split-point sweeps and the live-
       # handle tests all run through the AES this runner selected.

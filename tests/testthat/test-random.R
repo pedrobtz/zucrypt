@@ -92,3 +92,27 @@ test_that("the name and signature mirror openssl::rand_bytes()", {
   expect_identical(length(crypt_rand_bytes(0)),
                    length(openssl::rand_bytes(0)))
 })
+
+test_that("getrandom() refused by the kernel falls back to /dev/urandom (#144)", {
+  # glibc 2.25 or later on a kernel before 3.17 (a modern container on a
+  # CentOS 7 host) has getrandom() fail with ENOSYS, and a seccomp filter
+  # can make it EPERM. Either used to be ZUC_ERR_ENTROPY on every draw. The
+  # harness makes getrandom() report ENOSYS; it is a no-op, and says so, on
+  # a build that does not use getrandom().
+  if (!native_random_enosys(TRUE)) {
+    skip("this build does not draw from getrandom()")
+  }
+  got <- tryCatch(
+    list(a = crypt_rand_bytes(64), b = crypt_rand_bytes(64),
+         key = crypt_ec_keygen("P-256"),
+         backend = crypt_info()$build_flags$random_backend),
+    finally = native_random_enosys(FALSE)
+  )
+  expect_length(got$a, 64L)
+  expect_false(identical(got$a, got$b))
+  expect_false(all(got$a == as.raw(0)))
+  expect_s3_class(got$key, "crypt_key")
+  expect_identical(got$backend, "/dev/urandom (getrandom() unavailable)")
+  # Switched back, the build reports its own source again.
+  expect_identical(crypt_info()$build_flags$random_backend, "getrandom")
+})

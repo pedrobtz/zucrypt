@@ -89,6 +89,9 @@ native_not_ready <- function() .Call(zucrypt:::zucrypt_test_not_ready)
 native_random_contract <- function() {
   .Call(zucrypt:::zucrypt_test_random_contract)
 }
+native_random_enosys <- function(on) {
+  .Call(zucrypt:::zucrypt_test_random_enosys, isTRUE(on))
+}
 native_random_fail <- function(on) {
   invisible(.Call(zucrypt:::zucrypt_test_random_fail, isTRUE(on)))
 }
