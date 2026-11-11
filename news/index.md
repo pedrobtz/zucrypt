@@ -116,6 +116,25 @@
 
 ### Bug fixes
 
+- [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+  and
+  [`crypt_signature_verify()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
+  given a non-blocking connection whose data had not all arrived signed
+  or verified the part received so far, as if it were the whole
+  ([\#145](https://github.com/pedrobtz/zucrypt/issues/145)). Every
+  function that reads a connection
+  ([`crypt_hash()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hash.md),
+  [`crypt_hmac()`](https://pedrobtz.github.io/zucrypt/reference/crypt_hmac.md),
+  [`crypt_read_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+  [`crypt_read_pubkey()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md),
+  and the signature functions’ `data` and `sig`) now goes through one
+  reader, which refuses such a connection with
+  `zucrypt_connection_error`, refuses a text-mode one with
+  `zucrypt_invalid_argument`, and reports a connection or file that
+  cannot be opened, or a directory given as a key path, as a zucrypt
+  condition rather than R’s own error. A key file is read to its end
+  rather than to the size it had when the read began.
+
 - [`crypt_equal()`](https://pedrobtz.github.io/zucrypt/reference/crypt_equal.md)
   and the AES-CBC functions read past the end of a buffer when given a
   classed raw vector whose
@@ -128,6 +147,7 @@
   rather than trusting R’s checks; a logical `NA` reaching it is an
   error rather than `FALSE`
   ([\#107](https://github.com/pedrobtz/zucrypt/issues/107)).
+
 - [`crypt_ecdsa_parse()`](https://pedrobtz.github.io/zucrypt/reference/crypt_ec_keys.md)
   reads strict DER
   ([\#91](https://github.com/pedrobtz/zucrypt/issues/91)). It accepted a
@@ -137,6 +157,7 @@
   signature too, which
   [`openssl::ecdsa_parse()`](https://jeroen.r-universe.dev/openssl/reference/signatures.html)
   ignores. Signature verification was not affected.
+
 - An RSA key over 4096 bits, the bundled library’s limit, is
   `zucrypt_unsupported_algorithm` from both
   [`crypt_read_key()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_keys.md)
@@ -146,6 +167,7 @@
   ([\#93](https://github.com/pedrobtz/zucrypt/issues/93)). A public key
   was reported as “not a key”, and a private key in DER depended on its
   encoding.
+
 - C interface: a `zuc_hash`, `zuc_hmac` or `zuc_aes` handle kept across
   the last `zuc_shutdown()` returns `ZUC_ERR_NOT_READY` after a later
   `zuc_init()`, and its free leaves the key store alone
@@ -153,10 +175,12 @@
   new backend could give its key id to a new handle, and the old handle
   then encrypted under the new handle’s key, returning `ZUC_OK`, and its
   free destroyed that key.
+
 - C interface: a digest or HMAC update that fails in the backend ends
   the operation until reset, as a finish does
   ([\#108](https://github.com/pedrobtz/zucrypt/issues/108)). The handle
   had stayed “active”, and an empty update on it reported success.
+
 - C interface: `zuc_aead_decrypt()` zeroes the output on every
   `ZUC_ERR_AUTH`, including a tag of the wrong length, which is refused
   before the backend runs and used to leave the buffer as it was. Found
