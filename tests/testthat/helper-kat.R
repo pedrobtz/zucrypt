@@ -157,3 +157,4 @@ native_sha_monte <- function(algorithm, seed, n) {
 native_cbc_mct <- function(encrypt, key, iv, text, n) {
   .Call(zucrypt:::zucrypt_test_cbc_mct, encrypt, key, iv, text, as.integer(n))
 }
+native_alias <- function(rsa_der) .Call(zucrypt:::zucrypt_test_alias, rsa_der)
