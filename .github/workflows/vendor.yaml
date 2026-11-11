@@ -14,16 +14,10 @@
 # the diff. The read-only calls follow v1 so that its fixes reach every family
 # repo without a pull request in each.
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - 'src/vendor/**'
-      - 'src/Makevars'
-      - 'src/zuc_crypto_config.h'
-      - 'tools/vendor/**'
-      - 'tools/patches/**'
-      - 'inst/COPYRIGHTS'
-      - '.github/workflows/vendor.yaml'
+  # No `push:`: a pull request already checks its merge with main,
+  # and the schedule checks main (r-actions README, "Pushes to main").
+  schedule:
+    - cron: "33 20 * * 6"
   pull_request:
   workflow_dispatch:
 

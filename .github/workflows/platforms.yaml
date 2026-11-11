@@ -11,13 +11,13 @@
 # dispatch or a `full-ci` pull request; tools/ci/platform.sh runs its slow,
 # secondary checks (the fuzz replay, zuxlsx) on `full` only.
 on:
-  push:
-    branches: [main]
+  # No `push:`: a pull request already checks its merge with main,
+  # and the schedule checks main (r-actions README, "Pushes to main").
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
   workflow_dispatch:
   schedule:
-    - cron: "41 4 * * 1"
+    - cron: "18 20 * * 6"
 
 name: platforms.yaml
 

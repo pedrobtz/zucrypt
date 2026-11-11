@@ -8,13 +8,13 @@
 # targets from one Makefile that already knows the backend's build. The
 # pattern is zuhttp's fuzz.yaml.
 on:
-  push:
-    branches: [main]
+  # No `push:`: a pull request already checks its merge with main,
+  # and the schedule checks main (r-actions README, "Pushes to main").
   pull_request:
     # `labeled`/`unlabeled`, so that adding or removing a CI label reruns it.
     types: [opened, synchronize, reopened, labeled, unlabeled]
   schedule:
-    - cron: '0 5 * * 2'
+    - cron: '3 20 * * 6'
   workflow_dispatch:
     inputs:
       soak_seconds:
