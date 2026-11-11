@@ -167,7 +167,7 @@
 <li>
 <strong>Fixtures</strong> are in <code>tests/testthat/fixtures/</code> (<code>kat.tsv</code>, <code>aead.tsv</code>, <code>kdf.tsv</code>, <code>rsa*.tsv</code>, <code>ec*.tsv</code>), with provenance in <code>MANIFEST.tsv</code>, read as committed and never regenerated at test time. Generators and oracles are under Commands.</li>
 <li>
-<strong>Helpers</strong>: <code>helper-kat.R</code> (fixture access and <code>zucrypt_test_*</code> harness wrappers), <code>helper-abi.R</code> (symbol audit of the loaded shared object), <code>helper-linking.R</code> (audits of the installed <code>LinkingTo</code> surface, which skip under <code>load_all()</code>). They are helpers rather than file-scope code because testthat’s parallel workers (<code>Config/testthat/parallel: true</code>) source <code>helper-*.R</code> but not a test file’s file scope.</li>
+<strong>Helpers</strong>: <code>helper-kat.R</code> (fixture access and <code>zucrypt_test_*</code> harness wrappers), <code>helper-abi.R</code> (symbol audit of the loaded shared object), <code>helper-linking.R</code> (audits of the installed <code>LinkingTo</code> surface, which skip under <code>load_all()</code>), and <code>helper-&lt;name&gt;.R</code> for what one <code>test-&lt;name&gt;.R</code> uses. They are helpers rather than file-scope code because testthat’s parallel workers (<code>Config/testthat/parallel: true</code>) source <code>helper-*.R</code> but not a test file’s file scope, and <code>shuffle = TRUE</code> runs it in a random place; <code>test-package.R</code> fails on any top-level expression in a test file other than <code>test_that()</code>.</li>
 <li>
 <code>zuc_int_random_fail()</code> (<code>src/zuc_live.h</code>) makes the entropy source fail for the harness.</li>
 <li>
