@@ -52,12 +52,12 @@ One row per boundary the package crosses. An oracle knows the answer:
 | Boundary | Oracle | Carried by |
 | -------- | ------ | ---------- |
 | SHA-1/256/384/512 digest | FIPS 180-2 and RFC 6234 vectors (16); openssl at 1,000 B, 64 KiB + 1 and 4 MiB; incremental equals one-shot at every split point | test-kat.R, test-size.R |
-| SHA and HMAC breadth: every message length 0 to 1024 bits, long messages, Monte Carlo chains through one reused context | gap #67 | gap #67 |
+| SHA and HMAC breadth: every message length 0 to 1024 bits, long messages, Monte Carlo chains through one reused context | NIST CAVP SHAVS (ShortMsg, LongMsg, Monte: 1,172 vectors) and HMACVS (1,200), through the R functions and the harness; Monte Carlo as 100,000 digests through one reset handle in C and an R loop over `crypt_hash()`; the archives checked by SHA-256 (tools/make-cavp.py) | test-cavp.R with ZUCRYPT_CAVP: aes-paths.yaml, platforms.yaml; a subset ships |
 | HMAC-SHA1/256/384/512 | RFC 2202 and RFC 4231 vectors (15); openssl at keys of 0 to 10,000 B straddling each block and the backend's 8,191-byte key cap, one-shot, incremental and after a reset | test-kat.R |
-| HMAC edge cases: truncated tags, odd key lengths | gap #70 | gap #70 |
+| HMAC edge cases: truncated tags, odd key lengths | NIST CAVP HMACVS: keys of 10 to 145 bytes across each block size, tags truncated to 10 to 64 bytes; Wycheproof: gap #70 | test-cavp.R |
 | Digest of a connection | equals the digest of the same bytes in memory at 0, 1, 63, chunk - 1, chunk, chunk + 1 and 3 chunks + 17; openssl reading the same file | test-connection.R |
 | AES-CBC, no padding, encrypt and decrypt | NIST SP 800-38A F.2 vectors, both directions; openssl over 4 MiB at 128/192/256; one adapter call equals the chunked wrapper; each AES implementation path | test-kat.R, test-size.R, aes-paths.yaml |
-| AES-CBC breadth: GFSbox, KeySbox, VarKey, VarTxt, MMT, MCT | gap #67 | gap #67 |
+| AES-CBC breadth: GFSbox, KeySbox, VarKey, VarTxt, MMT, MCT | NIST CAVP AESAVS at 128/192/256, both directions (2,738 vectors); MCT chained 1,000 blocks per handle with the key update in C, and per checkpoint through the R functions; on every AES implementation | test-cavp.R with ZUCRYPT_CAVP: aes-paths.yaml (AES-NI, software), platforms.yaml (Arm CE, Windows AES-NI) |
 | Hash, HMAC and AES-CBC at arbitrary lengths, keys and split points | gap #68 | gap #68 |
 | AES-GCM encrypt | McGrew-Viega test cases 1-4, 7, 8, 13-16; ciphertext equals openssl's at 1 B to 1 MiB + 3 (openssl returns no tag, so the tag is checked by the vectors only) | test-aead.R |
 | AES-GCM decrypt (ciphertext, tag, nonce and AAD from elsewhere) | the vectors, decrypted; every single alteration (ciphertext, tag, AAD, nonce, key, truncated or empty tag, AAD added or dropped, shortened ciphertext) is `zucrypt_auth_error`; the C contract checks the output buffer is zeroed on failure | test-aead.R, zucrypt_test.c (`wiped_on_failure`) |

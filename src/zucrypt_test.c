@@ -240,6 +240,55 @@ SEXP zucrypt_test_hmac_reset(SEXP algorithm, SEXP key, SEXP first, SEXP second)
     return out;
 }
 
+/* The SHAVS Monte Carlo test (#67): `n` checkpoints of 1000 chained
+ * digests each, MD[i] = H(MD[i-3] || MD[i-2] || MD[i-1]), the last of one
+ * checkpoint seeding the next. Every one of the n * 1000 digests goes
+ * through the same handle, reset between them, which is how a consumer's
+ * derivation loop uses it. Returns the n checkpoints, concatenated. */
+SEXP zucrypt_test_sha_monte(SEXP algorithm, SEXP seed, SEXP n_)
+{
+    zuc_alg alg = alg_arg(algorithm, "algorithm");
+    size_t seed_len = 0, d = zuc_alg_size(alg), got = 0;
+    const uint8_t *seed_bytes = raw_arg(seed, &seed_len, "seed");
+    int n = Rf_asInteger(n_);
+    uint8_t md[3][ZUC_MAX_DIGEST_SIZE], next[ZUC_MAX_DIGEST_SIZE];
+    zuc_hash *h = NULL;
+    zuc_status st;
+    SEXP out;
+    int i, j;
+
+    if (n == NA_INTEGER || n < 1 || n > 100) {
+        Rf_error("zucrypt: n must be 1 to 100");
+    }
+    if (d == 0 || d > ZUC_MAX_DIGEST_SIZE || seed_len != d) {
+        Rf_error("zucrypt: the seed must be one digest long");
+    }
+    out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) n * (R_xlen_t) d));
+    memcpy(next, seed_bytes, d);
+    st = zuc_hash_new(alg, &h);
+    for (j = 0; j < n && st == ZUC_OK; j++) {
+        memcpy(md[0], next, d);
+        memcpy(md[1], next, d);
+        memcpy(md[2], next, d);
+        for (i = 0; i < 1000 && st == ZUC_OK; i++) {
+            st = zuc_hash_reset(h);
+            if (st == ZUC_OK) st = zuc_hash_update(h, md[0], d);
+            if (st == ZUC_OK) st = zuc_hash_update(h, md[1], d);
+            if (st == ZUC_OK) st = zuc_hash_update(h, md[2], d);
+            if (st == ZUC_OK) st = zuc_hash_finish(h, next, d, &got);
+            if (st == ZUC_OK && got != d) st = ZUC_ERR_BAD_LENGTH;
+            memcpy(md[0], md[1], d);
+            memcpy(md[1], md[2], d);
+            memcpy(md[2], next, d);
+        }
+        memcpy(RAW(out) + (size_t) j * d, next, d);
+    }
+    zuc_hash_free(h);
+    UNPROTECT(1);
+    stop_on(st, "sha monte");
+    return out;
+}
+
 /* ------------------------------------------------------------------ *
  * AES
  * ------------------------------------------------------------------ */
@@ -305,6 +354,71 @@ SEXP zucrypt_test_aes(SEXP mode, SEXP encrypt, SEXP key, SEXP iv, SEXP data,
     }
     UNPROTECT(1);
     stop_on(st, "aes");
+    return out;
+}
+
+/* The AESAVS CBC Monte Carlo test (#67): `n` checkpoints of 1000 blocks
+ * each. Within a checkpoint one handle carries the chaining state from
+ * block to block, never reset, and the input of block j + 1 is the IV for
+ * j = 0 and the output of block j - 1 after it. Between checkpoints the key
+ * absorbs the last output bits and a new handle takes it. Returns, per
+ * checkpoint, key || iv || input || output: what the response file lists
+ * for that COUNT. */
+SEXP zucrypt_test_cbc_mct(SEXP encrypt, SEXP key, SEXP iv, SEXP text, SEXP n_)
+{
+    size_t key_len = 0, iv_len = 0, text_len = 0, row, k;
+    const uint8_t *key0 = raw_arg(key, &key_len, "key");
+    const uint8_t *iv0 = raw_arg(iv, &iv_len, "iv");
+    const uint8_t *text0 = raw_arg(text, &text_len, "text");
+    int n = Rf_asInteger(n_), do_encrypt = Rf_asLogical(encrypt);
+    uint8_t kbuf[32], ivbuf[16], in[16], out_blk[16], prev[16], last[32];
+    zuc_aes *aes = NULL;
+    zuc_status st = ZUC_OK;
+    uint8_t *dst;
+    SEXP out;
+    int i, j;
+
+    if (do_encrypt == NA_LOGICAL) Rf_error("zucrypt: encrypt must be TRUE or FALSE");
+    if (n == NA_INTEGER || n < 1 || n > 100) Rf_error("zucrypt: n must be 1 to 100");
+    if ((key_len != 16 && key_len != 24 && key_len != 32) || iv_len != 16 ||
+        text_len != 16) {
+        Rf_error("zucrypt: a 16, 24 or 32-byte key and 16-byte iv and text");
+    }
+    row = key_len + 48;
+    out = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) n * (R_xlen_t) row));
+    memcpy(kbuf, key0, key_len);
+    memcpy(ivbuf, iv0, 16);
+    memcpy(in, text0, 16);
+    memset(prev, 0, sizeof prev);
+    for (i = 0; i < n && st == ZUC_OK; i++) {
+        dst = RAW(out) + (size_t) i * row;
+        memcpy(dst, kbuf, key_len);
+        memcpy(dst + key_len, ivbuf, 16);
+        memcpy(dst + key_len + 16, in, 16);
+        st = zuc_aes_new(kbuf, key_len, &aes);
+        if (st == ZUC_OK) st = zuc_aes_cbc_set_state(aes, ivbuf);
+        for (j = 0; j < 1000 && st == ZUC_OK; j++) {
+            uint8_t next_in[16];
+
+            st = do_encrypt ? zuc_aes_cbc_encrypt(aes, in, 16, out_blk)
+                            : zuc_aes_cbc_decrypt(aes, in, 16, out_blk);
+            memcpy(next_in, j == 0 ? ivbuf : prev, 16);
+            memcpy(prev, out_blk, 16);       /* now block j's output */
+            if (j == 998) memcpy(last, out_blk, 16);
+            memcpy(in, next_in, 16);
+        }
+        zuc_aes_free(aes);
+        aes = NULL;
+        if (st != ZUC_OK) break;
+        memcpy(dst + key_len + 32, out_blk, 16);
+        /* last = output 998 || output 999; the key takes its tail. */
+        memcpy(last + 16, out_blk, 16);
+        for (k = 0; k < key_len; k++) kbuf[k] ^= last[32 - key_len + k];
+        memcpy(ivbuf, out_blk, 16);
+        memcpy(in, last, 16);              /* output 998 */
+    }
+    UNPROTECT(1);
+    stop_on(st, "cbc mct");
     return out;
 }
 
@@ -1322,5 +1436,7 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_ec_contract",    (DL_FUNC) &zucrypt_test_ec_contract,    0},
     {"zucrypt_test_stale_handles",  (DL_FUNC) &zucrypt_test_stale_handles,  0},
     {"zucrypt_test_update_failure", (DL_FUNC) &zucrypt_test_update_failure, 1},
+    {"zucrypt_test_sha_monte",      (DL_FUNC) &zucrypt_test_sha_monte,      3},
+    {"zucrypt_test_cbc_mct",        (DL_FUNC) &zucrypt_test_cbc_mct,        5},
     {NULL, NULL, 0}
 };
