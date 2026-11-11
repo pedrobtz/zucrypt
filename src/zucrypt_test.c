@@ -1413,6 +1413,80 @@ SEXP zucrypt_test_update_failure(SEXP kind)
     return res;
 }
 
+/* The residue scan (#137): parse `key` (DER or PEM; `private_key` as for
+ * zuc_pkey_parse()), then, armed with `needle`, run one operation and
+ * report how many blocks the backend freed with `needle` still in them.
+ * op: "write1".."write4" writes the key in that zuc_pkey_format (private
+ * where the key is), "parse" reads `key` again. Returns
+ * list(hits = integer, output = raw): the output of a write, so a caller
+ * can derive a needle from it first with an empty one. */
+SEXP zucrypt_test_residue(SEXP key, SEXP private_key, SEXP op, SEXP needle)
+{
+    size_t key_len = 0, needle_len = 0, out_len = 0;
+    const uint8_t *key_bytes = raw_arg(key, &key_len, "key");
+    const uint8_t *needle_bytes = raw_arg(needle, &needle_len, "needle");
+    int priv = Rf_asLogical(private_key);
+    const char *what;
+    static uint8_t buf[ZUC_PKEY_MAX_WRITE_SIZE];
+    zuc_pkey *k = NULL, *again = NULL;
+    zuc_status st;
+    long hits;
+    SEXP out, names, written;
+
+    if (priv == NA_LOGICAL) Rf_error("zucrypt: private_key must be TRUE or FALSE");
+    if (TYPEOF(op) != STRSXP || Rf_length(op) != 1) {
+        Rf_error("zucrypt: op must be a single string");
+    }
+    what = CHAR(STRING_ELT(op, 0));
+    if (strncmp(what, "write", 5) != 0 && strcmp(what, "parse") != 0) {
+        Rf_error("zucrypt: op must be write1 to write4 or parse");
+    }
+    out = PROTECT(Rf_allocVector(VECSXP, 2));
+    names = PROTECT(Rf_allocVector(STRSXP, 2));
+    SET_STRING_ELT(names, 0, Rf_mkChar("hits"));
+    SET_STRING_ELT(names, 1, Rf_mkChar("output"));
+    Rf_setAttrib(out, R_NamesSymbol, names);
+
+    st = zuc_pkey_parse(key_bytes, key_len, priv, &k);
+    if (st == ZUC_OK) {
+        zuc_int_residue_arm(needle_bytes, needle_len);
+        if (strcmp(what, "parse") == 0) {
+            st = zuc_pkey_parse(key_bytes, key_len, priv, &again);
+            zuc_pkey_free(again);
+        } else {
+            st = zuc_pkey_write(k, (zuc_pkey_format) (what[5] - '0'), 0,
+                                buf, sizeof buf, &out_len);
+        }
+        hits = zuc_int_residue_disarm();
+        zuc_pkey_free(k);
+    } else {
+        hits = 0;
+    }
+    if (st != ZUC_OK) {
+        zuc_secure_zero(buf, sizeof buf);
+        /* Raised with `out` still protected: R resets the protection stack
+         * when the error unwinds, and rchk cannot see that stop_on() does
+         * not return. */
+        stop_on(st, "residue");
+    }
+    written = Rf_allocVector(RAWSXP, (R_xlen_t) out_len);
+    SET_VECTOR_ELT(out, 1, written);
+    memcpy(RAW(written), buf, out_len);
+    zuc_secure_zero(buf, sizeof buf);
+    SET_VECTOR_ELT(out, 0, Rf_ScalarInteger((int) hits));
+    UNPROTECT(2);
+    return out;
+}
+
+/* The residue scan's positive control: a block allocated and freed through
+ * the backend's allocator with the needle in it is found, and one wiped
+ * first is not. Returns the hits for the unwiped block (1 when the scan
+ * works) plus 10 times those for the wiped one (0 when it works). */
+SEXP zucrypt_test_residue_control(void)
+{
+    return Rf_ScalarInteger((int) zuc_int_residue_control());
+}
+
 /* ------------------------------------------------------------------ *
  * Aliasing (#138)
  * ------------------------------------------------------------------ */
@@ -1768,6 +1842,8 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_update_failure", (DL_FUNC) &zucrypt_test_update_failure, 1},
     {"zucrypt_test_sha_monte",      (DL_FUNC) &zucrypt_test_sha_monte,      3},
     {"zucrypt_test_cbc_mct",        (DL_FUNC) &zucrypt_test_cbc_mct,        5},
+    {"zucrypt_test_residue",        (DL_FUNC) &zucrypt_test_residue,        4},
+    {"zucrypt_test_residue_control", (DL_FUNC) &zucrypt_test_residue_control, 0},
     {"zucrypt_test_alias",          (DL_FUNC) &zucrypt_test_alias,          1},
     {NULL, NULL, 0}
 };

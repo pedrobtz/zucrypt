@@ -115,6 +115,13 @@
   X25519 key as SubjectPublicKeyInfo returned `ZUC_ERR_BACKEND`. Decryption
   still reports every padding failure as the one status.
 
+* Writing a private key as PEM (`crypt_write_pem()`, and the PEM forms of
+  the C API's `zuc_pkey_write()`) left the key's base64 in freed memory: the
+  vendored PEM writer released its buffer without wiping it (#137). A
+  fourth local patch to TF-PSA-Crypto wipes it. A new test searches every
+  block the backend frees during a key write or read, for RSA, P-256, P-384,
+  P-521 and X25519 in every encoding, for a piece of the private key.
+
 * In the C API, `zuc_aead_encrypt()` and `zuc_aead_decrypt()` now refuse,
   with `ZUC_ERR_OVERLAP`, a tag or output buffer that overlaps any other
   buffer of the call, as `zucrypt.h` promised (#138). Before, a tag inside

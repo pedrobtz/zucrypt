@@ -1,0 +1,59 @@
+Wipe the base64 buffer in mbedtls_pem_write_buffer() before freeing it
+
+mbedtls_pem_write_buffer() base64-encodes the DER it is given into a heap
+buffer, copies that into the caller's output in 64-character lines, and
+releases the buffer with plain mbedtls_free(), on the success path and on
+the encoding-error path. When the DER is a private key, its base64 is left
+in freed memory. The caller cannot wipe a buffer it never sees: zucrypt's
+adapter wipes its own DER copy, and the key still survived as text.
+
+zucrypt found it with a residue scan over its allocator (#137,
+tests/testthat/test-residue.R): every private-key PEM write, for RSA,
+P-256, P-384, P-521 and X25519, left one freed block holding the key's
+base64; every DER write and every PEM or DER read left none.
+
+The patch frees the buffer with mbedtls_zeroize_and_free(), as rsa.c does
+for its own key-dependent buffers, over the size it was allocated with
+(use_len is counted down to 0 by the copy loop, so it is kept as
+encode_size). Nothing else changes.
+
+Local, until upstream wipes it. Re-check on every release bump whether
+mbedtls_pem_write_buffer() still frees encode_buf unwiped.
+
+--- a/lib/pem.c
++++ b/lib/pem.c
+@@ -408,7 +408,7 @@
+ {
+     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+     unsigned char *encode_buf = NULL, *c, *p = buf;
+-    size_t len = 0, use_len, add_len = 0;
++    size_t len = 0, use_len, add_len = 0, encode_size;
+ 
+     mbedtls_base64_encode(NULL, 0, &use_len, der_data, der_len);
+     add_len = strlen(header) + strlen(footer) + (((use_len > 2) ? (use_len - 2) : 0) / 64) + 1;
+@@ -418,6 +418,7 @@
+         return MBEDTLS_ERR_BASE64_BUFFER_TOO_SMALL;
+     }
+ 
++    encode_size = use_len;
+     if (use_len != 0 &&
+         ((encode_buf = mbedtls_calloc(1, use_len)) == NULL)) {
+         return MBEDTLS_ERR_PEM_ALLOC_FAILED;
+@@ -425,7 +426,7 @@
+ 
+     if ((ret = mbedtls_base64_encode(encode_buf, use_len, &use_len, der_data,
+                                      der_len)) != 0) {
+-        mbedtls_free(encode_buf);
++        mbedtls_zeroize_and_free(encode_buf, encode_size);
+         return ret;
+     }
+ 
+@@ -451,7 +452,7 @@
+     /* Clean any remaining data previously written to the buffer */
+     memset(buf + *olen, 0, buf_len - *olen);
+ 
+-    mbedtls_free(encode_buf);
++    mbedtls_zeroize_and_free(encode_buf, encode_size);
+     return 0;
+ }
+ #endif /* MBEDTLS_PEM_WRITE_C */

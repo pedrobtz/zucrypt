@@ -74,6 +74,7 @@ void zuc_int_live_add(int delta);
  * or a generic error on some paths (#140). zuc_int_random_failed() is the
  * random source's report of a failed draw. */
 void *zuc_int_calloc(size_t n, size_t size);
+void zuc_int_free(void *p);
 void zuc_int_random_failed(void);
 void zuc_int_watch(void);
 zuc_status zuc_int_watched_or(zuc_status st);

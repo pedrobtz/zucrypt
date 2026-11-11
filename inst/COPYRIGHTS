@@ -71,7 +71,7 @@ applied by tools/vendor/fetch; no upstream file is edited in place. Each patch
 is listed in the manifest's `patches` column and named here, and
 tools/vendor/verify fails if those three records disagree.
 
-Three patches are applied:
+Four patches are applied:
 
     tools/patches/tf-psa-crypto/0001-avoid-zero-size-pubkey-array.patch
 
@@ -99,3 +99,11 @@ Three patches are applied:
         patch adds the NULL check that psa_mac_sign_finish() in the same file
         already has, and nothing else. The patch file carries how it was
         found.
+
+    tools/patches/tf-psa-crypto/0004-wipe-pem-write-buffer.patch
+
+        lib/pem.c: mbedtls_pem_write_buffer() freed its base64 buffer
+        without wiping it, so writing a private key as PEM left the key's
+        base64 in freed memory. The patch frees it with
+        mbedtls_zeroize_and_free() over its allocated size, and nothing
+        else. The patch file carries how it was found.
