@@ -116,6 +116,15 @@
 
 ### Bug fixes
 
+- In the C API, `zuc_aead_encrypt()` and `zuc_aead_decrypt()` now
+  refuse, with `ZUC_ERR_OVERLAP`, a tag or output buffer that overlaps
+  any other buffer of the call, as `zucrypt.h` promised
+  ([\#138](https://github.com/pedrobtz/zucrypt/issues/138)). Before, a
+  tag inside the ciphertext silently overwrote it, an output over the
+  tag failed a valid message, and a short tag with partially overlapping
+  input and output zeroed part of the caller’s ciphertext. The R
+  functions were not affected: they never share buffers.
+
 - [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
   and
   [`crypt_signature_verify()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
