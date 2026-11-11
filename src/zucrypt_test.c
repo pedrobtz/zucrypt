@@ -22,6 +22,7 @@
  * concern; this file does not need it and does not pretend to have it.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -1486,6 +1487,335 @@ SEXP zucrypt_test_residue_control(void)
     return Rf_ScalarInteger((int) zuc_int_residue_control());
 }
 
+/* ------------------------------------------------------------------ *
+ * Aliasing (#138)
+ * ------------------------------------------------------------------ */
+
+#define ALIAS_MAX_FAIL 64
+static char alias_fail[ALIAS_MAX_FAIL][200];
+static int alias_nfail;
+static int alias_cases;
+
+static void alias_bad(const char *what, const char *why, zuc_status st)
+{
+    if (alias_nfail < ALIAS_MAX_FAIL) {
+        snprintf(alias_fail[alias_nfail], sizeof alias_fail[0], "%s: %s (%s)",
+                 what, why, zuc_status_name(st));
+    }
+    alias_nfail++;
+}
+
+/* The AEAD arena: every buffer of one call at its own offset, so a case can
+ * move one onto another. zucrypt.h: the output and the input may be the
+ * same pointer; any other overlap is ZUC_ERR_OVERLAP, reported before
+ * anything is written. */
+enum { A_KEY = 0, A_NONCE = 32, A_AAD = 64, A_IN = 128, A_OUT = 256,
+       A_TAG = 320, A_SIZE = 384, A_LEN = 40 };
+
+typedef struct {
+    const char *name;
+    int encrypt;
+    int out, tag;          /* offsets of the output and the tag */
+    size_t tag_len;
+    int ok;                /* 1: must succeed with the reference result */
+} aead_alias_case;
+
+static void aead_alias(void)
+{
+    static const aead_alias_case cases[] = {
+        {"encrypt: out == in",              1, A_IN,        A_TAG,     16, 1},
+        {"encrypt: out = in + 1",           1, A_IN + 1,    A_TAG,     16, 0},
+        {"encrypt: out = in - 1",           1, A_IN - 1,    A_TAG,     16, 0},
+        {"encrypt: tag = out",              1, A_OUT,       A_OUT,     16, 0},
+        {"encrypt: tag at out's end",       1, A_OUT,  A_OUT + A_LEN - 8, 16, 0},
+        {"encrypt: tag = in",               1, A_OUT,       A_IN,      16, 0},
+        {"encrypt: tag in the nonce",       1, A_OUT,       A_NONCE,   16, 0},
+        {"encrypt: tag in the aad",         1, A_OUT,       A_AAD + 2, 16, 0},
+        {"encrypt: tag in the key",         1, A_OUT,       A_KEY + 4, 16, 0},
+        {"encrypt: out over the aad",       1, A_AAD,       A_TAG,     16, 0},
+        {"encrypt: out over the nonce",     1, A_NONCE - 8, A_TAG,     16, 0},
+        {"encrypt: out over the key",       1, A_KEY,       A_TAG,     16, 0},
+        {"decrypt: out == in",              0, A_IN,        A_TAG,     16, 1},
+        {"decrypt: out = in + 1",           0, A_IN + 1,    A_TAG,     16, 0},
+        {"decrypt: out over the tag",       0, A_TAG - 8,   A_TAG,     16, 0},
+        {"decrypt: out over the aad",       0, A_AAD,       A_TAG,     16, 0},
+        {"decrypt: out over the nonce",     0, A_NONCE - 8, A_TAG,     16, 0},
+        {"decrypt: out over the key",       0, A_KEY,       A_TAG,     16, 0},
+        /* A short tag is ZUC_ERR_AUTH, which zeroes the output; with the
+         * output overlapping the input that would wipe the caller's
+         * ciphertext, so the overlap must be refused first. */
+        {"decrypt: out = in + 1, short tag", 0, A_IN + 1,   A_TAG,     15, 0}
+    };
+    uint8_t arena[A_SIZE], before[A_SIZE], pt[A_LEN], ct[A_LEN], tag[16];
+    uint8_t both[A_LEN + 16], plain[A_LEN];
+    size_t c, i;
+    zuc_status st;
+
+    for (i = 0; i < A_SIZE; i++) arena[i] = (uint8_t) (i * 7 + 3);
+    memcpy(pt, arena + A_IN, A_LEN);
+    st = zuc_aead_encrypt(ZUC_ALG_AES_GCM, arena + A_KEY, 16, arena + A_NONCE,
+                          12, arena + A_AAD, 20, pt, A_LEN, ct, tag, 16);
+    if (st != ZUC_OK) { alias_bad("aead reference", "failed", st); return; }
+
+    for (c = 0; c < sizeof cases / sizeof cases[0]; c++) {
+        const aead_alias_case *k = &cases[c];
+        uint8_t *out, *tg;
+
+        for (i = 0; i < A_SIZE; i++) arena[i] = (uint8_t) (i * 7 + 3);
+        if (!k->encrypt) {
+            memcpy(arena + A_IN, ct, A_LEN);
+            memcpy(arena + k->tag, tag, 16);
+        }
+        out = arena + k->out;
+        tg = arena + k->tag;
+        memcpy(before, arena, A_SIZE);
+        alias_cases++;
+        if (k->encrypt) {
+            st = zuc_aead_encrypt(ZUC_ALG_AES_GCM, arena + A_KEY, 16,
+                                  arena + A_NONCE, 12, arena + A_AAD, 20,
+                                  arena + A_IN, A_LEN, out, tg, k->tag_len);
+        } else {
+            st = zuc_aead_decrypt(ZUC_ALG_AES_GCM, arena + A_KEY, 16,
+                                  arena + A_NONCE, 12, arena + A_AAD, 20,
+                                  arena + A_IN, A_LEN, tg, k->tag_len, out);
+        }
+        if (k->ok) {
+            if (st != ZUC_OK) {
+                alias_bad(k->name, "refused", st);
+            } else if (memcmp(out, k->encrypt ? ct : pt, A_LEN) != 0 ||
+                       (k->encrypt && memcmp(tg, tag, 16) != 0)) {
+                alias_bad(k->name, "wrong result", st);
+            }
+        } else if (st != ZUC_ERR_OVERLAP) {
+            alias_bad(k->name, "not refused as an overlap", st);
+        } else if (memcmp(arena, before, A_SIZE) != 0) {
+            alias_bad(k->name, "refused, but wrote", st);
+        }
+    }
+
+    /* Two read-only buffers may share bytes: the tag read from the bytes
+     * that follow the ciphertext in one buffer. */
+    memcpy(both, ct, A_LEN);
+    memcpy(both + A_LEN, tag, 16);
+    for (i = 0; i < A_SIZE; i++) arena[i] = (uint8_t) (i * 7 + 3);
+    alias_cases++;
+    st = zuc_aead_decrypt(ZUC_ALG_AES_GCM, arena + A_KEY, 16, arena + A_NONCE,
+                          12, arena + A_AAD, 20, both, A_LEN, both + A_LEN, 16,
+                          plain);
+    if (st != ZUC_OK || memcmp(plain, pt, A_LEN) != 0) {
+        alias_bad("decrypt: tag and ciphertext in one buffer", "wrong result",
+                  st);
+    }
+}
+
+/* The differential for the one-shot functions without an overlap rule of
+ * their own: with the output placed at several offsets into an input, the
+ * call either gives the result it gives with separate buffers, or refuses
+ * with ZUC_ERR_OVERLAP and writes nothing. */
+typedef zuc_status (*alias_fn)(const uint8_t *in, size_t in_len,
+                               uint8_t *out, size_t out_size, size_t *out_len,
+                               const void *ctx);
+
+static void alias_run(const char *name, alias_fn f, const void *ctx,
+                      const uint8_t *input, size_t in_len, size_t out_size,
+                      const long *deltas, size_t ndeltas)
+{
+    uint8_t want[600], arena[2048], before[2048];
+    size_t want_len = 0, got_len = 0, i, d;
+    const size_t base = 700;
+    zuc_status st;
+    char what[120];
+
+    st = f(input, in_len, want, out_size, &want_len, ctx);
+    if (st != ZUC_OK) { alias_bad(name, "reference failed", st); return; }
+    for (d = 0; d < ndeltas; d++) {
+        uint8_t *in = arena + base;
+        uint8_t *out = arena + (long) base + deltas[d];
+
+        for (i = 0; i < sizeof arena; i++) arena[i] = (uint8_t) (i * 3 + 1);
+        memcpy(in, input, in_len);
+        memcpy(before, arena, sizeof arena);
+        snprintf(what, sizeof what, "%s: out = in %+ld", name, deltas[d]);
+        alias_cases++;
+        st = f(in, in_len, out, out_size, &got_len, ctx);
+        if (st == ZUC_OK) {
+            if (got_len != want_len || memcmp(out, want, want_len) != 0) {
+                alias_bad(what, "wrong result", st);
+            }
+        } else if (st == ZUC_ERR_OVERLAP) {
+            if (memcmp(arena, before, sizeof arena) != 0) {
+                alias_bad(what, "refused, but wrote", st);
+            }
+        } else {
+            alias_bad(what, "unexpected status", st);
+        }
+    }
+}
+
+static void alias_differential(const char *name, alias_fn f, const void *ctx,
+                               size_t in_len, size_t out_size)
+{
+    uint8_t input[600];
+    long deltas[5];
+    size_t i;
+
+    for (i = 0; i < in_len; i++) input[i] = (uint8_t) (i * 13 + 5);
+    deltas[0] = 0;
+    deltas[1] = 1;
+    deltas[2] = (long) in_len / 2;
+    deltas[3] = -(long) out_size + 1;
+    deltas[4] = (long) in_len - 1;
+    alias_run(name, f, ctx, input, in_len, out_size, deltas, 5);
+}
+
+static zuc_status alias_hash(const uint8_t *in, size_t n, uint8_t *out,
+                             size_t size, size_t *len, const void *ctx)
+{
+    return zuc_hash_compute(*(const zuc_alg *) ctx, in, n, out, size, len);
+}
+
+static zuc_status alias_hmac_data(const uint8_t *in, size_t n, uint8_t *out,
+                                  size_t size, size_t *len, const void *ctx)
+{
+    static const uint8_t key[20] = {1, 2, 3};
+    (void) ctx;
+    return zuc_hmac_compute(ZUC_ALG_SHA256, key, sizeof key, in, n, out, size,
+                            len);
+}
+
+static zuc_status alias_hmac_key(const uint8_t *in, size_t n, uint8_t *out,
+                                 size_t size, size_t *len, const void *ctx)
+{
+    static const uint8_t data[33] = {9, 8, 7};
+    (void) ctx;
+    return zuc_hmac_compute(ZUC_ALG_SHA256, in, n, data, sizeof data, out,
+                            size, len);
+}
+
+static zuc_status alias_pbkdf2_password(const uint8_t *in, size_t n,
+                                        uint8_t *out, size_t size,
+                                        size_t *len, const void *ctx)
+{
+    static const uint8_t salt[16] = {4, 4};
+    (void) ctx;
+    *len = size;
+    return zuc_pbkdf2_hmac(ZUC_ALG_SHA256, in, n, salt, sizeof salt, 3, out,
+                           size);
+}
+
+static zuc_status alias_pbkdf2_salt(const uint8_t *in, size_t n, uint8_t *out,
+                                    size_t size, size_t *len, const void *ctx)
+{
+    static const uint8_t password[8] = {7};
+    (void) ctx;
+    *len = size;
+    return zuc_pbkdf2_hmac(ZUC_ALG_SHA256, password, sizeof password, in, n,
+                           3, out, size);
+}
+
+typedef struct { const zuc_pkey *key; zuc_alg scheme, hash; } pkey_ctx;
+
+static zuc_status alias_sign(const uint8_t *in, size_t n, uint8_t *out,
+                             size_t size, size_t *len, const void *ctx)
+{
+    const pkey_ctx *c = (const pkey_ctx *) ctx;
+    return zuc_pkey_sign_hash(c->key, c->scheme, c->hash, in, n, out, size,
+                              len);
+}
+
+static zuc_status alias_decrypt(const uint8_t *in, size_t n, uint8_t *out,
+                                size_t size, size_t *len, const void *ctx)
+{
+    const pkey_ctx *c = (const pkey_ctx *) ctx;
+    return zuc_pkey_decrypt(c->key, c->scheme, c->hash, in, n, out, size, len);
+}
+
+/* RSA decryption needs a real ciphertext as its input. */
+static void decrypt_differential(const zuc_pkey *key, zuc_alg scheme,
+                                 const char *name)
+{
+    static const uint8_t msg[] = "aliasing the decryption output";
+    static const long deltas[] = {0, 1, 40};
+    uint8_t ct[600];
+    size_t ct_len = 0;
+    pkey_ctx c;
+    zuc_status st;
+
+    c.key = key;
+    c.scheme = scheme;
+    c.hash = scheme == ZUC_ALG_RSA_OAEP ? ZUC_ALG_SHA256 : ZUC_ALG_NONE;
+    st = zuc_pkey_encrypt(key, scheme, c.hash, msg, sizeof msg, ct,
+                          sizeof ct, &ct_len);
+    if (st != ZUC_OK) { alias_bad(name, "encrypt failed", st); return; }
+    alias_run(name, alias_decrypt, &c, ct, ct_len, 512, deltas, 3);
+}
+
+/* Every aliasing case, as a character vector of failures (empty when all
+ * hold) with the number of cases run as attribute "cases". `rsa` is an RSA
+ * private key (DER or PEM), for the signature and decryption cases. */
+SEXP zucrypt_test_alias(SEXP rsa)
+{
+    static const zuc_alg digests[] = {ZUC_ALG_SHA1, ZUC_ALG_SHA256,
+                                      ZUC_ALG_SHA384, ZUC_ALG_SHA512};
+    size_t rsa_len = 0, i;
+    const uint8_t *rsa_bytes = raw_arg(rsa, &rsa_len, "rsa");
+    zuc_pkey *rk = NULL, *ek = NULL;
+    zuc_status st;
+    SEXP out, n;
+    int k;
+
+    alias_nfail = 0;
+    alias_cases = 0;
+    aead_alias();
+    for (i = 0; i < 4; i++) {
+        alias_differential(zuc_alg_name(digests[i]), alias_hash, &digests[i],
+                           200, zuc_alg_size(digests[i]));
+    }
+    alias_differential("hmac: out over data", alias_hmac_data, NULL, 150, 32);
+    alias_differential("hmac: out over key", alias_hmac_key, NULL, 100, 32);
+    alias_differential("pbkdf2: out over password", alias_pbkdf2_password,
+                       NULL, 40, 48);
+    alias_differential("pbkdf2: out over salt", alias_pbkdf2_salt, NULL, 40,
+                       48);
+
+    st = zuc_pkey_parse(rsa_bytes, rsa_len, 1, &rk);
+    if (st != ZUC_OK) {
+        alias_bad("rsa key", "parse failed", st);
+    } else {
+        pkey_ctx c1;
+        c1.key = rk;
+        c1.scheme = ZUC_ALG_RSA_PKCS1V15_SIGN;
+        c1.hash = ZUC_ALG_SHA256;
+        alias_differential("rsa pkcs1v15 sign: sig over digest", alias_sign,
+                           &c1, 32, 512);
+        decrypt_differential(rk, ZUC_ALG_RSA_OAEP, "rsa oaep decrypt");
+        decrypt_differential(rk, ZUC_ALG_RSA_PKCS1V15_CRYPT,
+                             "rsa pkcs1v15 decrypt");
+    }
+    st = zuc_pkey_generate(ZUC_ALG_EC_P256, 0, &ek);
+    if (st != ZUC_OK) {
+        alias_bad("p256 key", "generate failed", st);
+    } else {
+        pkey_ctx c2;
+        c2.key = ek;
+        c2.scheme = ZUC_ALG_ECDSA_DETERMINISTIC;
+        c2.hash = ZUC_ALG_SHA256;
+        alias_differential("ecdsa: sig over digest", alias_sign, &c2, 32, 64);
+    }
+    zuc_pkey_free(rk);
+    zuc_pkey_free(ek);
+
+    k = alias_nfail < ALIAS_MAX_FAIL ? alias_nfail : ALIAS_MAX_FAIL;
+    out = PROTECT(Rf_allocVector(STRSXP, k));
+    for (i = 0; i < (size_t) k; i++) {
+        SET_STRING_ELT(out, (R_xlen_t) i, Rf_mkChar(alias_fail[i]));
+    }
+    n = PROTECT(Rf_ScalarInteger(alias_cases));
+    Rf_setAttrib(out, Rf_install("cases"), n);
+    UNPROTECT(2);
+    return out;
+}
+
 const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_hash",           (DL_FUNC) &zucrypt_test_hash,           3},
     {"zucrypt_test_hmac",           (DL_FUNC) &zucrypt_test_hmac,           4},
@@ -1514,5 +1844,6 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_cbc_mct",        (DL_FUNC) &zucrypt_test_cbc_mct,        5},
     {"zucrypt_test_residue",        (DL_FUNC) &zucrypt_test_residue,        4},
     {"zucrypt_test_residue_control", (DL_FUNC) &zucrypt_test_residue_control, 0},
+    {"zucrypt_test_alias",          (DL_FUNC) &zucrypt_test_alias,          1},
     {NULL, NULL, 0}
 };

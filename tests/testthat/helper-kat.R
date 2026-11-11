@@ -195,3 +195,4 @@ base64_encode_raw <- function(x) {
   if (pad) out[length(out) - seq_len(pad) + 1L] <- "="
   paste(out, collapse = "")
 }
+native_alias <- function(rsa_der) .Call(zucrypt:::zucrypt_test_alias, rsa_der)

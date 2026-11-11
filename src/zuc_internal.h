@@ -41,6 +41,7 @@ int zuc_int_digest_available(zuc_alg alg);
  * backend supports in place and which this package tests. Returns 1 for
  * every partial overlap, which is what ZUC_ERR_OVERLAP reports. */
 int zuc_int_overlaps(const void *in, const void *out, size_t len);
+int zuc_int_spans_overlap(const void *a, size_t an, const void *b, size_t bn);
 
 /* The name of the compile-time random source, from src/zuc_random.c. */
 const char *zuc_int_random_backend(void);

@@ -55,6 +55,37 @@ static zuc_status check_aead_args(int encrypt, zuc_alg alg,
         ((in == NULL || out == NULL) && len != 0)) {
         return ZUC_ERR_INVALID_ARGUMENT;
     }
+    /* Overlap before every length check (#138): a tag of the wrong length
+     * on decryption is ZUC_ERR_AUTH, which zeroes the output, and an output
+     * overlapping the input would then wipe the caller's ciphertext. The
+     * buffers written are the output and, on encryption, the tag; each may
+     * share no byte with any other buffer, except that the output may be
+     * the input exactly (zuc_int_overlaps()). Two buffers that are only read
+     * may share bytes. */
+    {
+        const uint8_t *rd[5];
+        size_t rn[5], i, nr = 0;
+
+        rd[nr] = key;   rn[nr++] = key_len;
+        rd[nr] = nonce; rn[nr++] = nonce_len;
+        rd[nr] = aad;   rn[nr++] = aad_len;
+        if (!encrypt) {
+            rd[nr] = tag; rn[nr++] = tag_len;
+        }
+        for (i = 0; i < nr; i++) {
+            if (zuc_int_spans_overlap(out, len, rd[i], rn[i]) ||
+                (encrypt && zuc_int_spans_overlap(tag, tag_len, rd[i], rn[i]))) {
+                return ZUC_ERR_OVERLAP;
+            }
+        }
+        if (len != 0 && zuc_int_overlaps(in, out, len)) {
+            return ZUC_ERR_OVERLAP;
+        }
+        if (encrypt && (zuc_int_spans_overlap(tag, tag_len, in, len) ||
+                        zuc_int_spans_overlap(tag, tag_len, out, len))) {
+            return ZUC_ERR_OVERLAP;
+        }
+    }
     if (psa_aead_alg(alg) == 0) {
         return ZUC_ERR_UNSUPPORTED;
     }
@@ -69,9 +100,6 @@ static zuc_status check_aead_args(int encrypt, zuc_alg alg,
      * tag to be written must be the full size. */
     if (tag_len != ZUC_GCM_TAG_SIZE) {
         return encrypt ? ZUC_ERR_BAD_LENGTH : ZUC_ERR_AUTH;
-    }
-    if (len != 0 && zuc_int_overlaps(in, out, len)) {
-        return ZUC_ERR_OVERLAP;
     }
     return ZUC_OK;
 }
@@ -195,8 +223,9 @@ zuc_status zuc_aead_decrypt(zuc_alg alg,
         /* A tag of the wrong length is refused here, before the backend,
          * but it is an authentication failure like any other, and every
          * ZUC_ERR_AUTH leaves the output zeroed: a caller may rely on that
-         * whichever check refused it. The arguments that reach this point
-         * have passed every NULL and overlap check. */
+         * whichever check refused it. Every NULL and overlap check runs
+         * before the tag length is looked at, so the output written here is
+         * the caller's own and overlaps nothing it reads. */
         zuc_secure_zero(plaintext, len);
     }
     if (st != ZUC_OK) {
