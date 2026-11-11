@@ -6,11 +6,6 @@
 # we produce, openssl or Python's cryptography accepts, and what they
 # produce, we accept. A self round trip never counts on its own.
 
-hash_fun <- function(name) {
-  switch(name, sha1 = crypt_sha1, sha256 = crypt_sha256,
-         sha384 = crypt_sha384, sha512 = crypt_sha512)
-}
-
 test_that("every RSA vector reproduces from the key's integers", {
   v <- rsa_vectors()
   expect_gt(nrow(v), 0L)

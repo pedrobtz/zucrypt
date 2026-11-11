@@ -2,14 +2,6 @@
 # *class* and its native_status field rather than on message text. Messages
 # are allowed to be reworded; the class is the contract a caller branches on.
 
-expect_zucrypt_error <- function(expr, class) {
-  cond <- tryCatch(expr, zucrypt_error = function(e) e)
-  expect_s3_class(cond, class)
-  expect_s3_class(cond, "zucrypt_error")
-  expect_s3_class(cond, "error")
-  cond
-}
-
 test_that("character input is refused rather than silently converted", {
   # The rule that matters most: a string is never a file name, never a
   # password, and never a byte sequence with a guessed encoding.
@@ -187,17 +179,8 @@ test_that("AES conditions say which cipher they are about", {
 # and reports whatever its method says, while C reads the true XLENGTH().
 # Every precondition that governs a buffer access or a cast is therefore
 # checked in C as well; R's checks remain, for their messages. Each call
-# below either errors or gives the answer for the true bytes.
-
-lying <- function(x, n) {
-  structure(x, class = "zucrypt_test_lying", lie = as.integer(n))
-}
-local({
-  # Registered for the duration of the file: length() dispatches through
-  # the S3 method table, not through the calling environment.
-  registerS3method("length", "zucrypt_test_lying",
-                   function(x) attr(x, "lie"), envir = globalenv())
-})
+# below either errors or gives the answer for the true bytes. lying() and
+# its length() method are in helper-validation.R.
 
 test_that("crypt_equal() compares true lengths, in both orders (#106)", {
   short <- lying(raw(0), 1L)
