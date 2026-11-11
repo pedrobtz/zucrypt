@@ -93,8 +93,9 @@ The current version's parent issue is
 [v0.1.1 (#77)](https://github.com/pedrobtz/zucrypt/issues/77). Dependents:
 
 - **`zuxlsx`** links the static archive (`LinkingTo: zucrypt (>= 0.1.0)`,
-  no `Imports:`). `revdep.yaml` builds it against every push and pull
-  request. Every zucrypt release after 0.1.0 is additions only, so none puts
+  no `Imports:`). `revdep.yaml` builds it on Linux against every push
+  and pull request, and `platforms.yaml` on macOS and Windows at the full
+  profile. Every zucrypt release after 0.1.0 is additions only, so none puts
   `zuxlsx` back in the release sequence.
 - **`zujwt`** is the workflow that admitted Stages 13a–16a.
 - **`zuhttp`** is the table consumer that was *hoped* for, not a real one:
@@ -128,6 +129,10 @@ python3 tools/make-ec-kat.py --check      # ec.tsv, ec-keys.tsv vs the RFCs
 python3 tools/make-derivation-kat.py ZUXLSX_CHECKOUT --check
 sh tools/check-layering.sh                # adapter R-free, glue backend-free
 bash tools/check-linking.sh               # the archive, as a consumer links it
+make -C ctest run                         # the adapter's C driver (ZUC_CTEST_FULL=1: every alloc)
+make -C fuzz replay-run                   # the fuzz corpus through every oracle
+make -C fuzz replay-asan                  # the same under ASan + UBSan
+tools/ci/platform.sh macos                # platforms.yaml's per-OS checks
 tools/vendor/fetch && tools/vendor/record # re-vendor after a keep/patch change
 tools/vendor/verify                       # vendored tree vs manifest
 R_ENABLE_JIT=0 Rscript tools/alloc-exercise.R [--baseline]
@@ -326,7 +331,11 @@ worse than no job.
   `linux-headers`), and the job sets `error-on: warning` and
   `require-tests: true`.
 - `alloc-failure.yaml` (weekly): sweeps the allocations of the `crypt_*`
-  calls only. `tools/alloc-exercise.R --baseline` runs the prefix so it sits
+  calls only, and compares every result that survives byte for byte with
+  `tools/alloc-expected.tsv` (written from openssl and hashlib by
+  `tools/alloc-expected.R`); a namespace loaded inside the window fails the
+  run. `expect-pattern` lists R's own out-of-memory wordings, and
+  `ignore-crash-pattern` R's regex and `gzfile` crashes. `tools/alloc-exercise.R --baseline` runs the prefix so it sits
   under the floor, and both commands set `R_ENABLE_JIT=0`, because a failed
   allocation in R's own compiler or regex engine crashes R.
   `target-pattern: ZUC_ERR_MEMORY` with `min-target-hits: 20` proves each run
@@ -337,11 +346,25 @@ worse than no job.
   touching it updates the manifest. `vendor-upstream.yaml` (weekly) opens an
   issue when TF-PSA-Crypto releases.
 - Bespoke, adapted from `zukomp`, because what a package publishes is its
-  own: `abi.yaml`; `consumer.yaml`, which builds both fixture packages on
-  Linux, macOS and Windows and fails when zero tests are discovered (`any()`
-  over an empty vector is `FALSE`); `revdep.yaml`, which builds `zuxlsx`
-  against this checkout and runs its decryption tests; `aes-paths.yaml`;
-  `readme.yaml`.
+  own: `abi.yaml`; `consumer.yaml`, which builds both fixture packages and
+  fails when zero tests are discovered (`any()` over an empty vector is
+  `FALSE`); `revdep.yaml`, which builds `zuxlsx` against this checkout and
+  runs its decryption tests; `aes-paths.yaml`; `readme.yaml`. These four
+  run on Linux only.
+- `platforms.yaml` (r-actions' `platforms.yml`, weekly) is their macOS and
+  Windows legs, one job per OS, running `tools/ci/platform.sh <os>`: the
+  headers standalone (macOS), the hardware AES path and the suite against
+  the installed package, both consumer fixtures. At the full profile it adds
+  the fuzz replay (under ASan on macOS) and the `zuxlsx` revdep. Add a new
+  macOS or Windows check there as a step, never as a new job.
+- `fuzz.yaml` (own, gated by `changes.yml`): the corpus in `fuzz/corpus/`
+  through every target's oracle, plain and under ASan + UBSan, on Linux; a
+  30-second libFuzzer run (600 s at full); and the reach job, whose floor is
+  `tools/coverage/floor.dcf`. A crash found becomes a `regress-<issue>-*`
+  seed.
+- `mutation.yaml` (r-actions' `mutation.yml`): Mull over `src/zuc_*.c`,
+  killed by the C driver in `ctest/`. Reported and read, never gated;
+  survivors are filed as issues (#126–#130).
 - `pkgdown.yaml` is this repository's own, deploying to `gh-pages` on push
   to `main`.
 - `assurance.yaml` runs r-actions' `assurance.yml`, which holds
