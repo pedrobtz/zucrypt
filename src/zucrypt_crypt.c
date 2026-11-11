@@ -46,6 +46,80 @@
  * Context ownership
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * Finalizers that run before the DLL goes (#144)
+ *
+ * Every object below is owned by an external pointer with a C finalizer,
+ * and that finalizer is code in this DLL. pkgload::unload() and
+ * devtools::load_all() unload the DLL while such objects may still be
+ * alive; the next collection then called a finalizer in unmapped memory
+ * (a segfault, on Linux and macOS alike). So each finalizer is registered
+ * through a weak reference kept here, and .onUnload() (R/zzz.R) calls
+ * zucrypt_unload_finalizers(), which runs every pending one with
+ * R_RunWeakRefFinalizer() while the code is still mapped. Not an
+ * R_unload_zucrypt(): R finds that through R_dlsym(), which returns NULL
+ * for an unregistered name once R_useDynamicSymbols(dll, FALSE) is set.
+ * A finalizer that has run is never run again, so a key that outlives the
+ * unload is left holding a NULL address, which every entry point refuses.
+ *
+ * The registry is a pairlist under one preserved cell. Entries whose key
+ * has been collected (its finalizer already run) are pruned as new ones
+ * arrive, so it stays proportional to the live objects.
+ * ------------------------------------------------------------------ */
+
+static SEXP finalizer_registry = NULL;  /* CONS(R_NilValue, list) */
+static long registry_length = 0, registry_prune_at = 64;
+
+static void registry_prune(void)
+{
+    SEXP prev = finalizer_registry, node = CDR(finalizer_registry);
+    registry_length = 0;
+    while (node != R_NilValue) {
+        if (R_WeakRefKey(CAR(node)) == R_NilValue) {
+            SETCDR(prev, CDR(node));
+        } else {
+            prev = node;
+            registry_length++;
+        }
+        node = CDR(node);
+    }
+    registry_prune_at = 2 * registry_length + 64;
+}
+
+/* R_RegisterCFinalizerEx(ptr, fin, TRUE), remembered for the unload. The
+ * weak reference exists, and owns the finalizer, before anything here can
+ * longjmp, so a failure to remember it leaves the object finalized as
+ * before, only not early. */
+static void register_finalizer(SEXP ptr, R_CFinalizer_t fin)
+{
+    SEXP w = PROTECT(R_MakeWeakRefC(ptr, R_NilValue, fin, TRUE));
+    if (finalizer_registry == NULL) {
+        finalizer_registry = Rf_cons(R_NilValue, R_NilValue);
+        R_PreserveObject(finalizer_registry);
+    }
+    if (registry_length >= registry_prune_at) {
+        registry_prune();
+    }
+    SETCDR(finalizer_registry, Rf_cons(w, CDR(finalizer_registry)));
+    registry_length++;
+    UNPROTECT(1);
+}
+
+SEXP zucrypt_unload_finalizers(void)
+{
+    SEXP node;
+    if (finalizer_registry == NULL) {
+        return R_NilValue;
+    }
+    for (node = CDR(finalizer_registry); node != R_NilValue; node = CDR(node)) {
+        R_RunWeakRefFinalizer(CAR(node));
+    }
+    R_ReleaseObject(finalizer_registry);
+    finalizer_registry = NULL;
+    registry_length = 0;
+    return R_NilValue;
+}
+
 static void hash_finalizer(SEXP ptr)
 {
     zuc_hash *h = (zuc_hash *) R_ExternalPtrAddr(ptr);
@@ -182,7 +256,7 @@ SEXP zucrypt_hash(SEXP data, SEXP algorithm)
     /* The owner first, then the context into it: nothing between the
      * context's creation and its owner can longjmp. */
     ptr = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, hash_finalizer, TRUE);
+    register_finalizer(ptr, hash_finalizer);
     st = zuc_hash_new(alg, &h);
     if (st != ZUC_OK) {
         res = result(st, R_NilValue);
@@ -237,7 +311,7 @@ SEXP zucrypt_hmac(SEXP data, SEXP key, SEXP algorithm)
     size_t got = 0, offset = 0;
 
     ptr = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, hmac_finalizer, TRUE);
+    register_finalizer(ptr, hmac_finalizer);
     st = zuc_hmac_new(alg, (const uint8_t *) RAW(key), (size_t) XLENGTH(key), &h);
     if (st != ZUC_OK) {
         res = result(st, R_NilValue);
@@ -299,8 +373,8 @@ static SEXP stream_ptr(int kind, zuc_alg alg)
     INTEGER(tag)[0] = kind;
     INTEGER(tag)[1] = (int) alg;
     ptr = PROTECT(R_MakeExternalPtr(NULL, tag, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, kind == ZUCRYPT_STREAM_HASH
-                                    ? hash_finalizer : hmac_finalizer, TRUE);
+    register_finalizer(ptr, kind == ZUCRYPT_STREAM_HASH
+                                    ? hash_finalizer : hmac_finalizer);
     UNPROTECT(2);
     return ptr;
 }
@@ -422,7 +496,7 @@ SEXP zucrypt_aes_cbc(SEXP data, SEXP key, SEXP iv, SEXP encrypt)
     }
 
     ptr = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
-    R_RegisterCFinalizerEx(ptr, aes_finalizer, TRUE);
+    register_finalizer(ptr, aes_finalizer);
     st = zuc_aes_new((const uint8_t *) RAW(key), (size_t) XLENGTH(key), &aes);
     if (st != ZUC_OK) {
         res = result(st, R_NilValue);
@@ -678,7 +752,7 @@ static void pkey_finalizer(SEXP ptr)
 static SEXP pkey_ptr(void)
 {
     SEXP ptr = PROTECT(R_MakeExternalPtr(NULL, pkey_tag(), R_NilValue));
-    R_RegisterCFinalizerEx(ptr, pkey_finalizer, TRUE);
+    register_finalizer(ptr, pkey_finalizer);
     UNPROTECT(1);
     return ptr;
 }
@@ -898,6 +972,7 @@ SEXP zucrypt_pkey_agree(SEXP ptr, SEXP peer)
 
 const R_CallMethodDef zucrypt_crypt_call_methods[] = {
     {"zucrypt_hash",        (DL_FUNC) &zucrypt_hash,        2},
+    {"zucrypt_unload_finalizers", (DL_FUNC) &zucrypt_unload_finalizers, 0},
     {"zucrypt_hmac",        (DL_FUNC) &zucrypt_hmac,        3},
     {"zucrypt_aes_cbc",     (DL_FUNC) &zucrypt_aes_cbc,     4},
     {"zucrypt_equal",       (DL_FUNC) &zucrypt_equal,       2},

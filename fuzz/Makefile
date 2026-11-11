@@ -30,14 +30,22 @@ VNAMES   := $(shell sed -n 's|^  \$$(VENDOR)/lib/\([a-z0-9_]*\)\.o.*|\1|p' $(SRC
 OWN      := $(notdir $(basename $(wildcard $(SRC)/zuc_*.c)))
 NAMES    := $(OWN) $(addprefix v_,$(VNAMES))
 
+# Every library object depends on every header and on src/Makevars (#109),
+# so a changed configuration or a re-vendored header rebuilds them: before,
+# switching to a branch without zuc_int_free() left build-plain/ compiled
+# against it, and replay-run failed to link.
+LIBHDRS  := $(SRC)/Makevars $(wildcard $(SRC)/*.h) \
+            $(wildcard ../inst/include/*.h) \
+            $(wildcard $(VENDOR)/inc/*/*.h $(VENDOR)/inc/*/*/*.h $(VENDOR)/lib/*.h)
+
 # One library build per flavour: plain, asan, fuzz.
 objs = $(patsubst %,build-$(1)/%.o,$(NAMES))
 
 define flavour
-build-$(1)/v_%.o: $(VENDOR)/lib/%.c
+build-$(1)/v_%.o: $(VENDOR)/lib/%.c $(LIBHDRS)
 	@mkdir -p build-$(1)
 	$(2) $(CPPFLAGS) $(BASE) $(3) -w -c $$< -o $$@
-build-$(1)/%.o: $(SRC)/%.c
+build-$(1)/%.o: $(SRC)/%.c $(LIBHDRS)
 	@mkdir -p build-$(1)
 	$(2) $(CPPFLAGS) $(BASE) $(3) -c $$< -o $$@
 endef
@@ -86,5 +94,10 @@ clean-bin:
 	  $(addprefix fuzz_,$(TARGETS))
 	rm -f build-plain/*.o
 
-.PHONY: replay fuzz replay-run replay-asan fuzz-run clean-bin
+# Everything a build left: binaries, their debug bundles and every flavour's
+# objects (#109).
+clean: clean-bin
+	rm -rf build-plain build-asan build-fuzz *.dSYM
+
+.PHONY: replay fuzz replay-run replay-asan fuzz-run clean-bin clean
 .SECONDARY:

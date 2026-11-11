@@ -77,6 +77,24 @@
 
 ## Bug fixes
 
+* Unloading zucrypt -- `unloadNamespace()`, and so `pkgload::unload()` and
+  `devtools::load_all()` -- while keys or contexts were still alive crashed
+  R at the next garbage collection, which called their finalizers in the
+  unloaded library (#144). `.onUnload()` now finalizes every live object
+  first; one that outlives the unload is refused as no longer valid.
+
+* `crypt_rand_bytes()`, key generation and randomised signing failed with
+  `zucrypt_entropy_error` on Linux when the kernel refuses `getrandom()`: a
+  kernel before 3.17 under a recent glibc, as in a current container on an
+  old host, or a seccomp filter (#144). They now read `/dev/urandom` instead,
+  and `crypt_info()$build_flags$random_backend` says so.
+
+* On 64-bit Arm under systems other than Linux and macOS (FreeBSD, Windows),
+  AES is built with the software implementation (#144). The hardware path
+  is detected at run time only on Linux upstream, and assumed elsewhere, so
+  a CPU without the Cryptography Extension would have failed on its first
+  AES operation.
+
 * A condition about a key now carries that key's type in its `algorithm`
   field (`"rsa"`, `"p256"`, `"p384"`, `"p521"` or `"x25519"`), and `NA` when
   the input is not a key (#143); every key condition said `"rsa"`. A public

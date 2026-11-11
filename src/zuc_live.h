@@ -27,6 +27,11 @@ long zuc_int_live_contexts(void);
  * Only the test harness calls it, and it always switches it back off. */
 void zuc_int_random_fail(int on);
 
+/* While `on` is non-zero, getrandom() is treated as refused with ENOSYS, so
+ * the source falls back to /dev/urandom (#144); off forgets the fallback.
+ * Returns 0, and does nothing, on a build that does not use getrandom(). */
+int zuc_int_random_enosys(int on);
+
 /* Make the backend's `n`th allocation from now fail (n >= 1), once; 0
  * switches it off. Only allocations through zuc_int_calloc() count -- the
  * backend's, not the adapter's own -- so a test can fail an operation at a

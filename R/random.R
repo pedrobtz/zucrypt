@@ -2,8 +2,9 @@
 #'
 #' Draws `n` bytes from the operating system's cryptographic random source:
 #' `rand_s` on Windows, `arc4random_buf` on macOS and the BSDs, `getrandom` on
-#' Linux with glibc 2.25 or later, and `/dev/urandom` elsewhere.
-#' [crypt_info()] names the one compiled in, in
+#' Linux with glibc 2.25 or later, and `/dev/urandom` elsewhere. Where the
+#' kernel or a seccomp filter refuses `getrandom` (a kernel before 3.17), it
+#' reads `/dev/urandom` instead. [crypt_info()] names the source in use, in
 #' `build_flags$random_backend`. Use these bytes for keys, initialisation
 #' vectors, nonces and salts.
 #'

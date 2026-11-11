@@ -874,6 +874,13 @@ SEXP zucrypt_test_random_fail(SEXP on)
     return R_NilValue;
 }
 
+/* Turn the simulated ENOSYS from getrandom() on or off (#144). TRUE when
+ * this build draws from getrandom(), FALSE (and nothing done) otherwise. */
+SEXP zucrypt_test_random_enosys(SEXP on)
+{
+    return Rf_ScalarLogical(zuc_int_random_enosys(Rf_asLogical(on) == TRUE));
+}
+
 /* The AEAD and KDF contracts of zucrypt.h, and design.md section 12's
  * authenticated-encryption gate, driven in C. Every case is named; its
  * value is the status the adapter returned, or "TRUE"/"FALSE" for a
@@ -1835,6 +1842,7 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_null_buffers",   (DL_FUNC) &zucrypt_test_null_buffers,   0},
     {"zucrypt_test_random_contract", (DL_FUNC) &zucrypt_test_random_contract, 0},
     {"zucrypt_test_random_fail",    (DL_FUNC) &zucrypt_test_random_fail,    1},
+    {"zucrypt_test_random_enosys",  (DL_FUNC) &zucrypt_test_random_enosys,  1},
     {"zucrypt_test_aead_contract",  (DL_FUNC) &zucrypt_test_aead_contract,  0},
     {"zucrypt_test_pkey_contract",  (DL_FUNC) &zucrypt_test_pkey_contract,  1},
     {"zucrypt_test_ec_contract",    (DL_FUNC) &zucrypt_test_ec_contract,    0},

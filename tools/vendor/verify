@@ -115,6 +115,16 @@ if ! grep -q "TF_PSA_CRYPTO_CONFIG_FILE=.*zuc_crypto_config.h" src/Makevars; the
     status=1
 fi
 
+# 5a. every vendored header is a prerequisite of every object (#109)
+#
+# src/Makevars lists them because portable make cannot glob them; a header
+# missing from the list is one whose change a rebuild would not see.
+if [ "$(makevars_with_headers)" != "$(cat src/Makevars)" ]; then
+    printf 'FAIL src/Makevars VENDOR_HEADERS differs from the vendored tree;\n' >&2
+    printf '  run tools/vendor/record\n' >&2
+    status=1
+fi
+
 # 5. the object list and the trim agree
 #
 # A vendored .c that no OBJECTS entry names is dead weight in the tarball; an

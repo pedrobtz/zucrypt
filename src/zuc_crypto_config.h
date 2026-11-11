@@ -145,7 +145,8 @@ void zuc_int_free(void *p);
  *                     inline assembly, hence MBEDTLS_HAVE_ASM; on 32-bit x86
  *                     it uses intrinsics under its own `#pragma GCC target`.
  *   MBEDTLS_AESCE_C   ARMv8-A (the Cryptography Extension), for Apple
- *                     silicon and 64-bit Arm Linux.
+ *                     silicon and 64-bit Arm Linux. Only there: elsewhere
+ *                     upstream cannot detect it (see below).
  *
  * Both detect the instructions at run time and fall back to the software
  * tables on a CPU without them: MBEDTLS_AES_USE_HARDWARE_ONLY is not set, so
@@ -165,7 +166,13 @@ void zuc_int_free(void *p);
 #if !defined(ZUC_AES_SOFTWARE_ONLY)
 #define MBEDTLS_HAVE_ASM                 1
 #define MBEDTLS_AESNI_C                  1
+/* Upstream detects the Arm extension at run time on Linux only and assumes
+ * it elsewhere (aesce.h), so an Arm CPU without it under FreeBSD or Windows
+ * would fault on the first AES call. Apple's Arm CPUs all have it. Other
+ * systems take the software path (#144; tools/ci/check-aes-config.sh). */
+#if defined(__linux__) || defined(__APPLE__)
 #define MBEDTLS_AESCE_C                  1
+#endif
 #endif
 
 /* MBEDTLS_PSA_CRYPTO_C requires an RNG: CTR-DRBG, HMAC-DRBG, or an external

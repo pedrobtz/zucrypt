@@ -16,8 +16,9 @@ A raw vector of length \code{n}.
 \description{
 Draws \code{n} bytes from the operating system's cryptographic random source:
 \code{rand_s} on Windows, \code{arc4random_buf} on macOS and the BSDs, \code{getrandom} on
-Linux with glibc 2.25 or later, and \verb{/dev/urandom} elsewhere.
-\code{\link[=crypt_info]{crypt_info()}} names the one compiled in, in
+Linux with glibc 2.25 or later, and \verb{/dev/urandom} elsewhere. Where the
+kernel or a seccomp filter refuses \code{getrandom} (a kernel before 3.17), it
+reads \verb{/dev/urandom} instead. \code{\link[=crypt_info]{crypt_info()}} names the source in use, in
 \code{build_flags$random_backend}. Use these bytes for keys, initialisation
 vectors, nonces and salts.
 }

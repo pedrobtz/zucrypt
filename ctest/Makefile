@@ -27,15 +27,18 @@ VNAMES  := $(shell sed -n 's|^  \$$(VENDOR)/lib/\([a-z0-9_]*\)\.o.*|\1|p' $(SRC)
 VOBJ    := $(patsubst %,$(BUILD)/v_%.o,$(VNAMES))
 OWN     := $(notdir $(basename $(wildcard $(SRC)/zuc_*.c)))
 OOBJ    := $(patsubst %,$(BUILD)/%.o,$(OWN))
-HEADERS := $(SRC)/zuc_internal.h $(SRC)/zuc_live.h $(SRC)/zuc_crypto_config.h \
-           ../inst/include/zucrypt.h
+# Every object depends on every header and on src/Makevars (#109): a
+# coarse rule that rebuilds everything on any change and never too little.
+HEADERS := $(SRC)/Makevars $(wildcard $(SRC)/*.h) \
+           $(wildcard ../inst/include/*.h) \
+           $(wildcard $(VENDOR)/inc/*/*.h $(VENDOR)/inc/*/*/*.h $(VENDOR)/lib/*.h)
 
 all: run
 
 $(BUILD):
 	mkdir -p $(BUILD)
 
-$(BUILD)/v_%.o: $(VENDOR)/lib/%.c $(SRC)/zuc_crypto_config.h | $(BUILD)
+$(BUILD)/v_%.o: $(VENDOR)/lib/%.c $(HEADERS) | $(BUILD)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -w -c $< -o $@
 
 $(BUILD)/%.o: $(SRC)/%.c $(HEADERS) | $(BUILD)
@@ -51,6 +54,6 @@ run: zuc_ctest
 	./zuc_ctest ../tests/testthat/fixtures
 
 clean:
-	rm -f zuc_ctest $(BUILD)/*.o
+	rm -rf zuc_ctest zuc_ctest.dSYM build build-*
 
 .PHONY: all run clean

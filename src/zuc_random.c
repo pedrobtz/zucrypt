@@ -47,6 +47,7 @@
 #elif defined(__GLIBC__) && \
       (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 25))
 #  include <errno.h>
+#  include <stdio.h>
 #  include <sys/random.h>
 #  define ZUC_RANDOM_GETRANDOM 1
 #  define ZUC_RANDOM_BACKEND "getrandom"
@@ -56,8 +57,20 @@
 #  define ZUC_RANDOM_BACKEND "/dev/urandom"
 #endif
 
+/* Set once getrandom() has been refused by the kernel (ENOSYS: glibc 2.25
+ * or later on a kernel before 3.17) or by a seccomp filter (EPERM): every
+ * draw after that reads /dev/urandom instead (#144). */
+#if defined(ZUC_RANDOM_GETRANDOM)
+static int zuc_random_fallback = 0;
+#endif
+
 const char *zuc_int_random_backend(void)
 {
+#if defined(ZUC_RANDOM_GETRANDOM)
+    if (zuc_random_fallback) {
+        return "/dev/urandom (getrandom() unavailable)";
+    }
+#endif
     return ZUC_RANDOM_BACKEND;
 }
 
@@ -71,6 +84,44 @@ void zuc_int_random_fail(int on)
 {
     zuc_random_failing = on != 0;
 }
+
+/* The harness's other switch: while set, getrandom() is treated as having
+ * failed with ENOSYS, so the suite exercises the fallback on any glibc
+ * build. Switching it off forgets the fallback too. Returns whether this
+ * build draws from getrandom() at all. */
+#if defined(ZUC_RANDOM_GETRANDOM)
+static int zuc_random_enosys = 0;
+#endif
+
+int zuc_int_random_enosys(int on)
+{
+#if defined(ZUC_RANDOM_GETRANDOM)
+    zuc_random_enosys = on != 0;
+    if (!on) {
+        zuc_random_fallback = 0;
+    }
+    return 1;
+#else
+    (void) on;
+    return 0;
+#endif
+}
+
+#if defined(ZUC_RANDOM_GETRANDOM) || defined(ZUC_RANDOM_DEV_URANDOM)
+/* Fill all of `out` from /dev/urandom, or fail. Returns 0 on success. */
+static int urandom_read(uint8_t *out, size_t len)
+{
+    FILE *f = fopen("/dev/urandom", "rb");
+    size_t n;
+
+    if (f == NULL) {
+        return 1;
+    }
+    n = fread(out, 1, len, f);
+    fclose(f);
+    return n != len;
+}
+#endif
 
 /* Fill all of `out`, or fail. Returns 0 on success. Never returns a short
  * read as success: every branch below either loops until `len` bytes have
@@ -102,11 +153,21 @@ static int os_random(uint8_t *out, size_t len)
     /* getrandom() may return short, and a request over 256 bytes may be
      * interrupted by a signal, which R sessions receive routinely. Both
      * mean "ask again", not "the source failed". */
+    if (zuc_random_fallback) {
+        return urandom_read(out, len);
+    }
     while (len > 0) {
-        ssize_t n = getrandom(out, len, 0);
+        ssize_t n = zuc_random_enosys ? (errno = ENOSYS, -1)
+                                      : getrandom(out, len, 0);
         if (n < 0) {
             if (errno == EINTR) {
                 continue;
+            }
+            /* The kernel or a seccomp filter refuses the call itself, not
+             * the request: read the device instead, from now on. */
+            if (errno == ENOSYS || errno == EPERM) {
+                zuc_random_fallback = 1;
+                return urandom_read(out, len);
             }
             return 1;
         }
@@ -116,17 +177,7 @@ static int os_random(uint8_t *out, size_t len)
     return 0;
 
 #else
-    {
-        FILE *f = fopen("/dev/urandom", "rb");
-        size_t n;
-
-        if (f == NULL) {
-            return 1;
-        }
-        n = fread(out, 1, len, f);
-        fclose(f);
-        return n != len;
-    }
+    return urandom_read(out, len);
 #endif
 }
 

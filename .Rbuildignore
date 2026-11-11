@@ -19,6 +19,7 @@
 ^tools/zucrypttest$
 ^tools/zucryptlink$
 ^tools/check-linking\.sh$
+^tools/check-rebuild\.sh$
 ^tools/make-derivation-kat\.py$
 # The standalone C driver over the adapter, run by mutation.yaml (#96).
 ^ctest$

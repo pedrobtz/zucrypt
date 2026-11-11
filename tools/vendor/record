@@ -16,3 +16,11 @@ for src in $(awk 'NR > 1 { print $1 }' FS='\t' "$MANIFEST"); do
     done
 done
 printf 'wrote %s (%s files)\n' "$out" "$(wc -l < "$out" | tr -d ' ')"
+
+# src/Makevars' VENDOR_HEADERS block, from the same tree (#109).
+tmp=$(mktemp)
+makevars_with_headers > "$tmp"
+cat "$tmp" > src/Makevars
+rm -f "$tmp"
+printf 'wrote src/Makevars VENDOR_HEADERS (%s headers)\n' \
+    "$(makevars_headers | grep -c '\.h')"
