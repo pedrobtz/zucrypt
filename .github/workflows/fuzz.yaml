@@ -31,7 +31,7 @@ jobs:
   # and skip-ci:fuzz, and resolves the profile -- quick on a pull request,
   # full on the schedule, a dispatch or a full-ci pull request.
   changes:
-    uses: pedrobtz/r-actions/.github/workflows/changes.yml@v1.35.0
+    uses: pedrobtz/r-actions/.github/workflows/changes.yml@v1
     with:
       name: fuzz
       profile: auto

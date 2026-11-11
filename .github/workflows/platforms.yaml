@@ -30,9 +30,7 @@ permissions:
 
 jobs:
   platforms:
-    # v1.35.0 is the first release with platforms.yml; move to @v1 once the
-    # v1 tag has reached it.
-    uses: pedrobtz/r-actions/.github/workflows/platforms.yml@v1.35.0
+    uses: pedrobtz/r-actions/.github/workflows/platforms.yml@v1
     with:
       profile: auto
       # The script installs zucrypt and runs its suite and the fixtures, so
