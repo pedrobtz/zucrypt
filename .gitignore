@@ -27,3 +27,4 @@ tests/testthat/testthat-problems.rds
 /fuzz/crash-*
 *.dSYM/
 /.revdep/
+tools/wycheproof/cache/
