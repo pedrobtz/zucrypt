@@ -722,8 +722,7 @@ static zuc_status spki_der(const zuc_pkey *key, uint8_t **out,
     psa_destroy_key(id);
     if (ret != 0) {
         mbedtls_pk_free(&pk);
-        return ret == PSA_ERROR_INSUFFICIENT_MEMORY ? ZUC_ERR_MEMORY
-                                                    : ZUC_ERR_BACKEND;
+        return zuc_int_from_psa((psa_status_t) ret);
     }
     buf = malloc(ZUC_PKEY_MAX_WRITE_SIZE);
     if (buf == NULL) {
@@ -735,8 +734,7 @@ static zuc_status spki_der(const zuc_pkey *key, uint8_t **out,
     mbedtls_pk_free(&pk);
     if (ret <= 0) {
         free(buf);
-        return ret == PSA_ERROR_INSUFFICIENT_MEMORY ? ZUC_ERR_MEMORY
-                                                    : ZUC_ERR_BACKEND;
+        return zuc_int_from_psa((psa_status_t) ret);
     }
     memmove(buf, buf + ZUC_PKEY_MAX_WRITE_SIZE - (size_t) ret, (size_t) ret);
     *out = buf;
@@ -984,7 +982,9 @@ static zuc_status pkey_write_impl(const zuc_pkey *key, zuc_pkey_format format,
                                        out, out_size, &olen);
         if (ret == PSA_ERROR_BUFFER_TOO_SMALL) {
             st = ZUC_ERR_BAD_LENGTH;
-        } else if (ret != 0 || olen == 0) {
+        } else if (ret != 0) {
+            st = zuc_int_from_psa((psa_status_t) ret);
+        } else if (olen == 0) {
             st = ZUC_ERR_BACKEND;
         } else {
             /* olen counts the terminating NUL, which is not part of PEM. */
@@ -1241,12 +1241,16 @@ static zuc_status pkey_decrypt_impl(const zuc_pkey *key, zuc_alg scheme, zuc_alg
     if (ps != PSA_SUCCESS) {
         zuc_secure_zero(out, out_size);
         *out_len = 0;
-        /* Out of memory stays itself; every other failure -- bad padding,
-         * a ciphertext of the wrong length or value, an output buffer too
-         * small for what it would hold -- is the one status, so that the
-         * status reveals nothing about the padding. */
-        return ps == PSA_ERROR_INSUFFICIENT_MEMORY ? ZUC_ERR_MEMORY
-                                                   : ZUC_ERR_AUTH;
+        /* Out of memory and a failing entropy source stay themselves
+         * (#140); every other failure -- bad padding, a ciphertext of the
+         * wrong length or value, an output buffer too small for what it
+         * would hold -- is the one status, so that the status reveals
+         * nothing about the padding. Neither exception does: memory is
+         * allocated, and the blinding value drawn, before the ciphertext
+         * is looked at. */
+        st = zuc_int_from_psa(ps);
+        return st == ZUC_ERR_MEMORY || st == ZUC_ERR_ENTROPY ? st
+                                                             : ZUC_ERR_AUTH;
     }
     return ZUC_OK;
 }
@@ -1381,9 +1385,12 @@ static zuc_status pkey_agree_impl(const zuc_pkey *key, const zuc_pkey *peer,
         ps = psa_raw_key_agreement(PSA_ALG_ECDH, id, point, point_len,
                                    out, out_size, out_len);
         psa_destroy_key(id);
-        st = ps == PSA_SUCCESS ? ZUC_OK
-           : ps == PSA_ERROR_INSUFFICIENT_MEMORY ? ZUC_ERR_MEMORY
-           : ZUC_ERR_INVALID_ARGUMENT;
+        /* Memory and entropy (the blinding scalar, #140) stay themselves;
+         * any other failure is the peer's point. */
+        st = zuc_int_from_psa(ps);
+        if (st != ZUC_OK && st != ZUC_ERR_MEMORY && st != ZUC_ERR_ENTROPY) {
+            st = ZUC_ERR_INVALID_ARGUMENT;
+        }
     }
     free(point);
     /* RFC 7748 section 6.1: an all-zero X25519 result means a low-order
@@ -1407,37 +1414,38 @@ static zuc_status pkey_agree_impl(const zuc_pkey *key, const zuc_pkey *peer,
  * The public entry points
  * ------------------------------------------------------------------ */
 
-/* Each operation runs under the allocation watch (zuc_internal.h): a
- * failure that followed a failed allocation inside the backend is
- * ZUC_ERR_MEMORY, never the "invalid key" or "bad padding" the backend may
- * have turned it into. Internal calls use the _impl functions, so that a
- * nested call does not clear the watch. */
+/* Each operation runs under the watch (zuc_internal.h): a failure that
+ * followed a failed allocation inside the backend is ZUC_ERR_MEMORY, and
+ * one that followed a failed draw from the random source ZUC_ERR_ENTROPY
+ * (#140), never the "invalid key", "bad padding" or generic error the
+ * backend may have turned it into. Internal calls use the _impl functions,
+ * so that a nested call does not clear the watch. */
 
 zuc_status zuc_pkey_parse(const uint8_t *in, size_t len, int private_key,
                           zuc_pkey **out)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_parse_impl(in, len, private_key, out));
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_parse_impl(in, len, private_key, out));
 }
 
 zuc_status zuc_pkey_generate(zuc_alg type, size_t bits, zuc_pkey **out)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_generate_impl(type, bits, out));
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_generate_impl(type, bits, out));
 }
 
 zuc_status zuc_pkey_public(const zuc_pkey *key, zuc_pkey **out)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_public_impl(key, out));
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_public_impl(key, out));
 }
 
 zuc_status zuc_pkey_write(const zuc_pkey *key, zuc_pkey_format format,
                           int public_only,
                           uint8_t *out, size_t out_size, size_t *out_len)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_write_impl(key, format, public_only, out, out_size, out_len));
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_write_impl(key, format, public_only, out, out_size, out_len));
 }
 
 zuc_status zuc_pkey_sign_hash(const zuc_pkey *key, zuc_alg scheme,
@@ -1445,8 +1453,8 @@ zuc_status zuc_pkey_sign_hash(const zuc_pkey *key, zuc_alg scheme,
                               const uint8_t *digest, size_t digest_len,
                               uint8_t *sig, size_t sig_size, size_t *sig_len)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_sign_hash_impl(key, scheme, hash, digest, digest_len, sig, sig_size, sig_len));
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_sign_hash_impl(key, scheme, hash, digest, digest_len, sig, sig_size, sig_len));
 }
 
 zuc_status zuc_pkey_verify_hash(const zuc_pkey *key, zuc_alg scheme,
@@ -1454,46 +1462,46 @@ zuc_status zuc_pkey_verify_hash(const zuc_pkey *key, zuc_alg scheme,
                                 const uint8_t *digest, size_t digest_len,
                                 const uint8_t *sig, size_t sig_len)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_verify_hash_impl(key, scheme, hash, digest, digest_len, sig, sig_len));
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_verify_hash_impl(key, scheme, hash, digest, digest_len, sig, sig_len));
 }
 
 zuc_status zuc_pkey_encrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
                             const uint8_t *in, size_t len,
                             uint8_t *out, size_t out_size, size_t *out_len)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_encrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_encrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
 }
 
 zuc_status zuc_pkey_decrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
                             const uint8_t *in, size_t len,
                             uint8_t *out, size_t out_size, size_t *out_len)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_decrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_decrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
 }
 
 zuc_status zuc_pkey_import(zuc_alg type, int private_key,
                            const uint8_t *data, size_t len, zuc_pkey **out)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_import_impl(type, private_key, data, len,
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_import_impl(type, private_key, data, len,
                                               out));
 }
 
 zuc_status zuc_pkey_export(const zuc_pkey *key, int public_only,
                            uint8_t *out, size_t out_size, size_t *out_len)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_export_impl(key, public_only, out, out_size,
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_export_impl(key, public_only, out, out_size,
                                               out_len));
 }
 
 zuc_status zuc_pkey_agree(const zuc_pkey *key, const zuc_pkey *peer,
                           uint8_t *out, size_t out_size, size_t *out_len)
 {
-    zuc_int_alloc_watch();
-    return zuc_int_memory_or(pkey_agree_impl(key, peer, out, out_size,
+    zuc_int_watch();
+    return zuc_int_watched_or(pkey_agree_impl(key, peer, out, out_size,
                                              out_len));
 }

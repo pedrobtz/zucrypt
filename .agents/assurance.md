@@ -82,7 +82,7 @@ One row per boundary the package crosses. An oracle knows the answer:
 | ECDH and X25519 against invalid and low-order peer points | gap #70 | gap #70 |
 | Constant-time comparison (`crypt_equal()`), values | equal, unequal at the first and the last byte, empty, length-aware | test-adapter.R, test-interface.R |
 | Timing of `crypt_equal()`, the GCM tag check and private-key operations | gap #97 | gap #97 |
-| Operating-system random source | two draws differ under one R seed; every byte value appears in 1 MiB + 64; the tail past a chunk is filled; a failing source is `zucrypt_entropy_error`, never bytes | test-random.R |
+| Operating-system random source | two draws differ under one R seed; every byte value appears in 1 MiB + 64; the tail past a chunk is filled; a failing source is `zucrypt_entropy_error`, never bytes; every key operation under a failing source gives its working-source answer or `zucrypt_entropy_error` / `ZUC_ERR_ENTROPY`, never another status (#140) | test-random.R, test-entropy.R, ctest `test_entropy` |
 | Random bytes and ECDSA nonces in forked children | gap #98 | gap #98 |
 | Hex encoding | every byte value; published digests' hex; openssl's hex | test-hex.R |
 | The vendored TF-PSA-Crypto under zucrypt's configuration | gap #69 | gap #69 |

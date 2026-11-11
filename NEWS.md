@@ -77,6 +77,15 @@
 
 ## Bug fixes
 
+* A failing operating-system random source is reported as
+  `zucrypt_entropy_error` (`ZUC_ERR_ENTROPY` in C) by every key operation
+  (#140). `crypt_rsa_decrypt()` reported it as `zucrypt_auth_error`, as if
+  the ciphertext had been forged, `crypt_ec_dh()` and
+  `crypt_x25519_diffie_hellman()` as `zucrypt_invalid_argument`, as if the
+  peer key were bad, and in C, writing the public half of a private EC or
+  X25519 key as SubjectPublicKeyInfo returned `ZUC_ERR_BACKEND`. Decryption
+  still reports every padding failure as the one status.
+
 * In the C API, `zuc_aead_encrypt()` and `zuc_aead_decrypt()` now refuse,
   with `ZUC_ERR_OVERLAP`, a tag or output buffer that overlaps any other
   buffer of the call, as `zucrypt.h` promised (#138). Before, a tag inside

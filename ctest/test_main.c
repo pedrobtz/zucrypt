@@ -1091,6 +1091,94 @@ static void test_ec(void)
 }
 
 /* ------------------------------------------------------------------ *
+ * A failing entropy source is reported as ZUC_ERR_ENTROPY (#140)
+ * ------------------------------------------------------------------ */
+
+static void test_entropy(void)
+{
+    table rk = read_table("rsa-keys.tsv"), ek = read_table("ec-keys.tsv");
+    static uint8_t want[ZUC_PKEY_MAX_WRITE_SIZE], got[ZUC_PKEY_MAX_WRITE_SIZE];
+    uint8_t *der, ct[512], msg[3] = {'a', 'b', 'c'};
+    size_t der_n, want_len, got_len, ct_len;
+    zuc_pkey *keys[3] = {NULL, NULL, NULL}, *peer = NULL, *bob = NULL;
+    zuc_status ws, gs;
+    long entropy = 0;
+    int k, f, pub;
+
+    der = rsa_der(&rk, "rfc7515-a2", &der_n);
+    ST(zuc_pkey_parse(der, der_n, 1, &keys[0]), ZUC_OK);
+    free(der);
+    keys[1] = ec_key(&ek, "rfc5903-p256-i", 1);
+    keys[2] = ec_key(&ek, "rfc7748-alice", 1);
+    peer = ec_key(&ek, "rfc5903-p256-r", 0);
+    bob = ec_key(&ek, "rfc7748-bob", 0);
+    if (!keys[0] || !keys[1] || !keys[2] || !peer || !bob) return;
+
+    /* Every encoding: the answer a working source gives, or ENTROPY. */
+    for (k = 0; k < 3; k++) {
+        for (f = ZUC_PKEY_PKCS1_DER; f <= ZUC_PKEY_INFO_PEM; f++) {
+            for (pub = 0; pub <= 1; pub++) {
+                context = "entropy write";
+                ws = zuc_pkey_write(keys[k], (zuc_pkey_format) f, pub, want,
+                                    sizeof want, &want_len);
+                zuc_int_random_fail(1);
+                gs = zuc_pkey_write(keys[k], (zuc_pkey_format) f, pub, got,
+                                    sizeof got, &got_len);
+                zuc_int_random_fail(0);
+                if (gs == ZUC_ERR_ENTROPY) {
+                    entropy++;
+                    continue;
+                }
+                CHECK(gs == ws && (ws != ZUC_OK || (got_len == want_len &&
+                      memcmp(got, want, want_len) == 0)),
+                      "key %d format %d public %d: %s, working source %s",
+                      k, f, pub, zuc_status_name(gs), zuc_status_name(ws));
+            }
+        }
+    }
+    /* The case the issue names: SubjectPublicKeyInfo from a private P-256
+     * key derives the public point, with blinding. */
+    context = "entropy spki";
+    zuc_int_random_fail(1);
+    ST(zuc_pkey_write(keys[1], ZUC_PKEY_INFO_DER, 1, got, sizeof got,
+                      &got_len), ZUC_ERR_ENTROPY);
+    zuc_int_random_fail(0);
+
+    /* Decryption is blinded and agreement draws a blinding scalar, so a
+     * failing source is ENTROPY, never AUTH ("forged") or INVALID_ARGUMENT
+     * ("bad peer"). */
+    context = "entropy decrypt";
+    ST(zuc_pkey_encrypt(keys[0], ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, msg, 3,
+                        ct, sizeof ct, &ct_len), ZUC_OK);
+    zuc_int_random_fail(1);
+    memset(got, 0x5a, sizeof got);
+    ST(zuc_pkey_decrypt(keys[0], ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, ct, ct_len,
+                        got, sizeof got, &got_len), ZUC_ERR_ENTROPY);
+    CHECK(got_len == 0 && all_bytes(got, sizeof got, 0),
+          "a failed decryption is wiped");
+    zuc_int_random_fail(0);
+    ST(zuc_pkey_encrypt(keys[0], ZUC_ALG_RSA_PKCS1V15_CRYPT, ZUC_ALG_NONE,
+                        msg, 3, ct, sizeof ct, &ct_len), ZUC_OK);
+    zuc_int_random_fail(1);
+    ST(zuc_pkey_decrypt(keys[0], ZUC_ALG_RSA_PKCS1V15_CRYPT, ZUC_ALG_NONE, ct,
+                        ct_len, got, sizeof got, &got_len), ZUC_ERR_ENTROPY);
+    zuc_int_random_fail(0);
+    context = "entropy agree";
+    zuc_int_random_fail(1);
+    ST(zuc_pkey_agree(keys[1], peer, got, sizeof got, &got_len),
+       ZUC_ERR_ENTROPY);
+    ST(zuc_pkey_agree(keys[2], bob, got, sizeof got, &got_len),
+       ZUC_ERR_ENTROPY);
+    zuc_int_random_fail(0);
+    /* And the control: the backend works once the source does. */
+    ST(zuc_pkey_agree(keys[1], peer, got, sizeof got, &got_len), ZUC_OK);
+    CHECK(entropy > 0, "no write drew on the source");
+    for (k = 0; k < 3; k++) zuc_pkey_free(keys[k]);
+    zuc_pkey_free(peer);
+    zuc_pkey_free(bob);
+}
+
+/* ------------------------------------------------------------------ *
  * An allocation-failure sweep, in process
  * ------------------------------------------------------------------ */
 
@@ -1250,6 +1338,7 @@ int main(int argc, char **argv)
     RUN(test_info);
     RUN(test_rsa);
     RUN(test_ec);
+    RUN(test_entropy);
     RUN(test_alloc_sweep);
     RUN(test_lifetime);   /* last: it tears the backend down and back up */
 #undef RUN
