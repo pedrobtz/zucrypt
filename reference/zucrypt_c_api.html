@@ -126,9 +126,13 @@ a security fix – so report the version you actually linked, by calling
     <h2 id="what-the-interface-promises">What the interface promises<a class="anchor" aria-label="anchor" href="#what-the-interface-promises"></a></h2>
 
 
-<ul><li><p>Every function returns a <code>zuc_status</code>. None raises an R error, allocates
-an R object, or calls back into R. No status is negative, so <code>if (st)</code>
-means "not success".</p></li>
+<ul><li><p>Every function that can fail returns a <code>zuc_status</code>; the rest are
+queries and cleanups that cannot (<code>zuc_alg_*()</code>, <code>zuc_status_name()</code>,
+<code>zuc_status_string()</code>, <code>zuc_equal()</code>, <code>zuc_secure_zero()</code>,
+<code>zuc_pkey_type()</code>, <code>zuc_pkey_bits()</code>, <code>zuc_pkey_is_private()</code> and the
+<code>*_free()</code> functions). None raises an R error, allocates an R object,
+or calls back into R. No status is negative, so <code>if (st)</code> means "not
+success".</p></li>
 <li><p>An object the library allocated is destroyed only by a library function.
 No buffer you pass is retained after the call returns.</p></li>
 <li><p><code>inst/include/zucrypt.h</code> compiles standalone as C99 against <code>&lt;stddef.h&gt;</code>

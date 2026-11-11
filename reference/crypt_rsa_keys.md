@@ -76,8 +76,8 @@ crypt_rsa_key(
 
 - bits:
 
-  The modulus size, from 1024 to 4096. 2048 is the minimum for new keys;
-  use 3072 or more for keys meant to last.
+  The modulus size, a multiple of 8 from 1024 to 4096. 2048 is the
+  minimum for new keys; use 3072 or more for keys meant to last.
 
 - x:
 
@@ -113,17 +113,32 @@ for a private key `pubkey`, and `data`: the integers as raw vectors,
 
 ## Errors
 
-Input that is not a readable key is `zucrypt_invalid_argument`; a key of
-another type, such as an EC key, is `zucrypt_unsupported_algorithm`.
+Input that is not a readable key is `zucrypt_invalid_argument`, and so
+is a public key object given where a private key is needed. A
+well-formed key this version cannot use (an RSA key outside the size
+rule, a curve other than P-256, P-384 and P-521, or an encrypted key) is
+`zucrypt_unsupported_algorithm`. A condition about a key carries the
+key's type in its `algorithm` field (`"rsa"`, `"p256"`, `"p384"`,
+`"p521"` or `"x25519"`), and `NA` when the input is not a key.
+
+## Key objects
+
+A key object refers to key material held outside R, so a copy is the
+same key, not a new one: changing the attributes of `k2 <- k` changes
+`k` too. Key objects do not survive
+[`saveRDS()`](https://rdrr.io/r/base/readRDS.html); save the output of
+`crypt_write_pem()` instead.
 
 ## Compared with openssl
 
-Only RSA keys are read in this version, of at most 4096 bits; encrypted
-keys, SSH formats and fingerprints come later.
-[`as.list()`](https://rdrr.io/r/base/list.html) gives the integers as
-raw vectors rather than `bignum`s. There is no default key: `openssl`
-reads `~/.ssh/id_rsa`, and this package never reads your files unless
-you name them.
+RSA keys are read only if the modulus is 1024 to 4096 bits, a whole
+number of bytes; `openssl` also reads smaller keys, which are weak, and
+larger ones. EC keys on P-256, P-384 and P-521, and X25519 keys, are
+read as `openssl` writes them. Encrypted keys, SSH formats and
+fingerprints come later. [`as.list()`](https://rdrr.io/r/base/list.html)
+gives the integers as raw vectors rather than `bignum`s. There is no
+default key: `openssl` reads `~/.ssh/id_rsa`, and this package never
+reads your files unless you name them.
 
 ## Examples
 
@@ -134,13 +149,13 @@ key
 pem <- crypt_write_pem(key$pubkey)
 cat(pem)
 #> -----BEGIN PUBLIC KEY-----
-#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvpWNnE3CZWK4L92WXACx
-#> l+rnNVPzV6V6ex0ZRuDTz0tJ7pXYKCCOOnDDsz5a+oeUfugnv/0UR+HlG+2N7zJc
-#> 6WtspuMp4yu8AfM9CYu+smopr3BH0xM0jYkETzCSXIj+srZIo1lYKzqcPSET2TfU
-#> dVsJpqGqlMp6W8Buh5g7QMbWvg4WJC6YBuObkBZQHJfoYqFSqzH8svjcSfsNacae
-#> NeAC0CTuYhqBtWkTi7Oz3DcQ6THKuGjheYnIeXGaar5RGMWeWq3XfjLRMarOvVVg
-#> 2JaAQKDNT//z+6f+Y+8GQLWKTMFmFKTFwEg6r+2137PQ9woYxP+eEtDzuShwX+FM
-#> LwIDAQAB
+#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzsoPSSpvTI10uCXTo/D4
+#> DTR8OEccZ+cefB8d3JshPy9I6pmJK8p3b8KUBxFSLUb6ar4/33iLgY8+NK2d1Uu7
+#> 6Nz6GZlAyhDScME+aGpuT/7E2YIeuqawv0MojczgPjaOw8KzBMUBw7hvY40XGDrF
+#> NW5pHUYZ0DKewuQiBOWeYE3+aUQRM1MEDAnjpbuJAOMNW/DvGXpBWMMBHUag/g6Q
+#> pyKlqjRmiBKopVEtQDrUDD8eWAYyA+Ld7+GiIkEG4Uf5hfR8Tpk5P0CCpLYIv+0h
+#> XZ4jUo7oIjxDd1pp0jUHtexTM7xHe34L8fEHpzmc1lbkIS+ZTccAMty8vTxD+T4q
+#> 6wIDAQAB
 #> -----END PUBLIC KEY-----
 pub <- crypt_read_pubkey(pem)
 

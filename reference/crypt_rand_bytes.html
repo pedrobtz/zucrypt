@@ -104,11 +104,11 @@ unpredictable: <code>crypt_rand_bytes(16)</code> is one.</p></div>
     <div class="section level2">
     <h2 id="ref-examples">Examples<a class="anchor" aria-label="anchor" href="#ref-examples"></a></h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="fu">crypt_rand_bytes</span><span class="op">(</span><span class="fl">16</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] a4 8b f1 e1 46 ab 2b fe c4 02 c6 01 17 ec 0f d9</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 5c 0a 57 73 98 91 f1 45 36 13 7d a5 cb 68 f4 34</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># A 256-bit key, printed as hex.</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="crypt_hex.html">crypt_hex</a></span><span class="op">(</span><span class="fu">crypt_rand_bytes</span><span class="op">(</span><span class="fl">32</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "9580894442e6e1d781d9fe0a5601c9f99808fd6ee21220b65386bf866469827c"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] "a03954b1e8def180a3ce17d37cf31889070e655ddbef4fbeff88194e15d481e7"</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="co"># set.seed() does not repeat it.</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span></span></span>

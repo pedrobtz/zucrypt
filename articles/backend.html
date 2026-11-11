@@ -352,7 +352,7 @@ keep list and the build’s object list disagree.</p>
 <div class="section level2">
 <h2 id="the-patches">The patches<a class="anchor" aria-label="anchor" href="#the-patches"></a>
 </h2>
-<p><code>src/vendor/</code> is never edited in place. Three changes are
+<p><code>src/vendor/</code> is never edited in place. Four changes are
 applied as patches from <code>tools/patches/tf-psa-crypto/</code>, each
 with its reason in its header:</p>
 <ul>
@@ -378,6 +378,14 @@ AES-GCM encryption crashed R instead of raising
 same file already has in <code>psa_mac_sign_finish()</code>. zucrypt’s
 allocation-failure sweep found it. It should go when upstream fixes the
 function.</li>
+<li>
+<strong><code>0004-wipe-pem-write-buffer.patch</code>.</strong>
+Writing a private key as PEM base64 encodes it into a heap buffer that
+upstream freed without wiping, so the key’s base64 stayed in freed
+memory. The patch wipes the buffer before freeing it, as upstream’s own
+RSA code does for its buffers. zucrypt’s residue scan, which searches
+every block the backend frees for a piece of the key, found it (#137).
+It should go when upstream wipes the buffer.</li>
 </ul>
 <p><code>lib/gcm.c</code>, vendored for AES-GCM, keeps one upstream
 <code>#pragma GCC diagnostic warning</code> block, around an XOR. R CMD

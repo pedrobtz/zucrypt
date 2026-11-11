@@ -211,6 +211,8 @@
 <li><code>0002-drop-diagnostic-pragmas.patch</code></li>
 <li>
 <code>0003-guard-aead-finish-tag-wipe.patch</code> (upstream report: #85)</li>
+<li>
+<code>0004-wipe-pem-write-buffer.patch</code> (#137)</li>
 </ul><p>The configuration is <code>src/zuc_crypto_config.h</code> (forty-eight defines); the trim is 43 objects and 153 files, with <code>aesce.c</code> kept by hand because it has symbols only on Arm. <code>src/Makevars</code> is portable make with an explicit <code>OBJECTS</code> list (no CMake, no GNU make).</p>
 <p>Departures from the family layout, both recorded in <code>.agents/stage-1-spike.md</code>: the trim is a two-column keep list (<code>tools/vendor/keep/&lt;source&gt;.txt</code>) rather than a <code>keep_files()</code> case arm, and the tree is flattened to <code>inc/</code> and <code>lib/</code> because upstream’s paths exceed the 100-byte tarball limit. The patch record is the manifest’s <code>patches</code> column, not a <code>src/vendor/PROVENANCE</code>. Never edit <code>src/vendor/</code> in place: change the keep list or add a patch, re-run <code>tools/vendor/fetch</code> and <code>tools/vendor/record</code>, then <code>tools/vendor/verify</code> before committing.</p>
 </div>

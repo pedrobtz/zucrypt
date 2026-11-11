@@ -146,8 +146,8 @@ recognised from the content.</p></dd>
 
 
 <dt id="arg-bits">bits<a class="anchor" aria-label="anchor" href="#arg-bits"></a></dt>
-<dd><p>The modulus size, from 1024 to 4096. 2048 is the minimum for
-new keys; use 3072 or more for keys meant to last.</p></dd>
+<dd><p>The modulus size, a multiple of 8 from 1024 to 4096. 2048 is
+the minimum for new keys; use 3072 or more for keys meant to last.</p></dd>
 
 
 <dt id="arg-x">x<a class="anchor" aria-label="anchor" href="#arg-x"></a></dt>
@@ -185,16 +185,33 @@ integers as raw vectors, <code>e</code>, <code>n</code> and for a private key <c
     <h2 id="errors">Errors<a class="anchor" aria-label="anchor" href="#errors"></a></h2>
 
 
-<p>Input that is not a readable key is <code>zucrypt_invalid_argument</code>; a key of
-another type, such as an EC key, is <code>zucrypt_unsupported_algorithm</code>.</p>
+<p>Input that is not a readable key is <code>zucrypt_invalid_argument</code>, and so
+is a public key object given where a private key is needed. A
+well-formed key this version cannot use (an RSA key outside the size
+rule, a curve other than P-256, P-384 and P-521, or an encrypted key) is
+<code>zucrypt_unsupported_algorithm</code>. A condition about a key carries the
+key's type in its <code>algorithm</code> field (<code>"rsa"</code>, <code>"p256"</code>, <code>"p384"</code>,
+<code>"p521"</code> or <code>"x25519"</code>), and <code>NA</code> when the input is not a key.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="key-objects">Key objects<a class="anchor" aria-label="anchor" href="#key-objects"></a></h2>
+
+
+<p>A key object refers to key material held outside R, so a copy is the same
+key, not a new one: changing the attributes of <code>k2 &lt;- k</code> changes <code>k</code>
+too. Key objects do not survive <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code>; save the output of
+<code>crypt_write_pem()</code> instead.</p>
     </div>
     <div class="section level2">
     <h2 id="compared-with-openssl">Compared with openssl<a class="anchor" aria-label="anchor" href="#compared-with-openssl"></a></h2>
 
 
-<p>Only RSA keys are read in this version, of at most 4096 bits; encrypted
-keys, SSH formats and fingerprints come later. <code><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list()</a></code> gives the
-integers as raw vectors rather than <code>bignum</code>s. There is no default key:
+<p>RSA keys are read only if the modulus is 1024 to 4096 bits, a whole
+number of bytes; <code>openssl</code> also reads smaller keys, which are weak, and
+larger ones. EC keys on P-256, P-384 and P-521, and X25519 keys, are read
+as <code>openssl</code> writes them. Encrypted keys, SSH formats and fingerprints
+come later. <code><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list()</a></code> gives the integers as raw vectors rather than
+<code>bignum</code>s. There is no default key:
 <code>openssl</code> reads <code>~/.ssh/id_rsa</code>, and this package never reads your files
 unless you name them.</p>
     </div>
@@ -207,13 +224,13 @@ unless you name them.</p>
 <span class="r-in"><span><span class="va">pem</span> <span class="op">&lt;-</span> <span class="fu">crypt_write_pem</span><span class="op">(</span><span class="va">key</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="va">pem</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> -----BEGIN PUBLIC KEY-----</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvpWNnE3CZWK4L92WXACx</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> l+rnNVPzV6V6ex0ZRuDTz0tJ7pXYKCCOOnDDsz5a+oeUfugnv/0UR+HlG+2N7zJc</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 6WtspuMp4yu8AfM9CYu+smopr3BH0xM0jYkETzCSXIj+srZIo1lYKzqcPSET2TfU</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> dVsJpqGqlMp6W8Buh5g7QMbWvg4WJC6YBuObkBZQHJfoYqFSqzH8svjcSfsNacae</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> NeAC0CTuYhqBtWkTi7Oz3DcQ6THKuGjheYnIeXGaar5RGMWeWq3XfjLRMarOvVVg</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2JaAQKDNT//z+6f+Y+8GQLWKTMFmFKTFwEg6r+2137PQ9woYxP+eEtDzuShwX+FM</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> LwIDAQAB</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzsoPSSpvTI10uCXTo/D4</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> DTR8OEccZ+cefB8d3JshPy9I6pmJK8p3b8KUBxFSLUb6ar4/33iLgY8+NK2d1Uu7</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6Nz6GZlAyhDScME+aGpuT/7E2YIeuqawv0MojczgPjaOw8KzBMUBw7hvY40XGDrF</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> NW5pHUYZ0DKewuQiBOWeYE3+aUQRM1MEDAnjpbuJAOMNW/DvGXpBWMMBHUag/g6Q</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> pyKlqjRmiBKopVEtQDrUDD8eWAYyA+Ld7+GiIkEG4Uf5hfR8Tpk5P0CCpLYIv+0h</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> XZ4jUo7oIjxDd1pp0jUHtexTM7xHe34L8fEHpzmc1lbkIS+ZTccAMty8vTxD+T4q</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6wIDAQAB</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> -----END PUBLIC KEY-----</span>
 <span class="r-in"><span><span class="va">pub</span> <span class="op">&lt;-</span> <span class="fu">crypt_read_pubkey</span><span class="op">(</span><span class="va">pem</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>

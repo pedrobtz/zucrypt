@@ -444,6 +444,7 @@ Local patches, in `tools/patches/tf-psa-crypto/`:
 - `0001-avoid-zero-size-pubkey-array.patch`
 - `0002-drop-diagnostic-pragmas.patch`
 - `0003-guard-aead-finish-tag-wipe.patch` (upstream report: \#85)
+- `0004-wipe-pem-write-buffer.patch` (#137)
 
 The configuration is `src/zuc_crypto_config.h` (forty-eight defines);
 the trim is 43 objects and 153 files, with `aesce.c` kept by hand

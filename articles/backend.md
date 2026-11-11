@@ -154,7 +154,7 @@ the build’s object list disagree.
 
 ## The patches
 
-`src/vendor/` is never edited in place. Three changes are applied as
+`src/vendor/` is never edited in place. Four changes are applied as
 patches from `tools/patches/tf-psa-crypto/`, each with its reason in its
 header:
 
@@ -175,6 +175,13 @@ header:
   same file already has in `psa_mac_sign_finish()`. zucrypt’s
   allocation-failure sweep found it. It should go when upstream fixes
   the function.
+- **`0004-wipe-pem-write-buffer.patch`.** Writing a private key as PEM
+  base64 encodes it into a heap buffer that upstream freed without
+  wiping, so the key’s base64 stayed in freed memory. The patch wipes
+  the buffer before freeing it, as upstream’s own RSA code does for its
+  buffers. zucrypt’s residue scan, which searches every block the
+  backend frees for a piece of the key, found it (#137). It should go
+  when upstream wipes the buffer.
 
 `lib/gcm.c`, vendored for AES-GCM, keeps one upstream
 `#pragma GCC diagnostic warning` block, around an XOR. R CMD check
