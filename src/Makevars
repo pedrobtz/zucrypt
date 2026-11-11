@@ -95,10 +95,6 @@ VENDOR_OBJECTS = \
   $(VENDOR)/lib/rsa.o \
   $(VENDOR)/lib/rsa_alt_helpers.o
 
-# psa_crypto_rsa.o is in that list and looks out of place: no public-key
-# algorithm is enabled. It compiles to two key-management helpers that
-# psa_crypto.c calls unconditionally, and dropping it is a link error, not a
-# smaller build.
 
 # ADAPTER_OBJECTS is the R-free core: the adapter and the vendored backend,
 # and nothing that has ever seen an R header. It is what goes into

@@ -95,16 +95,31 @@ Key objects do not survive \code{\link[=saveRDS]{saveRDS()}}; save the PEM inste
 }
 \section{Errors}{
 
-Input that is not a readable key is \code{zucrypt_invalid_argument}; a key of
-another type, such as an EC key, is \code{zucrypt_unsupported_algorithm}.
+Input that is not a readable key is \code{zucrypt_invalid_argument}, and so
+is a public key object given where a private key is needed. A
+well-formed key this version cannot use (an RSA key outside the size
+rule, a curve other than P-256, P-384 and P-521, or an encrypted key) is
+\code{zucrypt_unsupported_algorithm}. A condition about a key carries the
+key's type in its \code{algorithm} field (\code{"rsa"}, \code{"p256"}, \code{"p384"},
+\code{"p521"} or \code{"x25519"}), and \code{NA} when the input is not a key.
+}
+
+\section{Key objects}{
+
+A key object refers to key material held outside R, so a copy is the same
+key, not a new one: changing the attributes of \code{k2 <- k} changes \code{k}
+too. Key objects do not survive \code{saveRDS()}; save the output of
+\code{crypt_write_pem()} instead.
 }
 
 \section{Compared with openssl}{
 
-An RSA key is read only if its modulus is 1024 to 4096 bits, a whole
+RSA keys are read only if the modulus is 1024 to 4096 bits, a whole
 number of bytes; \code{openssl} also reads smaller keys, which are weak, and
-larger ones. Encrypted keys, SSH formats and fingerprints come later. \code{as.list()} gives the
-integers as raw vectors rather than \code{bignum}s. There is no default key:
+larger ones. EC keys on P-256, P-384 and P-521, and X25519 keys, are read
+as \code{openssl} writes them. Encrypted keys, SSH formats and fingerprints
+come later. \code{as.list()} gives the integers as raw vectors rather than
+\code{bignum}s. There is no default key:
 \code{openssl} reads \verb{~/.ssh/id_rsa}, and this package never reads your files
 unless you name them.
 }

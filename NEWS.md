@@ -77,6 +77,14 @@
 
 ## Bug fixes
 
+* A condition about a key now carries that key's type in its `algorithm`
+  field (`"rsa"`, `"p256"`, `"p384"`, `"p521"` or `"x25519"`), and `NA` when
+  the input is not a key (#143); every key condition said `"rsa"`. A public
+  key object given where a private key is needed, as in
+  `crypt_signature_create(data, key = k$pubkey)`, is refused naming that
+  argument and the function called, rather than as a bad `file` to
+  `crypt_read_key()`.
+
 * C interface: three places where the adapter broke a promise of
   `zucrypt.h` (#142). `zuc_pkey_write()` refused a PEM encoding written
   into a buffer of exactly its length, and wrote a NUL past it into a
