@@ -528,8 +528,10 @@ zuc_status zuc_pbkdf2_hmac(zuc_alg hash,
  * for that one operation and removes it again. A private key's material is
  * wiped when the handle is freed.
  *
- * RSA moduli from 1024 to 4096 bits are supported; the backend refuses
- * anything larger. Generation produces 1024 to 4096 bits with e = 65537.
+ * RSA moduli of 1024 to 4096 bits, a whole number of bytes, are
+ * supported; zuc_pkey_parse() and zuc_pkey_import() refuse a well-formed
+ * key of any other size with ZUC_ERR_UNSUPPORTED. Generation produces such
+ * a key, with e = 65537.
  * EC keys are on P-256, P-384 or P-521, or are X25519 keys. */
 typedef struct zuc_pkey zuc_pkey;
 
@@ -570,9 +572,10 @@ typedef enum {
 zuc_status zuc_pkey_parse(const uint8_t *in, size_t len, int private_key,
                           zuc_pkey **out);
 
-/* Generate a key pair. For ZUC_ALG_RSA `bits` is 1024 to 4096; for an EC
- * or X25519 type it is 0 or the curve's size (256, 384, 521, 255). Uses the
- * operating system's random source; its failure is ZUC_ERR_ENTROPY. */
+/* Generate a key pair. For ZUC_ALG_RSA `bits` is a multiple of 8 from 1024
+ * to 4096, and any other is ZUC_ERR_BAD_LENGTH; for an EC or X25519 type it
+ * is 0 or the curve's size (256, 384, 521, 255). Uses the operating
+ * system's random source; its failure is ZUC_ERR_ENTROPY. */
 zuc_status zuc_pkey_generate(zuc_alg type, size_t bits, zuc_pkey **out);
 
 /* A key from, or to, the backend's own raw form:

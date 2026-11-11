@@ -32,8 +32,8 @@
 #' @param x A key from `crypt_read_key()`, `crypt_read_pubkey()`,
 #'   `crypt_rsa_keygen()` or `crypt_rsa_key()`.
 #' @param path `NULL` to return the encoding, or a file to write it to.
-#' @param bits The modulus size, from 1024 to 4096. 2048 is the minimum for
-#'   new keys; use 3072 or more for keys meant to last.
+#' @param bits The modulus size, a multiple of 8 from 1024 to 4096. 2048 is
+#'   the minimum for new keys; use 3072 or more for keys meant to last.
 #' @param n,e The modulus and the public exponent, as raw big-endian
 #'   unsigned integers.
 #' @param d,p,q,dp,dq,qi The private exponent, the primes and the CRT
@@ -51,13 +51,27 @@
 #'   `dp`, `dq` and `qi`.
 #'
 #' @section Errors:
-#' Input that is not a readable key is `zucrypt_invalid_argument`; a key of
-#' another type, such as an EC key, is `zucrypt_unsupported_algorithm`.
+#' Input that is not a readable key is `zucrypt_invalid_argument`, and so
+#' is a public key object given where a private key is needed. A
+#' well-formed key this version cannot use (an RSA key outside the size
+#' rule, a curve other than P-256, P-384 and P-521, or an encrypted key) is
+#' `zucrypt_unsupported_algorithm`. A condition about a key carries the
+#' key's type in its `algorithm` field (`"rsa"`, `"p256"`, `"p384"`,
+#' `"p521"` or `"x25519"`), and `NA` when the input is not a key.
+#'
+#' @section Key objects:
+#' A key object refers to key material held outside R, so a copy is the same
+#' key, not a new one: changing the attributes of `k2 <- k` changes `k`
+#' too. Key objects do not survive `saveRDS()`; save the output of
+#' `crypt_write_pem()` instead.
 #'
 #' @section Compared with openssl:
-#' Only RSA keys are read in this version, of at most 4096 bits; encrypted
-#' keys, SSH formats and fingerprints come later. `as.list()` gives the
-#' integers as raw vectors rather than `bignum`s. There is no default key:
+#' RSA keys are read only if the modulus is 1024 to 4096 bits, a whole
+#' number of bytes; `openssl` also reads smaller keys, which are weak, and
+#' larger ones. EC keys on P-256, P-384 and P-521, and X25519 keys, are read
+#' as `openssl` writes them. Encrypted keys, SSH formats and fingerprints
+#' come later. `as.list()` gives the integers as raw vectors rather than
+#' `bignum`s. There is no default key:
 #' `openssl` reads `~/.ssh/id_rsa`, and this package never reads your files
 #' unless you name them.
 #'
@@ -121,15 +135,56 @@ read_all <- function(con, call) {
   do.call(c, chunks)
 }
 
-no_password <- function(password, call = sys.call(-1L)) {
+no_password <- function(password, call = sys.call(-1L),
+                        algorithm = NA_character_) {
   if (!is.null(password)) {
     zucrypt_abort(
       "zucrypt_unsupported_algorithm",
       "Password-protected keys are not supported in this version.",
-      algorithm = "rsa",
+      algorithm = algorithm,
       call = call
     )
   }
+}
+
+# The type of a key object ("rsa", "p256", "p384", "p521", "x25519"), for a
+# condition's `algorithm` field, or NA when `x` is not a live key (#143).
+key_algorithm <- function(x) {
+  if (!inherits(x, c("crypt_key", "crypt_pubkey"))) {
+    return(NA_character_)
+  }
+  res <- .Call(zucrypt_pkey_info, x)
+  if (res$status != 0L) NA_character_ else res$value$type
+}
+
+# A key argument of a function that needs a private key: a key object, or
+# anything crypt_read_key() reads. A public key object is refused as such,
+# naming `arg` and the user's function (#143).
+private_key_arg <- function(x, arg, call) {
+  if (inherits(x, "crypt_key")) {
+    return(x)
+  }
+  if (inherits(x, "crypt_pubkey")) {
+    zucrypt_abort(
+      "zucrypt_invalid_argument",
+      sprintf("`%s` is a public key; this needs a private key.", arg),
+      algorithm = key_algorithm(x),
+      call = call
+    )
+  }
+  parse_key(key_input(x, arg, call), TRUE, call)
+}
+
+# A key argument of a function that uses a public key: a public key object,
+# the public half of a private one, or anything crypt_read_pubkey() reads.
+public_key_arg <- function(x, arg, call) {
+  if (inherits(x, "crypt_pubkey")) {
+    return(x)
+  }
+  if (inherits(x, "crypt_key")) {
+    return(public_of(x, call))
+  }
+  parse_key(key_input(x, arg, call), FALSE, call)
 }
 
 # The zuc_alg names of key types, and the class and curve name each gets.
@@ -176,19 +231,18 @@ parse_key <- function(bytes, private, call) {
         sprintf(paste0("The input is not %s key in PEM or DER that this ",
                        "version can read."),
                 if (private) "an unencrypted private" else "a"),
-        algorithm = "rsa",
         call = call
       )
     }
     if (identical(name, "ZUC_ERR_UNSUPPORTED")) {
       zucrypt_abort(
         "zucrypt_unsupported_algorithm",
-        paste0("Only RSA keys of up to 4096 bits, and P-256, P-384, P-521 ",
-               "and X25519 keys, are supported."),
+        paste0("Only RSA keys of 1024 to 4096 bits, in whole bytes, and ",
+               "P-256, P-384, P-521 and X25519 keys, are supported."),
         call = call
       )
     }
-    abort_native(res$status, algorithm = "rsa", call = call)
+    abort_native(res$status, call = call)
   }
   new_key(res$value)
 }
@@ -197,31 +251,21 @@ parse_key <- function(bytes, private, call) {
 #' @export
 crypt_read_key <- function(file, password = NULL, der = is.raw(file)) {
   call <- sys.call()
-  if (inherits(file, "crypt_key")) {
-    return(file)
-  }
-  no_password(password, call)
-  parse_key(key_input(file, "file", call), TRUE, call)
+  no_password(password, call, key_algorithm(file))
+  private_key_arg(file, "file", call)
 }
 
 #' @rdname crypt_rsa_keys
 #' @export
 crypt_read_pubkey <- function(file, der = is.raw(file)) {
-  call <- sys.call()
-  if (inherits(file, "crypt_pubkey")) {
-    return(file)
-  }
-  if (inherits(file, "crypt_key")) {
-    return(public_of(file, call))
-  }
-  parse_key(key_input(file, "file", call), FALSE, call)
+  public_key_arg(file, "file", sys.call())
 }
 
 public_of <- function(key, call) {
-  pkey_info(key, call)
+  info <- pkey_info(key, call)
   res <- .Call(zucrypt_pkey_public, key)
   if (res$status != 0L) {
-    abort_native(res$status, algorithm = "rsa", call = call)
+    abort_native(res$status, algorithm = info$type, call = call)
   }
   new_key(res$value)
 }
@@ -230,10 +274,10 @@ public_of <- function(key, call) {
 #' @export
 crypt_rsa_keygen <- function(bits = 2048) {
   call <- sys.call()
-  if (!is_count(bits, 1024, 4096)) {
+  if (!is_count(bits, 1024, 4096) || bits %% 8 != 0) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      "`bits` must be a whole number from 1024 to 4096.",
+      "`bits` must be a multiple of 8 from 1024 to 4096.",
       algorithm = "rsa",
       call = call
     )
@@ -255,8 +299,8 @@ check_key_object <- function(x, call) {
   if (!inherits(x, c("crypt_key", "crypt_pubkey"))) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      paste0("`x` must be a key from crypt_read_key(), crypt_read_pubkey(), ",
-             "crypt_rsa_keygen() or crypt_rsa_key()."),
+      paste0("`x` must be a key object, from crypt_read_key(), ",
+             "crypt_read_pubkey() or one of the key constructors."),
       call = call
     )
   }
@@ -264,11 +308,11 @@ check_key_object <- function(x, call) {
 }
 
 write_key <- function(x, format, call, public_only = FALSE) {
-  check_key_object(x, call)
+  info <- check_key_object(x, call)
   res <- .Call(zucrypt_pkey_write, x, pkey_formats[[format]],
                public_only)
   if (res$status != 0L) {
-    abort_native(res$status, algorithm = "rsa", call = call)
+    abort_native(res$status, algorithm = info$type, call = call)
   }
   res$value
 }
@@ -286,7 +330,7 @@ write_out <- function(value, path) {
 #' @export
 crypt_write_pem <- function(x, path = NULL, password = NULL) {
   call <- sys.call()
-  no_password(password, call)
+  no_password(password, call, key_algorithm(x))
   write_out(rawToChar(write_key(x, "info_pem", call)), path)
 }
 
@@ -309,7 +353,7 @@ crypt_write_der <- function(x, path = NULL) {
 #' @export
 crypt_write_pkcs1 <- function(x, path = NULL, password = NULL) {
   call <- sys.call()
-  no_password(password, call)
+  no_password(password, call, key_algorithm(x))
   write_out(rawToChar(write_key(x, "pkcs1_pem", call)), path)
 }
 

@@ -90,7 +90,6 @@ digest_name <- function(md, call) {
       "zucrypt_invalid_argument",
       paste0("`hash` must give, or `data` be, a SHA-1 or SHA-2 digest ",
              "(20, 32, 48 or 64 bytes)."),
-      algorithm = "rsa",
       call = call
     )
   }
@@ -133,7 +132,7 @@ crypt_signature_create <- function(data, hash = crypt_sha1, key,
   md <- apply_hash(key_input(data, "data", call), hash, call)
   digest <- digest_name(md, call)
   no_password(password, call)
-  key <- crypt_read_key(key)
+  key <- private_key_arg(key, "key", call)
   pkey_info(key, call)
   scheme <- signature_scheme(key, pss, deterministic, call)
   res <- .Call(zucrypt_pkey_sign, key, scheme, digest, md)
@@ -175,7 +174,7 @@ crypt_signature_verify <- function(data, sig, hash = crypt_sha1, pubkey,
   md <- apply_hash(key_input(data, "data", call), hash, call)
   digest <- digest_name(md, call)
   sig <- key_input(sig, "sig", call)
-  pubkey <- crypt_read_pubkey(pubkey)
+  pubkey <- public_key_arg(pubkey, "pubkey", call)
   info <- pkey_info(pubkey, call)
   scheme <- signature_scheme(pubkey, pss, FALSE, call)
   if (inherits(pubkey, "crypt_ecdsa")) {
@@ -228,7 +227,7 @@ crypt_rsa_encrypt <- function(data, pubkey, oaep = FALSE,
   call <- sys.call()
   s <- rsa_scheme(oaep, oaep_hash, call)
   check_raw(data, "data", algorithm = s$scheme, call = call)
-  pubkey <- crypt_read_pubkey(pubkey)
+  pubkey <- public_key_arg(pubkey, "pubkey", call)
   pkey_info(pubkey, call)
   check_rsa(pubkey, call)
   res <- .Call(zucrypt_pkey_crypt, pubkey, s$scheme, s$hash, data, TRUE)
@@ -246,7 +245,7 @@ crypt_rsa_decrypt <- function(data, key, password = NULL, oaep = FALSE,
   s <- rsa_scheme(oaep, oaep_hash, call)
   check_raw(data, "data", algorithm = s$scheme, call = call)
   no_password(password, call)
-  key <- crypt_read_key(key)
+  key <- private_key_arg(key, "key", call)
   pkey_info(key, call)
   check_rsa(key, call)
   res <- .Call(zucrypt_pkey_crypt, key, s$scheme, s$hash, data, FALSE)

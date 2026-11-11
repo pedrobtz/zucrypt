@@ -87,8 +87,10 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
             type == ZUC_ALG_X25519, "type %d", (int) type);
     REQUIRE(!private_key || zuc_pkey_is_private(key),
             "a private read returned a public key");
+    /* The size rule (zucrypt.h, #141): 1024 to 4096 bits, whole bytes. */
     REQUIRE(type != ZUC_ALG_RSA ||
-            (zuc_pkey_bits(key) > 0 && zuc_pkey_bits(key) <= 4096),
+            (zuc_pkey_bits(key) >= 1024 && zuc_pkey_bits(key) <= 4096 &&
+             zuc_pkey_bits(key) % 8 == 0),
             "RSA key of %zu bits", zuc_pkey_bits(key));
 
     for (i = 0; i < 4; i++) {

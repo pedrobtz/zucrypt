@@ -210,8 +210,8 @@ agree <- function(key, peer, call) {
 crypt_ec_dh <- function(key, peerkey, password = NULL) {
   call <- sys.call()
   no_password(password, call)
-  key <- crypt_read_key(key)
-  peerkey <- crypt_read_pubkey(peerkey)
+  key <- private_key_arg(key, "key", call)
+  peerkey <- public_key_arg(peerkey, "peerkey", call)
   if (!inherits(key, "crypt_ecdsa") || !inherits(peerkey, "crypt_ecdsa")) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
@@ -248,8 +248,8 @@ crypt_read_x25519_pubkey <- function(x) {
 #' @export
 crypt_x25519_diffie_hellman <- function(key, pubkey) {
   call <- sys.call()
-  key <- crypt_read_key(key)
-  pubkey <- crypt_read_pubkey(pubkey)
+  key <- private_key_arg(key, "key", call)
+  pubkey <- public_key_arg(pubkey, "pubkey", call)
   if (!inherits(key, "crypt_x25519") || !inherits(pubkey, "crypt_x25519")) {
     zucrypt_abort(
       "zucrypt_invalid_argument",

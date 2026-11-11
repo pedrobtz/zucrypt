@@ -93,9 +93,13 @@ a security fix -- so report the version you actually linked, by calling
 \section{What the interface promises}{
 
 \itemize{
-\item Every function returns a \code{zuc_status}. None raises an R error, allocates
-an R object, or calls back into R. No status is negative, so \verb{if (st)}
-means "not success".
+\item Every function that can fail returns a \code{zuc_status}; the rest are
+queries and cleanups that cannot (\verb{zuc_alg_*()}, \code{zuc_status_name()},
+\code{zuc_status_string()}, \code{zuc_equal()}, \code{zuc_secure_zero()},
+\code{zuc_pkey_type()}, \code{zuc_pkey_bits()}, \code{zuc_pkey_is_private()} and the
+\verb{*_free()} functions). None raises an R error, allocates an R object,
+or calls back into R. No status is negative, so \verb{if (st)} means "not
+success".
 \item An object the library allocated is destroyed only by a library function.
 No buffer you pass is retained after the call returns.
 \item \code{inst/include/zucrypt.h} compiles standalone as C99 against \verb{<stddef.h>}

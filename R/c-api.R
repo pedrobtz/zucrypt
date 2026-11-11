@@ -87,9 +87,13 @@
 #' `zuc_get_info()` rather than reading a macro.
 #'
 #' @section What the interface promises:
-#' * Every function returns a `zuc_status`. None raises an R error, allocates
-#'   an R object, or calls back into R. No status is negative, so `if (st)`
-#'   means "not success".
+#' * Every function that can fail returns a `zuc_status`; the rest are
+#'   queries and cleanups that cannot (`zuc_alg_*()`, `zuc_status_name()`,
+#'   `zuc_status_string()`, `zuc_equal()`, `zuc_secure_zero()`,
+#'   `zuc_pkey_type()`, `zuc_pkey_bits()`, `zuc_pkey_is_private()` and the
+#'   `*_free()` functions). None raises an R error, allocates an R object,
+#'   or calls back into R. No status is negative, so `if (st)` means "not
+#'   success".
 #' * An object the library allocated is destroyed only by a library function.
 #'   No buffer you pass is retained after the call returns.
 #' * `inst/include/zucrypt.h` compiles standalone as C99 against `<stddef.h>`

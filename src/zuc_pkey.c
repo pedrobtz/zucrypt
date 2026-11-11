@@ -80,12 +80,25 @@ static zuc_status pkey_agree_impl(const zuc_pkey *key, const zuc_pkey *peer,
  * Key types
  * ------------------------------------------------------------------ */
 
+/* The RSA size rule (zucrypt.h, #141): a modulus of 1024 to 4096 bits,
+ * a whole number of bytes. The backend refuses moduli over 4096 bits or not
+ * byte-aligned, and zucrypt refuses the weak ones under 1024. */
+#define ZUC_RSA_MIN_BITS 1024
+
+static int rsa_size_ok(size_t bits)
+{
+    return bits >= ZUC_RSA_MIN_BITS && bits <= PSA_VENDOR_RSA_MAX_KEY_BITS &&
+           bits % 8 == 0;
+}
+
 /* The zuc_alg of a backend key type, or ZUC_ALG_NONE for one this build
- * does not offer. */
+ * does not offer, an RSA key outside the size rule included. Every handle
+ * is made by pkey_from_psa(), which asks this, so the rule holds however a
+ * key arrived: parsed, imported or generated. */
 static zuc_alg alg_of_psa(psa_key_type_t type, size_t bits)
 {
     if (PSA_KEY_TYPE_IS_RSA(type)) {
-        return ZUC_ALG_RSA;
+        return rsa_size_ok(bits) ? ZUC_ALG_RSA : ZUC_ALG_NONE;
     }
     if (PSA_KEY_TYPE_IS_ECC(type)) {
         psa_ecc_family_t family = PSA_KEY_TYPE_ECC_GET_FAMILY(type);
@@ -376,9 +389,9 @@ static size_t rsa_key_bits(const uint8_t *der, size_t len, int depth,
 }
 
 /* Is this a well-formed RSA key, of the half the reader was asked for,
- * whose modulus is over the backend's limit? `pem` is the NUL-terminated
- * copy when the input is PEM, else NULL. */
-static int rsa_over_limit(const uint8_t *in, size_t len, const uint8_t *pem,
+ * whose modulus is outside the size rule? `pem` is the NUL-terminated copy
+ * when the input is PEM, else NULL. */
+static int rsa_outside_rule(const uint8_t *in, size_t len, const uint8_t *pem,
                           int want_private)
 {
     static const char *const labels[][2] = {
@@ -411,7 +424,7 @@ static int rsa_over_limit(const uint8_t *in, size_t len, const uint8_t *pem,
     if (want_private && !is_private) {
         return 0;
     }
-    return bits > PSA_VENDOR_RSA_MAX_KEY_BITS;
+    return bits != 0 && !rsa_size_ok(bits);
 }
 
 static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key,
@@ -466,11 +479,12 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
             ret = first;
         }
     }
-    /* A well-formed RSA key over the backend's limit is refused by the
-     * reader as unavailable or as malformed, depending on the encoding and
-     * the half. It is unsupported, whichever reader met it (#93). */
+    /* A well-formed RSA key outside the size rule -- over the backend's
+     * limit or not byte-aligned -- is refused by the reader as unavailable
+     * or as malformed, depending on the encoding and the half. It is
+     * unsupported, whichever reader met it (#93, #141). */
     if (ret != 0 && parse_status(ret) == ZUC_ERR_INVALID_ARGUMENT &&
-        rsa_over_limit(in, len, copy, private_key)) {
+        rsa_outside_rule(in, len, copy, private_key)) {
         ret = MBEDTLS_ERR_PK_FEATURE_UNAVAILABLE;
     }
     if (copy != NULL) {
@@ -552,7 +566,7 @@ static zuc_status pkey_generate_impl(zuc_alg type, size_t bits, zuc_pkey **out)
         return ZUC_ERR_UNSUPPORTED;
     }
     if (type == ZUC_ALG_RSA) {
-        if (bits < 1024 || bits > 4096) {
+        if (!rsa_size_ok(bits)) {
             return ZUC_ERR_BAD_LENGTH;
         }
         psa_set_key_type(&attr, PSA_KEY_TYPE_RSA_KEY_PAIR);
@@ -978,17 +992,32 @@ static zuc_status pkey_write_impl(const zuc_pkey *key, zuc_pkey_format format,
         strcpy(footer, "-----END ");
         strcat(footer, label);
         strcat(footer, "-----\n");
-        ret = mbedtls_pem_write_buffer(header, footer, der, der_len,
-                                       out, out_size, &olen);
-        if (ret == PSA_ERROR_BUFFER_TOO_SMALL) {
-            st = ZUC_ERR_BAD_LENGTH;
-        } else if (ret != 0) {
-            st = zuc_int_from_psa((psa_status_t) ret);
-        } else if (olen == 0) {
-            st = ZUC_ERR_BACKEND;
+        /* The writer needs room for a terminating NUL that is not part of
+         * PEM, so it writes into a buffer one byte longer than the caller's
+         * (capped: no encoding is longer than ZUC_PKEY_MAX_WRITE_SIZE), and
+         * exactly the PEM is copied out (#142). */
+        size_t cap = (out_size < ZUC_PKEY_MAX_WRITE_SIZE
+                      ? out_size : ZUC_PKEY_MAX_WRITE_SIZE) + 1;
+        uint8_t *pem = malloc(cap);
+
+        if (pem == NULL) {
+            st = ZUC_ERR_MEMORY;
         } else {
-            /* olen counts the terminating NUL, which is not part of PEM. */
-            *out_len = olen - 1;
+            ret = mbedtls_pem_write_buffer(header, footer, der, der_len,
+                                           pem, cap, &olen);
+            if (ret == PSA_ERROR_BUFFER_TOO_SMALL) {
+                st = ZUC_ERR_BAD_LENGTH;
+            } else if (ret != 0) {
+                st = zuc_int_from_psa((psa_status_t) ret);
+            } else if (olen == 0 || olen - 1 > out_size) {
+                st = ZUC_ERR_BACKEND;
+            } else {
+                /* olen counts the terminating NUL. */
+                memcpy(out, pem, olen - 1);
+                *out_len = olen - 1;
+            }
+            zuc_secure_zero(pem, cap);
+            free(pem);
         }
     }
     zuc_secure_zero(der, der_len);
@@ -1300,8 +1329,20 @@ static zuc_status pkey_import_impl(zuc_alg type, int private_key,
     ps = psa_import_key(&attr, data, len, &id);
     psa_reset_key_attributes(&attr);
     if (ps != PSA_SUCCESS) {
-        return ps == PSA_ERROR_INSUFFICIENT_MEMORY ? ZUC_ERR_MEMORY
-                                                   : ZUC_ERR_INVALID_ARGUMENT;
+        int is_private = 0;
+        size_t rsa_bits;
+        if (ps == PSA_ERROR_INSUFFICIENT_MEMORY) {
+            return ZUC_ERR_MEMORY;
+        }
+        /* As in the reader: a well-formed RSA key outside the size rule is
+         * unsupported, not malformed (#141). */
+        rsa_bits = type == ZUC_ALG_RSA
+                 ? rsa_key_bits(data, len, 0, &is_private) : 0;
+        if (rsa_bits != 0 && !rsa_size_ok(rsa_bits) &&
+            (is_private || !private_key)) {
+            return ZUC_ERR_UNSUPPORTED;
+        }
+        return ZUC_ERR_INVALID_ARGUMENT;
     }
     st = pkey_from_psa(id, private_key, out);
     psa_destroy_key(id);
@@ -1474,12 +1515,27 @@ zuc_status zuc_pkey_encrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
     return zuc_int_watched_or(pkey_encrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
 }
 
+/* zucrypt.h promises a zeroed output on any failure of these two, so it is
+ * done here, once, for every return the _impl functions have (#142). */
+static zuc_status zeroed_on_failure(zuc_status st, uint8_t *out,
+                                    size_t out_size, size_t *out_len)
+{
+    if (st != ZUC_OK) {
+        if (out != NULL) zuc_secure_zero(out, out_size);
+        if (out_len != NULL) *out_len = 0;
+    }
+    return st;
+}
+
 zuc_status zuc_pkey_decrypt(const zuc_pkey *key, zuc_alg scheme, zuc_alg hash,
                             const uint8_t *in, size_t len,
                             uint8_t *out, size_t out_size, size_t *out_len)
 {
     zuc_int_watch();
-    return zuc_int_watched_or(pkey_decrypt_impl(key, scheme, hash, in, len, out, out_size, out_len));
+    return zeroed_on_failure(
+        zuc_int_watched_or(pkey_decrypt_impl(key, scheme, hash, in, len, out,
+                                             out_size, out_len)),
+        out, out_size, out_len);
 }
 
 zuc_status zuc_pkey_import(zuc_alg type, int private_key,
@@ -1502,6 +1558,7 @@ zuc_status zuc_pkey_agree(const zuc_pkey *key, const zuc_pkey *peer,
                           uint8_t *out, size_t out_size, size_t *out_len)
 {
     zuc_int_watch();
-    return zuc_int_watched_or(pkey_agree_impl(key, peer, out, out_size,
-                                             out_len));
+    return zeroed_on_failure(
+        zuc_int_watched_or(pkey_agree_impl(key, peer, out, out_size, out_len)),
+        out, out_size, out_len);
 }

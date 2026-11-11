@@ -255,8 +255,14 @@ test_that("key generation takes 1024 to 4096 bits, and randomness", {
   expect_identical(as.list(key)$size, 1024)
   expect_false(identical(crypt_write_der(key),
                          crypt_write_der(crypt_rsa_keygen(1024))))
-  for (bad in list(512, 1023, 1023.5, 4097, 8192, "2048", NA)) {
-    expect_error(crypt_rsa_keygen(bad), class = "zucrypt_invalid_argument")
+  expect_identical(as.list(crypt_rsa_keygen(1032))$size, 1032)
+  # The rule is whole bytes from 1024 to 4096 (#141): until then 1025 passed
+  # the R check and failed in the backend as an unsupported algorithm.
+  for (bad in list(512, 1016, 1023, 1023.5, 1025, 1028, 4097, 8192, "2048",
+                   NA)) {
+    e <- tryCatch(crypt_rsa_keygen(bad), error = identity)
+    expect_s3_class(e, "zucrypt_invalid_argument")
+    expect_match(conditionMessage(e), "multiple of 8 from 1024 to 4096")
   }
   native_random_fail(TRUE)
   err <- tryCatch(crypt_rsa_keygen(1024), error = identity,
@@ -267,6 +273,7 @@ test_that("key generation takes 1024 to 4096 bits, and randomness", {
 test_that("key generation reaches the 4096-bit limit (#93)", {
   skip_on_cran()  # an RSA-4096 key takes seconds to generate
   expect_equal(as.list(crypt_rsa_keygen(4096))$size, 4096)
+  expect_equal(as.list(crypt_rsa_keygen(4088))$size, 4088)
 })
 
 test_that("what is not an RSA key is refused, and says which way", {
@@ -326,14 +333,20 @@ test_that("crypt_sha*() mirror openssl's digests and HMACs on raw input", {
   expect_error(crypt_sha256("abc"), class = "zucrypt_invalid_argument")
 })
 
-test_that("RSA keys straddling 4096 bits get one answer on every path (#93)", {
-  # openssl's keys of 4088, 4096, 4104 and 8192 bits, in every encoding both
-  # readers take (tools/make-rsa-limit-kat.R). A key over the backend's
-  # limit is refused as unsupported whichever reader and encoding reach it;
-  # until #93 the public reader called it "not a key".
+test_that("RSA keys straddling the size rule get one answer on every path (#93, #141)", {
+  # openssl's keys of 512 to 8192 bits, in every encoding both readers take
+  # (tools/make-rsa-limit-kat.R). The rule is 1024 to 4096 bits, a whole
+  # number of bytes: a key inside it is read at its size, and one outside
+  # it is refused as unsupported, with a message naming the rule, whichever
+  # reader and encoding reach it. Until #93 the public reader called an
+  # oversized key "not a key"; until #141 a 512-bit key was read and used,
+  # and a 2047-bit one refused as "over 4096 bits".
   rows <- utils::read.delim(test_path("fixtures", "rsa-limit.tsv"),
                             colClasses = "character")
-  expect_identical(nrow(rows), 24L)
+  expect_identical(nrow(rows), 66L)
+  expect_setequal(as.integer(unique(rows$bits)),
+                  c(512L, 1000L, 1016L, 1024L, 1028L, 2047L, 2048L,
+                    4088L, 4096L, 4104L, 8192L))
   for (i in seq_len(nrow(rows))) {
     r <- rows[i, ]
     bytes <- unhex(r$data)
@@ -346,14 +359,30 @@ test_that("RSA keys straddling 4096 bits get one answer on every path (#93)", {
     }
     for (name in names(readers)) {
       what <- paste(r$id, name)
-      if (bits <= 4096L) {
+      if (bits >= 1024L && bits <= 4096L && bits %% 8L == 0L) {
         k <- readers[[name]](bytes)
         expect_equal(as.list(k)$size, bits, info = what)
       } else {
         e <- tryCatch(readers[[name]](bytes), zucrypt_error = function(e) e)
         expect_s3_class(e, "zucrypt_unsupported_algorithm")
-        expect_match(conditionMessage(e), "4096 bits", info = what)
+        expect_match(conditionMessage(e), "1024 to 4096 bits", info = what)
       }
     }
+  }
+})
+
+test_that("crypt_rsa_key() holds the size rule too (#141)", {
+  rows <- utils::read.delim(test_path("fixtures", "rsa-limit.tsv"),
+                            colClasses = "character")
+  from_integers <- function(bits) {
+    der <- unhex(rows$data[rows$id == sprintf("rsa%d-private-pkcs1-der", bits)])
+    v <- zucrypt:::der_integers(der)[-1]
+    tryCatch(do.call(crypt_rsa_key, unname(as.list(v))), error = identity)
+  }
+  expect_identical(as.list(from_integers(1024))$size, 1024)
+  for (bits in c(512, 1000, 1028, 2047)) {
+    e <- from_integers(bits)
+    expect_s3_class(e, "zucrypt_unsupported_algorithm")
+    expect_match(conditionMessage(e), "1024 to 4096 bits", info = bits)
   }
 })

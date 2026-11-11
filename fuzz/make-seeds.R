@@ -12,6 +12,7 @@
 ## replay on every OS catches it coming back:
 ##
 ##   regress-93-*     RSA keys over 4096 bits (#93), refused alike
+##   regress-141-*    RSA keys under 1024 bits or not in whole bytes (#141)
 ##   regress-91-*     the malformed DER of #91, offered to the key reader
 ##
 ##   Rscript fuzz/make-seeds.R      (from the repository root)
@@ -60,9 +61,13 @@ for (i in seq_len(nrow(ec))) {
 lim <- utils::read.delim(file.path(fx, "rsa-limit.tsv"), colClasses = "character")
 for (i in seq_len(nrow(lim))) {
   r <- lim[i, ]
-  if (!(r$bits %in% c("4096", "4104"))) next
+  if (!(r$bits %in% c("512", "1000", "1028", "2047", "4096", "4104"))) next
   flag <- as.raw(startsWith(r$encoding, "private"))
-  name <- if (r$bits == "4104") paste0("regress-93-", r$id) else r$id
+  name <- switch(r$bits,
+    "4096" = r$id,
+    "4104" = paste0("regress-93-", r$id),
+    paste0("regress-141-", r$id)
+  )
   put("pkey", name, c(flag, u(r$data)))
 }
 for (h in c(seq_too_long = "307f020105020107", s_truncated = "3006020105020307",

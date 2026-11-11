@@ -704,6 +704,42 @@ static void test_info(void)
  * across a teardown (#92)
  * ------------------------------------------------------------------ */
 
+/* The zuc_status functions zucrypt.h declares whose first parameter is a
+ * zuc_aes, zuc_hash or zuc_hmac handle, read from the header itself. */
+static int handle_functions(char names[][64], int max)
+{
+    char path[1024], line[512];
+    FILE *f;
+    int n = 0;
+
+    snprintf(path, sizeof path, "%s/../../../inst/include/zucrypt.h",
+             fixture_dir);
+    f = fopen(path, "r");
+    if (f == NULL) {
+        CHECK(0, "cannot read %s", path);
+        return 0;
+    }
+    while (fgets(line, sizeof line, f) != NULL && n < max) {
+        const char *name = line + strlen("zuc_status "), *paren, *param;
+        size_t len;
+        if (strncmp(line, "zuc_status zuc_", 15) != 0) continue;
+        paren = strchr(name, '(');
+        if (paren == NULL) continue;
+        param = paren + 1;
+        if (strncmp(param, "const ", 6) == 0) param += 6;
+        if (strncmp(param, "zuc_aes *", 9) != 0 &&
+            strncmp(param, "zuc_hash *", 10) != 0 &&
+            strncmp(param, "zuc_hmac *", 10) != 0) continue;
+        len = (size_t) (paren - name);
+        if (len >= 64) continue;
+        memcpy(names[n], name, len);
+        names[n][len] = 0;
+        n++;
+    }
+    fclose(f);
+    return n;
+}
+
 static void test_lifetime(void)
 {
     uint8_t k1[16], k2[16], zero[16] = {0}, out[64], c_new[16], m_new[32];
@@ -745,18 +781,49 @@ static void test_lifetime(void)
     ST(zuc_pkey_generate(ZUC_ALG_X25519, 0, &pk), ZUC_ERR_NOT_READY);
     CHECK(pk == NULL, "no key while down");
 
+    /* zucrypt.h: on a handle that outlived the backend "every operation on
+     * it returns ZUC_ERR_NOT_READY". Every function the header declares on
+     * a zuc_aes, zuc_hash or zuc_hmac is called here, and the header is
+     * read to prove none was left out (#142: the CBC state pair was). */
     context = "stale handles";
     ST(zuc_init(), ZUC_OK);
     ST(zuc_aes_new(k2, 16, &a_new), ZUC_OK);
     ST(zuc_hmac_new(ZUC_ALG_SHA256, k2, 16, &m_new_h), ZUC_OK);
-    ST(zuc_aes_cbc_set_state(a_old, zero), ZUC_OK);
-    ST(zuc_aes_cbc_encrypt(a_old, zero, 16, out), ZUC_ERR_NOT_READY);
-    ST(zuc_hmac_update(m_old, zero, 1), ZUC_ERR_NOT_READY);
-    ST(zuc_hmac_finish(m_old, out, sizeof out, &len), ZUC_ERR_NOT_READY);
-    ST(zuc_hmac_reset(m_old), ZUC_ERR_NOT_READY);
-    ST(zuc_hash_update(h_old, zero, 1), ZUC_ERR_NOT_READY);
-    ST(zuc_hash_finish(h_old, out, sizeof out, &len), ZUC_ERR_NOT_READY);
-    ST(zuc_hash_reset(h_old), ZUC_ERR_NOT_READY);
+    {
+        const char *tested[32];
+        int n_tested = 0, n_header, i, j;
+        char header[32][64];
+        uint8_t state[16];
+#define STALE(name, call)                                                   \
+        do {                                                                \
+            tested[n_tested++] = name;                                      \
+            ST(call, ZUC_ERR_NOT_READY);                                    \
+        } while (0)
+        memset(state, 0x5a, sizeof state);
+        STALE("zuc_aes_cbc_set_state", zuc_aes_cbc_set_state(a_old, zero));
+        STALE("zuc_aes_cbc_get_state", zuc_aes_cbc_get_state(a_old, state));
+        CHECK(all_bytes(state, sizeof state, 0x5a),
+              "a stale handle wrote its state");
+        STALE("zuc_aes_cbc_encrypt", zuc_aes_cbc_encrypt(a_old, zero, 16, out));
+        STALE("zuc_aes_cbc_decrypt", zuc_aes_cbc_decrypt(a_old, zero, 16, out));
+        STALE("zuc_hmac_update", zuc_hmac_update(m_old, zero, 1));
+        STALE("zuc_hmac_finish", zuc_hmac_finish(m_old, out, sizeof out, &len));
+        STALE("zuc_hmac_reset", zuc_hmac_reset(m_old));
+        STALE("zuc_hash_update", zuc_hash_update(h_old, zero, 1));
+        STALE("zuc_hash_finish", zuc_hash_finish(h_old, out, sizeof out, &len));
+        STALE("zuc_hash_reset", zuc_hash_reset(h_old));
+#undef STALE
+        n_header = handle_functions(header, 32);
+        CHECK(n_header >= 10, "read %d handle functions from zucrypt.h",
+              n_header);
+        for (i = 0; i < n_header; i++) {
+            int found = 0;
+            for (j = 0; j < n_tested; j++) {
+                if (strcmp(header[i], tested[j]) == 0) found = 1;
+            }
+            CHECK(found, "%s is not tested on a stale handle", header[i]);
+        }
+    }
     zuc_aes_free(a_old);
     zuc_hmac_free(m_old);
     zuc_hash_free(h_old);
@@ -1091,6 +1158,175 @@ static void test_ec(void)
 }
 
 /* ------------------------------------------------------------------ *
+ * The RSA size rule: 1024 to 4096 bits, whole bytes (#93, #141)
+ * ------------------------------------------------------------------ */
+
+static int rsa_size_ok(size_t bits)
+{
+    return bits >= 1024 && bits <= 4096 && bits % 8 == 0;
+}
+
+static void test_rsa_limits(void)
+{
+    table t = read_table("rsa-limit.tsv");
+    static const size_t gen_ok[] = {1024, 1032};
+    static const size_t gen_bad[] = {0, 512, 1016, 1023, 1025, 1026, 1028,
+                                     4097, 4104, 8192};
+    zuc_pkey *key;
+    size_t i;
+    int r, want_private;
+
+    for (r = 1; r < t.nrow; r++) {
+        const char *enc = get(&t, r, "encoding");
+        size_t bits = (size_t) strtoul(get(&t, r, "bits"), NULL, 10), n;
+        uint8_t *der = unhex(get(&t, r, "data"), &n);
+        int is_private = strncmp(enc, "private", 7) == 0;
+
+        context = get(&t, r, "id");
+        for (want_private = 0; want_private <= is_private; want_private++) {
+            key = NULL;
+            if (rsa_size_ok(bits)) {
+                ST(zuc_pkey_parse(der, n, want_private, &key), ZUC_OK);
+                CHECK(zuc_pkey_bits(key) == bits, "read at %zu bits, not %zu",
+                      zuc_pkey_bits(key), bits);
+            } else {
+                ST(zuc_pkey_parse(der, n, want_private, &key),
+                   ZUC_ERR_UNSUPPORTED);
+                CHECK(key == NULL, "no handle for a refused key");
+            }
+            zuc_pkey_free(key);
+        }
+        /* The raw form is PKCS#1 DER: the same rule through import. */
+        if (strstr(enc, "pkcs1_der") != NULL) {
+            key = NULL;
+            ST(zuc_pkey_import(ZUC_ALG_RSA, is_private, der, n, &key),
+               rsa_size_ok(bits) ? ZUC_OK : ZUC_ERR_UNSUPPORTED);
+            zuc_pkey_free(key);
+        }
+        free(der);
+    }
+
+    context = "rsa generate";
+    for (i = 0; i < sizeof gen_ok / sizeof gen_ok[0]; i++) {
+        key = NULL;
+        ST(zuc_pkey_generate(ZUC_ALG_RSA, gen_ok[i], &key), ZUC_OK);
+        CHECK(zuc_pkey_bits(key) == gen_ok[i], "generated %zu bits, not %zu",
+              zuc_pkey_bits(key), gen_ok[i]);
+        zuc_pkey_free(key);
+    }
+    for (i = 0; i < sizeof gen_bad / sizeof gen_bad[0]; i++) {
+        key = NULL;
+        ST(zuc_pkey_generate(ZUC_ALG_RSA, gen_bad[i], &key), ZUC_ERR_BAD_LENGTH);
+        CHECK(key == NULL, "no handle for %zu bits", gen_bad[i]);
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * Output-buffer contracts of zuc_pkey_write, _decrypt and _agree (#142)
+ * ------------------------------------------------------------------ */
+
+static void test_pkey_outputs(void)
+{
+    table rk = read_table("rsa-keys.tsv"), ek = read_table("ec-keys.tsv");
+    static uint8_t want[ZUC_PKEY_MAX_WRITE_SIZE], got[ZUC_PKEY_MAX_WRITE_SIZE + 1];
+    uint8_t *der, ct[512];
+    size_t der_n, need, len, ct_len, size;
+    zuc_pkey *keys[3] = {NULL, NULL, NULL}, *peer = NULL, *pub = NULL;
+    int k, f, p;
+
+    der = rsa_der(&rk, "rfc7515-a2", &der_n);
+    ST(zuc_pkey_parse(der, der_n, 1, &keys[0]), ZUC_OK);
+    free(der);
+    keys[1] = ec_key(&ek, "rfc5903-p256-i", 1);
+    keys[2] = ec_key(&ek, "rfc7748-alice", 1);
+    peer = ec_key(&ek, "rfc5903-p256-r", 0);
+    if (!keys[0] || !keys[1] || !keys[2] || !peer) return;
+
+    /* Every encoding at exactly its length, a byte under and a byte over:
+     * the exact size is enough, a byte under is BAD_LENGTH with the buffer
+     * zeroed, and nothing is written past the length reported (PEM has no
+     * terminating NUL). */
+    context = "write straddle";
+    for (k = 0; k < 3; k++) {
+        for (f = ZUC_PKEY_PKCS1_DER; f <= ZUC_PKEY_INFO_PEM; f++) {
+            for (p = 0; p <= 1; p++) {
+                if (zuc_pkey_write(keys[k], (zuc_pkey_format) f, p, want,
+                                   sizeof want, &need) != ZUC_OK) {
+                    continue;
+                }
+                for (size = need - 1; size <= need + 1; size++) {
+                    memset(got, 0x5a, sizeof got);
+                    ST(zuc_pkey_write(keys[k], (zuc_pkey_format) f, p, got,
+                                      size, &len),
+                       size < need ? ZUC_ERR_BAD_LENGTH : ZUC_OK);
+                    if (size < need) {
+                        CHECK(len == 0 && all_bytes(got, size, 0),
+                              "key %d format %d: a refusal is wiped", k, f);
+                        CHECK(got[size] == 0x5a, "wrote past the buffer");
+                    } else {
+                        CHECK(len == need && memcmp(got, want, need) == 0,
+                              "key %d format %d public %d at %zu bytes", k, f,
+                              p, size);
+                        CHECK(size == need || got[need] == 0x5a,
+                              "key %d format %d wrote past its length", k, f);
+                    }
+                }
+            }
+        }
+    }
+
+    /* "On any failure the whole output buffer is zeroed", early refusals
+     * included. */
+    context = "decrypt refusals";
+    ST(zuc_pkey_public(keys[0], &pub), ZUC_OK);
+    ST(zuc_pkey_encrypt(keys[0], ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256,
+                        (const uint8_t *) "abc", 3, ct, sizeof ct, &ct_len),
+       ZUC_OK);
+#define REFUSED(call, status)                                               \
+    do {                                                                    \
+        memset(got, 0x5a, 300);                                             \
+        len = 99;                                                           \
+        ST(call, status);                                                   \
+        CHECK(len == 0 && all_bytes(got, 256, 0) && got[256] == 0x5a,       \
+              "%s left its output", #call);                                 \
+    } while (0)
+    REFUSED(zuc_pkey_decrypt(pub, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, ct,
+                             ct_len, got, 256, &len),
+            ZUC_ERR_INVALID_ARGUMENT);
+    REFUSED(zuc_pkey_decrypt(keys[0], ZUC_ALG_RSA_OAEP, ZUC_ALG_NONE, ct,
+                             ct_len, got, 256, &len), ZUC_ERR_UNSUPPORTED);
+    REFUSED(zuc_pkey_decrypt(keys[1], ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, ct,
+                             ct_len, got, 256, &len), ZUC_ERR_UNSUPPORTED);
+    REFUSED(zuc_pkey_decrypt(keys[0], ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, NULL,
+                             ct_len, got, 256, &len),
+            ZUC_ERR_INVALID_ARGUMENT);
+    REFUSED(zuc_pkey_decrypt(keys[0], ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, ct,
+                             ct_len - 1, got, 256, &len), ZUC_ERR_AUTH);
+    context = "agree refusals";
+    REFUSED(zuc_pkey_agree(keys[0], peer, got, 256, &len), ZUC_ERR_UNSUPPORTED);
+    REFUSED(zuc_pkey_agree(pub, peer, got, 256, &len), ZUC_ERR_UNSUPPORTED);
+    REFUSED(zuc_pkey_agree(keys[2], peer, got, 256, &len),
+            ZUC_ERR_INVALID_ARGUMENT);
+    REFUSED(zuc_pkey_agree(keys[1], NULL, got, 256, &len),
+            ZUC_ERR_INVALID_ARGUMENT);
+    {
+        zuc_pkey *ppub = NULL;
+        ST(zuc_pkey_public(keys[1], &ppub), ZUC_OK);
+        REFUSED(zuc_pkey_agree(ppub, peer, got, 256, &len),
+                ZUC_ERR_INVALID_ARGUMENT);
+        zuc_pkey_free(ppub);
+    }
+    memset(got, 0x5a, 300);
+    ST(zuc_pkey_agree(keys[1], peer, got, 31, &len), ZUC_ERR_BAD_LENGTH);
+    CHECK(len == 0 && all_bytes(got, 31, 0) && got[31] == 0x5a,
+          "a short agreement buffer is wiped, and only it");
+#undef REFUSED
+    for (k = 0; k < 3; k++) zuc_pkey_free(keys[k]);
+    zuc_pkey_free(peer);
+    zuc_pkey_free(pub);
+}
+
+/* ------------------------------------------------------------------ *
  * A failing entropy source is reported as ZUC_ERR_ENTROPY (#140)
  * ------------------------------------------------------------------ */
 
@@ -1337,6 +1573,8 @@ int main(int argc, char **argv)
     RUN(test_util);
     RUN(test_info);
     RUN(test_rsa);
+    RUN(test_rsa_limits);
+    RUN(test_pkey_outputs);
     RUN(test_ec);
     RUN(test_entropy);
     RUN(test_alloc_sweep);

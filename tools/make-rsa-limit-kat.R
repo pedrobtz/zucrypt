@@ -1,26 +1,31 @@
 #!/usr/bin/env Rscript
-## RSA keys straddling the backend's 4096-bit limit (#93), written to
-## tests/testthat/fixtures/rsa-limit.tsv, with their MANIFEST.tsv rows.
+## RSA keys straddling the size rule, 1024 to 4096 bits in whole bytes (#93,
+## #141), written to tests/testthat/fixtures/rsa-limit.tsv, with their
+## MANIFEST.tsv rows.
 ##
-## The backend refuses RSA keys over PSA_VENDOR_RSA_MAX_KEY_BITS (4096). The
-## suite reads keys of 4088, 4096, 4104 and 8192 bits in every encoding both
-## readers take, so that a key over the limit is refused with the
-## same class whichever reader and encoding reached it. The keys are made by
-## openssl, the outside oracle for the key encodings, and stored as hex so
-## the suite needs neither openssl nor an RSA key generation at run time.
+## The backend refuses RSA keys over PSA_VENDOR_RSA_MAX_KEY_BITS (4096) and
+## keys whose modulus is not a whole number of bytes; zucrypt refuses keys
+## under 1024 bits. The suite reads keys of each size in BITS, in every
+## encoding both readers take, so that a key outside the rule is refused with
+## the same class and message whichever reader and encoding reached it, and
+## one inside it is read at its size. The keys are made by openssl, the
+## outside oracle for the key encodings, and stored as hex so the suite needs
+## neither openssl nor an RSA key generation at run time.
 ##
-## The straddle is a byte either side of the limit, not a bit: openssl
-## rounds an odd size down (4097 gives 4096), so it cannot make the 4095- or
-## 4097-bit keys a bit-level straddle would need. Each size is still drawn
-## until its modulus is exactly that long.
+## At the top the straddle is a byte either side of the limit, not a bit:
+## openssl rounds an odd size down (4097 gives 4096), so it cannot make the
+## 4095- or 4097-bit keys a bit-level straddle would need. Each size is still
+## drawn until its modulus is exactly that long. A size already in the
+## fixture keeps its key; only missing sizes are drawn.
 ##
-##   Rscript tools/make-rsa-limit-kat.R          # rewrite the fixture
+##   Rscript tools/make-rsa-limit-kat.R          # add the missing sizes
 ##   Rscript tools/make-rsa-limit-kat.R --check  # parse every row with openssl
 
 FIXTURES <- file.path("tests", "testthat", "fixtures")
 OUT <- file.path(FIXTURES, "rsa-limit.tsv")
 GENERATOR <- "tools/make-rsa-limit-kat.R"
-BITS <- c(4088L, 4096L, 4104L, 8192L)
+BITS <- c(512L, 1000L, 1016L, 1024L, 1028L, 2047L, 2048L,
+          4088L, 4096L, 4104L, 8192L)
 
 tohex <- function(x) paste(format(x), collapse = "")
 unhex <- function(h) {
@@ -85,8 +90,14 @@ check <- function() {
 }
 
 generate <- function() {
-  rows <- list()
-  for (bits in BITS) {
+  old <- if (file.exists(OUT)) {
+    utils::read.delim(OUT, colClasses = "character")
+  } else {
+    data.frame(id = character(), bits = character(), encoding = character(),
+               data = character())
+  }
+  rows <- list(old[old$bits %in% BITS, ])
+  for (bits in setdiff(BITS, as.integer(old$bits))) {
     enc <- encodings(exact_key(bits))
     for (name in names(enc)) {
       rows[[length(rows) + 1L]] <- data.frame(
@@ -98,18 +109,22 @@ generate <- function() {
     }
   }
   rows <- do.call(rbind, rows)
+  rows <- rows[order(as.integer(rows$bits), seq_len(nrow(rows))), ]
   utils::write.table(rows, OUT, sep = "\t", quote = FALSE, row.names = FALSE)
 
   manifest_file <- file.path(FIXTURES, "MANIFEST.tsv")
   manifest <- utils::read.delim(manifest_file, colClasses = "character")
-  manifest <- manifest[manifest$file != "rsa-limit.tsv", ]
-  manifest <- rbind(manifest, data.frame(
-    file = "rsa-limit.tsv",
-    id = rows$id,
-    source = sprintf("openssl %s, RSA-%s (%s), the 4096-bit backend limit",
-                     openssl::openssl_config()$version, rows$bits,
-                     rows$encoding),
-    generator = GENERATOR
+  # A kept row keeps its provenance: the openssl that wrote it.
+  ours <- manifest$file == "rsa-limit.tsv"
+  kept <- manifest[ours & manifest$id %in% rows$id, ]
+  fresh <- rows[!rows$id %in% kept$id, ]
+  manifest <- rbind(manifest[!ours, ], kept, data.frame(
+    file = rep("rsa-limit.tsv", nrow(fresh)),
+    id = fresh$id,
+    source = sprintf("openssl %s, RSA-%s (%s), the 1024 to 4096-bit rule",
+                     openssl::openssl_config()$version, fresh$bits,
+                     fresh$encoding),
+    generator = rep(GENERATOR, nrow(fresh))
   ))
   utils::write.table(manifest, manifest_file, sep = "\t", quote = FALSE,
                      row.names = FALSE)

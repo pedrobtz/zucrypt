@@ -77,6 +77,35 @@
 
 ## Bug fixes
 
+* A condition about a key now carries that key's type in its `algorithm`
+  field (`"rsa"`, `"p256"`, `"p384"`, `"p521"` or `"x25519"`), and `NA` when
+  the input is not a key (#143); every key condition said `"rsa"`. A public
+  key object given where a private key is needed, as in
+  `crypt_signature_create(data, key = k$pubkey)`, is refused naming that
+  argument and the function called, rather than as a bad `file` to
+  `crypt_read_key()`.
+
+* C interface: three places where the adapter broke a promise of
+  `zucrypt.h` (#142). `zuc_pkey_write()` refused a PEM encoding written
+  into a buffer of exactly its length, and wrote a NUL past it into a
+  larger one; it now needs exactly the length it reports and writes
+  nothing more. `zuc_aes_cbc_set_state()` and `zuc_aes_cbc_get_state()`
+  on a handle kept across the last `zuc_shutdown()` returned `ZUC_OK`
+  rather than `ZUC_ERR_NOT_READY`. `zuc_pkey_decrypt()` and
+  `zuc_pkey_agree()` left the output buffer as it was when they refused an
+  argument (a public key, an unsupported scheme, a peer on another curve),
+  rather than zeroing it. The R functions were not affected.
+
+* RSA keys follow one size rule everywhere: a modulus of 1024 to 4096 bits,
+  a whole number of bytes (#141). `crypt_read_key()`, `crypt_read_pubkey()`
+  and `crypt_rsa_key()` now refuse a key under 1024 bits, which they read and
+  used before, as `zucrypt_unsupported_algorithm`; `openssl` still reads
+  such keys. A key of 1028 or 2047 bits, which the bundled library cannot
+  use, is refused with a message naming the rule rather than "up to 4096
+  bits". `crypt_rsa_keygen()` refuses a size that is not a multiple of 8 as
+  `zucrypt_invalid_argument` up front; 1025 used to pass the check and fail
+  in the backend as an unsupported algorithm.
+
 * A failing operating-system random source is reported as
   `zucrypt_entropy_error` (`ZUC_ERR_ENTROPY` in C) by every key operation
   (#140). `crypt_rsa_decrypt()` reported it as `zucrypt_auth_error`, as if
@@ -85,6 +114,13 @@
   peer key were bad, and in C, writing the public half of a private EC or
   X25519 key as SubjectPublicKeyInfo returned `ZUC_ERR_BACKEND`. Decryption
   still reports every padding failure as the one status.
+
+* Writing a private key as PEM (`crypt_write_pem()`, and the PEM forms of
+  the C API's `zuc_pkey_write()`) left the key's base64 in freed memory: the
+  vendored PEM writer released its buffer without wiping it (#137). A
+  fourth local patch to TF-PSA-Crypto wipes it. A new test searches every
+  block the backend frees during a key write or read, for RSA, P-256, P-384,
+  P-521 and X25519 in every encoding, for a piece of the private key.
 
 * In the C API, `zuc_aead_encrypt()` and `zuc_aead_decrypt()` now refuse,
   with `ZUC_ERR_OVERLAP`, a tag or output buffer that overlaps any other
