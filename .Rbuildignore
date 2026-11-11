@@ -40,3 +40,5 @@
 ^\.claude$
 # The full NIST CAVP set (#67), run by aes-paths.yaml and platforms.yaml.
 ^tools/cavp$
+# The frozen v0.1.0 headers and the ABI probe (#139), run by abi.yaml.
+^tools/abi$

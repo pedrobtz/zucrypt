@@ -21,26 +21,12 @@ test_that("the archive and the header are installed side by side", {
 })
 
 test_that("the archive defines every public entry point", {
-  entry_points <- c(
-    "zuc_init", "zuc_shutdown", "zuc_get_info",
-    "zuc_status_string", "zuc_status_name",
-    "zuc_alg_name", "zuc_alg_by_name", "zuc_alg_available", "zuc_alg_size",
-    "zuc_hash_compute", "zuc_hash_new", "zuc_hash_update", "zuc_hash_finish",
-    "zuc_hash_reset", "zuc_hash_free",
-    "zuc_hmac_compute", "zuc_hmac_new", "zuc_hmac_update", "zuc_hmac_finish",
-    "zuc_hmac_reset", "zuc_hmac_free",
-    "zuc_aes_new", "zuc_aes_free",
-    "zuc_aes_cbc_set_state", "zuc_aes_cbc_get_state",
-    "zuc_aes_cbc_encrypt", "zuc_aes_cbc_decrypt",
-    "zuc_equal", "zuc_secure_zero",
-    "zuc_random_bytes",
-    "zuc_aead_encrypt", "zuc_aead_decrypt", "zuc_pbkdf2_hmac",
-    "zuc_pkey_parse", "zuc_pkey_generate", "zuc_pkey_public",
-    "zuc_pkey_free", "zuc_pkey_type", "zuc_pkey_bits", "zuc_pkey_is_private",
-    "zuc_pkey_write", "zuc_pkey_sign_hash", "zuc_pkey_verify_hash",
-    "zuc_pkey_encrypt", "zuc_pkey_decrypt",
-    "zuc_pkey_import", "zuc_pkey_export", "zuc_pkey_agree"
-  )
+  # Every function the installed header declares, read from the header so a
+  # new declaration is checked without anyone adding it to a list (#139).
+  code <- paste(installed_header_code(), collapse = "\n")
+  entry_points <- unique(regmatches(code, gregexpr("\\bzuc_[a-z0-9_]+(?=\\s*\\()",
+                                                   code, perl = TRUE))[[1L]])
+  expect_gte(length(entry_points), 48L)
   defined <- archive_defined()
 
   for (name in entry_points) {

@@ -56,3 +56,10 @@ jobs:
       # (platforms.yaml); the script is shared so the two cannot drift.
       - name: zucrypt.h and zucrypt-r.h compile standalone
         run: bash tools/ci/check-header.sh
+
+      # ABI 1 against what v0.1.0 published (#139): every enumerator, macro
+      # and field of the frozen headers in tools/abi/v0.1.0/ keeps its value
+      # and place, and a consumer compiled against them runs its vectors
+      # through the current archive. macOS runs it in platform.sh.
+      - name: ABI 1 against the v0.1.0 headers
+        run: bash tools/ci/check-abi.sh
