@@ -134,13 +134,13 @@ key
 pem <- crypt_write_pem(key$pubkey)
 cat(pem)
 #> -----BEGIN PUBLIC KEY-----
-#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAjXcj7v3Qj+dCwehdyGWe
-#> gi7QPegl4zCK60RKwdogAehTMBC/9HPhhu4WO4uW1p0Njv9MYBP8tslpqMrjwQMx
-#> BXe444hGWS9nI9OlcbgxuQqT0/W9N+0wSqj0pT5goa8MY7kzJ8lzY491Psxqv0NU
-#> 93wSzik4xfFaxtGyasmx+ozg8h2A0mfv50m1ReEMHg7dY/Hwi+Y4dylbYodsGHQX
-#> bo94b0FC0GuwGsbqyzHiSjLoMR4X/82zu9lf8DZ5yUmvR2gzkE8dy1N3SlfYquxf
-#> jm8R4zj/UtHHFfmxcKsbbIumrlUlPD6j/V79aSeVxfmIdH1CPklhtJFI6tTWQuGh
-#> XwIDAQAB
+#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0zUWhdL9OTxI5mqqQVjk
+#> HLTjRyo0iGviesQ/1U7fW+RPUGABKvQwsIER0c5svs/vdlgp5KNlypuqGxXaja1Y
+#> iPtYjD4t99nsw7x6J0M7nCUXQgFzxA2BYC4MyoR6+IlEaHn+1W1wEGBqLHl4LdlD
+#> c7fsNaiZf7egyJhxDKp1cXqxiEu3DtzZyU4hLoWb9SYkFaNer7uljvo6lqNDacgM
+#> LCyWFx34q91CkrT9uo+M9qEE0yGX7kNCXIW230g/eOuJbn+rgU+95QyAw9V0/00q
+#> JH3kqpcRTBtGGXBQS/ikXuF4g9hH4q9MaZjUhtJc84xbTM4aFXM4sM7DTyC1hds4
+#> YQIDAQAB
 #> -----END PUBLIC KEY-----
 pub <- crypt_read_pubkey(pem)
 
