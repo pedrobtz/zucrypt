@@ -128,3 +128,25 @@ jobs:
           cat(sprintf("%d expectations passed\n", sum(res$passed)))
           if (sum(res$passed) == 0L) stop("no tests ran")
           if (sum(res$failed) > 0L || any(res$error)) stop("tests failed")
+
+      # The randomized differential against openssl (#68), at 50 times the
+      # suite's count, with a seed from the run id so that every run explores
+      # new inputs. A failure names the seed and the iteration; to reproduce
+      # it, ZUCRYPT_DIFF_SEED=<seed> ZUCRYPT_DIFF_N=2000 on the same test.
+      - name: Randomized differential against openssl (2000 cases a family)
+        if: matrix.expect == 'aesni'
+        shell: Rscript {0}
+        env:
+          ZUCRYPT_DIFF_N: "2000"
+          ZUCRYPT_DIFF_SEED: ${{ github.run_id }}
+        run: |
+          seed <- as.integer(as.numeric(Sys.getenv("ZUCRYPT_DIFF_SEED")) %% .Machine$integer.max)
+          Sys.setenv(ZUCRYPT_DIFF_SEED = seed)
+          cat(sprintf("seed %d, %s cases a family\n", seed, Sys.getenv("ZUCRYPT_DIFF_N")))
+          res <- as.data.frame(testthat::test_local(".", filter = "differential",
+                                                    load_package = "installed",
+                                                    reporter = "summary",
+                                                    stop_on_failure = FALSE))
+          cat(sprintf("%d expectations passed\n", sum(res$passed)))
+          if (sum(res$passed) < 10000L) stop("the differential ran too few cases")
+          if (sum(res$failed) > 0L || any(res$error)) stop("tests failed")
