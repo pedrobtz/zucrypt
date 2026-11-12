@@ -167,11 +167,11 @@ derive a key from a password.</p></div>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">key</span> <span class="op">&lt;-</span> <span class="fu"><a href="crypt_rand_bytes.html">crypt_rand_bytes</a></span><span class="op">(</span><span class="fl">32</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">sealed</span> <span class="op">&lt;-</span> <span class="fu">crypt_aes_gcm_encrypt</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"attack at dawn"</span><span class="op">)</span>, <span class="va">key</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">sealed</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 6d 0c d3 8a 0a b2 a4 8b 88 6f 17 51 6e ef</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 5a 3e 2e 82 f9 17 d5 91 58 7e 93 8e b6 48</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> attr(,"iv")</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 3d c7 82 94 c7 25 5d 8e 26 5c 03 cd</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 09 8a c0 0e 8f 40 a9 0e 2d 44 cc d6</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> attr(,"tag")</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 03 7f 2a dd cd 5f 6e 49 15 e4 57 7c 85 c8 eb 5d</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 9c 4a c2 04 1a 52 bd 60 38 d3 82 a7 57 d8 13 f8</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">rawToChar</a></span><span class="op">(</span><span class="fu">crypt_aes_gcm_decrypt</span><span class="op">(</span><span class="va">sealed</span>, <span class="va">key</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "attack at dawn"</span>
