@@ -231,6 +231,48 @@ test_that("decryption failures are one class, and a long message is refused", {
                class = "zucrypt_bad_length")
 })
 
+test_that("each padding's longest message is straddled (#102)", {
+  # The room left for a message depends on the padding and the hash: k - 11
+  # for PKCS#1 v1.5 and k - 2 hLen - 2 for OAEP, 245, 214, 190, 158 and 126
+  # bytes on a 2048-bit key. At the limit and one under, a message encrypts
+  # and comes back; one over is refused. The decryption oracle is rsa.tsv's
+  # rsa-limit-* rows, ciphertexts Python's cryptography made at exactly
+  # these lengths, which the vector test above decrypts; here, that they
+  # are there, and openssl for the two paddings it can choose.
+  key <- rsa_fixture_key("generated-2048")
+  rows <- rsa_vectors()
+  rows <- rows[startsWith(rows$id, "rsa-limit-"), ]
+  cases <- list(c("pkcs1v15", "sha1", 245), c("oaep", "sha1", 214),
+                c("oaep", "sha256", 190), c("oaep", "sha384", 158),
+                c("oaep", "sha512", 126))
+  have_openssl <- requireNamespace("openssl", quietly = TRUE)
+  if (have_openssl) theirs <- openssl::read_key(crypt_write_pem(key))
+  for (case in cases) {
+    oaep <- case[[1]] == "oaep"
+    h <- case[[2]]
+    limit <- as.integer(case[[3]])
+    info <- paste(case[[1]], if (oaep) h, limit)
+    fixture <- rows[rows$scheme == case[[1]] & (!oaep | rows$hash == h), ]
+    expect_setequal(nchar(fixture$input) / 2, c(limit - 1L, limit))
+    for (n in c(limit - 1L, limit)) {
+      msg <- as.raw((7L * seq_len(n)) %% 256L)
+      ct <- crypt_rsa_encrypt(msg, key$pubkey, oaep = oaep, oaep_hash = h)
+      expect_length(ct, 256L)
+      expect_identical(crypt_rsa_decrypt(ct, key, oaep = oaep, oaep_hash = h),
+                       msg, info = paste(info, n))
+      if (have_openssl && h == "sha1") {
+        expect_identical(openssl::rsa_decrypt(ct, theirs, oaep = oaep), msg,
+                         info = paste(info, n, "openssl"))
+      }
+    }
+    expect_error(
+      crypt_rsa_encrypt(as.raw(seq_len(limit + 1L) %% 256L), key$pubkey,
+                        oaep = oaep, oaep_hash = h),
+      class = "zucrypt_bad_length"
+    )
+  }
+})
+
 test_that("zuc_pkey_*() keep the contract zucrypt.h states", {
   got <- native_pkey_contract(charToRaw(crypt_write_pem(crypt_rsa_keygen(2048))))
   for (n in c("parse", "sign", "verify", "encrypt")) {

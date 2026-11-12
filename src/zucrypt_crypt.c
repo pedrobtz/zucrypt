@@ -42,6 +42,8 @@
  * multi-gigabyte hash is answered promptly. */
 #define ZUCRYPT_CHUNK (1024u * 1024u)
 
+zuc_status zucrypt_int_rand_fill(uint8_t *bytes, size_t len);
+
 /* ------------------------------------------------------------------ *
  * Context ownership
  * ------------------------------------------------------------------ */
@@ -621,14 +623,12 @@ SEXP zucrypt_algorithms(void)
  * chunks, with an interrupt check after each: there is no native state to
  * strand, because zuc_random_bytes() holds none between calls. On a failure
  * every byte already drawn is wiped before the vector is dropped. */
-SEXP zucrypt_rand_bytes(SEXP n)
+/* The fill loop, apart so that zucrypt_test_rand_fill() can run it over a
+ * buffer pre-filled with a sentinel and see that no byte was left (#100). */
+zuc_status zucrypt_int_rand_fill(uint8_t *bytes, size_t len)
 {
-    R_xlen_t total = (R_xlen_t) whole_arg(n, 0, ZUCRYPT_MAX_LEN, "n");
-    SEXP out = PROTECT(Rf_allocVector(RAWSXP, total));
-    uint8_t *bytes = (uint8_t *) RAW(out);
-    size_t len = (size_t) total, offset = 0;
+    size_t offset = 0;
     zuc_status st = ZUC_OK;
-    SEXP res;
 
     while (offset < len && st == ZUC_OK) {
         size_t chunk = len - offset;
@@ -640,6 +640,17 @@ SEXP zucrypt_rand_bytes(SEXP n)
     if (st != ZUC_OK) {
         zuc_secure_zero(bytes, len);
     }
+    return st;
+}
+
+SEXP zucrypt_rand_bytes(SEXP n)
+{
+    R_xlen_t total = (R_xlen_t) whole_arg(n, 0, ZUCRYPT_MAX_LEN, "n");
+    SEXP out = PROTECT(Rf_allocVector(RAWSXP, total));
+    zuc_status st = zucrypt_int_rand_fill((uint8_t *) RAW(out),
+                                          (size_t) total);
+    SEXP res;
+
     res = result(st, st == ZUC_OK ? out : R_NilValue);
     UNPROTECT(1);
     return res;

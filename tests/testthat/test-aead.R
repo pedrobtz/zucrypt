@@ -76,6 +76,12 @@ test_that("every alteration fails with zucrypt_auth_error (design §12)", {
   expect_auth(crypt_aes_gcm_decrypt(ct, key, tag = attr(ct, "tag")[1:15],
                                     aad = aad))
   expect_auth(crypt_aes_gcm_decrypt(ct, key, tag = raw(0), aad = aad))
+  # Longer: the right tag with a byte after it, and the right tag twice
+  # (#101). A check for "at least 16" would accept both.
+  tag <- attr(ct, "tag")
+  expect_auth(crypt_aes_gcm_decrypt(ct, key, tag = c(tag, as.raw(0)),
+                                    aad = aad))
+  expect_auth(crypt_aes_gcm_decrypt(ct, key, tag = c(tag, tag), aad = aad))
   # Associated data left out, or added.
   expect_auth(crypt_aes_gcm_decrypt(ct, key))
   plain <- crypt_aes_gcm_encrypt(charToRaw("x"), key)
@@ -92,10 +98,11 @@ test_that("zuc_aead_*() keep the contract zucrypt.h states", {
           "null_data_0", "null_aad_0")
   for (n in ok) expect_identical(got[[n]], "ZUC_OK", info = n)
   auth <- c("tampered_ciphertext", "tampered_tag", "tampered_aad",
-            "tampered_nonce", "truncated_tag", "wrong_key")
+            "tampered_nonce", "truncated_tag", "wrong_key", "long_tag",
+            "doubled_tag")
   for (n in auth) expect_identical(got[[n]], "ZUC_ERR_AUTH", info = n)
   truthy <- c("roundtrip", "wiped_on_failure", "inplace_matches",
-              "overlap_untouched")
+              "overlap_untouched", "long_tag_wiped")
   for (n in truthy) expect_identical(got[[n]], "TRUE", info = n)
   expect_identical(got[["partial_overlap"]], "ZUC_ERR_OVERLAP")
   expect_identical(got[["null_key"]], "ZUC_ERR_INVALID_ARGUMENT")

@@ -32,6 +32,20 @@ void zuc_int_random_fail(int on);
  * Returns 0, and does nothing, on a build that does not use getrandom(). */
 int zuc_int_random_enosys(int on);
 
+/* Script the next `n` (at most ZUC_RANDOM_SCRIPT_MAX) calls to getrandom():
+ * a step k > 0 is the real call asked for at most k bytes, a short read;
+ * a ZUC_RANDOM_STEP_* value fails the call with that errno instead. Calls
+ * after the script are the real ones. So the suite can drive the paths a
+ * real kernel takes only now and then (#119). Returns the number of steps
+ * the previous script left unused, or -1, doing nothing, on a build that
+ * does not use getrandom(). Test harness only. */
+#define ZUC_RANDOM_SCRIPT_MAX 16
+#define ZUC_RANDOM_STEP_EINTR  (-1)
+#define ZUC_RANDOM_STEP_EIO    (-2)
+#define ZUC_RANDOM_STEP_EPERM  (-3)
+#define ZUC_RANDOM_STEP_ENOSYS (-4)
+int zuc_int_random_script(const int *steps, int n);
+
 /* Make the backend's `n`th allocation from now fail (n >= 1), once; 0
  * switches it off. Only allocations through zuc_int_calloc() count -- the
  * backend's, not the adapter's own -- so a test can fail an operation at a

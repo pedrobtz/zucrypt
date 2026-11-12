@@ -107,6 +107,53 @@ int zuc_int_random_enosys(int on)
 #endif
 }
 
+#if defined(ZUC_RANDOM_GETRANDOM)
+static int zuc_random_script_steps[ZUC_RANDOM_SCRIPT_MAX];
+static int zuc_random_script_len = 0, zuc_random_script_pos = 0;
+#endif
+
+int zuc_int_random_script(const int *steps, int n)
+{
+#if defined(ZUC_RANDOM_GETRANDOM)
+    int i, unused = zuc_random_script_len - zuc_random_script_pos;
+    if (n < 0) n = 0;
+    if (n > ZUC_RANDOM_SCRIPT_MAX) n = ZUC_RANDOM_SCRIPT_MAX;
+    for (i = 0; i < n; i++) {
+        zuc_random_script_steps[i] = steps[i];
+    }
+    zuc_random_script_len = n;
+    zuc_random_script_pos = 0;
+    return unused;
+#else
+    (void) steps;
+    (void) n;
+    return -1;
+#endif
+}
+
+#if defined(ZUC_RANDOM_GETRANDOM)
+/* getrandom(), unless the harness has scripted this call. */
+static ssize_t next_getrandom(uint8_t *out, size_t len)
+{
+    int step;
+    if (zuc_random_enosys) {
+        errno = ENOSYS;
+        return -1;
+    }
+    if (zuc_random_script_pos >= zuc_random_script_len) {
+        return getrandom(out, len, 0);
+    }
+    step = zuc_random_script_steps[zuc_random_script_pos++];
+    if (step > 0) {
+        return getrandom(out, len < (size_t) step ? len : (size_t) step, 0);
+    }
+    errno = step == ZUC_RANDOM_STEP_EINTR ? EINTR
+          : step == ZUC_RANDOM_STEP_EPERM ? EPERM
+          : step == ZUC_RANDOM_STEP_ENOSYS ? ENOSYS : EIO;
+    return -1;
+}
+#endif
+
 #if defined(ZUC_RANDOM_GETRANDOM) || defined(ZUC_RANDOM_DEV_URANDOM)
 /* Fill all of `out` from /dev/urandom, or fail. Returns 0 on success. */
 static int urandom_read(uint8_t *out, size_t len)
@@ -157,8 +204,7 @@ static int os_random(uint8_t *out, size_t len)
         return urandom_read(out, len);
     }
     while (len > 0) {
-        ssize_t n = zuc_random_enosys ? (errno = ENOSYS, -1)
-                                      : getrandom(out, len, 0);
+        ssize_t n = next_getrandom(out, len);
         if (n < 0) {
             if (errno == EINTR) {
                 continue;
