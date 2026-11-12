@@ -116,3 +116,84 @@ test_that("getrandom() refused by the kernel falls back to /dev/urandom (#144)",
   # Switched back, the build reports its own source again.
   expect_identical(crypt_info()$build_flags$random_backend, "getrandom")
 })
+
+test_that("forked children draw their own bytes, nonces and keys (#98)", {
+  # Randomness comes from the operating system on every call, with no DRBG
+  # state for fork() to copy. A buffered source or a DRBG brought back by a
+  # configuration change would give two parallel::mcparallel() workers the
+  # same bytes, and two randomised ECDSA signatures the same nonce, which
+  # reveals the private key. The oracle is the r of each signature: it is
+  # determined by the nonce alone.
+  skip_on_os("windows")
+  key <- ec_fixture_key("rfc6979-p256")
+  msg <- charToRaw("one message, signed in two processes")
+  draw <- function() {
+    sig <- crypt_signature_create(msg, crypt_sha256, key)
+    list(
+      bytes = crypt_rand_bytes(32),
+      r = crypt_ecdsa_parse(sig)$r,
+      ok = crypt_signature_verify(msg, sig, crypt_sha256, key$pubkey),
+      rsa = crypt_write_der(crypt_rsa_keygen(1024)$pubkey)
+    )
+  }
+  jobs <- list(parallel::mcparallel(draw()), parallel::mcparallel(draw()))
+  parent <- draw()
+  got <- parallel::mccollect(jobs, wait = TRUE)
+  expect_length(got, 2L)
+  for (g in got) expect_type(g, "list")
+  a <- got[[1]]
+  b <- got[[2]]
+  expect_false(identical(a$bytes, b$bytes))
+  expect_false(identical(a$bytes, parent$bytes))
+  expect_false(identical(b$bytes, parent$bytes))
+  expect_false(identical(a$r, b$r))
+  expect_false(identical(a$r, parent$r))
+  expect_false(identical(a$rsa, b$rsa))
+  # The signatures are valid: the children really signed.
+  expect_true(a$ok)
+  expect_true(b$ok)
+})
+
+test_that("getrandom()'s short reads, EINTR and errors are each handled (#119)", {
+  # A real kernel returns short or is interrupted only now and then, so the
+  # harness scripts the next calls. The buffer starts as 0xAA: a filled
+  # 64-byte buffer keeps a few such bytes by chance (a quarter on average,
+  # eight or more about once in 10^9), a buffer the loop failed to finish
+  # keeps every byte it did not write.
+  skip_if(is.null(native_random_script(character(0))),
+          "this build does not draw from getrandom()")
+  left <- function(r) sum(r[[2]] == as.raw(0xAA))
+
+  # Short reads: the loop asks again until every byte has arrived.
+  r <- native_random_script(c("1", "5", "7", "11"))
+  expect_identical(r[[1]], "ZUC_OK")
+  expect_identical(r[[3]], 0L)
+  expect_lt(left(r), 8L)
+
+  # Interrupted once, and twice between short reads: retried, not failed.
+  for (steps in list("EINTR", c("3", "EINTR", "EINTR", "9"))) {
+    r <- native_random_script(steps)
+    expect_identical(r[[1]], "ZUC_OK", info = paste(steps, collapse = " "))
+    expect_identical(r[[3]], 0L)
+    expect_lt(left(r), 8L)
+  }
+
+  # A permanent error, at once or after a short read: ZUC_ERR_ENTROPY, and
+  # nothing drawn before it is left in the buffer.
+  for (steps in list("EIO", c("10", "EIO"))) {
+    r <- native_random_script(steps)
+    expect_identical(r[[1]], "ZUC_ERR_ENTROPY",
+                     info = paste(steps, collapse = " "))
+    expect_identical(r[[2]], raw(64))
+  }
+
+  # The call itself refused (a seccomp filter's EPERM, an old kernel's
+  # ENOSYS) after a short read: the rest comes from /dev/urandom.
+  for (steps in list(c("4", "EPERM"), c("4", "ENOSYS"))) {
+    r <- native_random_script(steps)
+    expect_identical(r[[1]], "ZUC_OK", info = paste(steps, collapse = " "))
+    expect_lt(left(r), 8L)
+  }
+  # And the harness put getrandom() back.
+  expect_identical(crypt_info()$build_flags$random_backend, "getrandom")
+})

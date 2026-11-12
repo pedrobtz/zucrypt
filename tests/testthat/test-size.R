@@ -40,6 +40,63 @@ test_that("multi-megabyte CBC chains correctly across interrupt chunks", {
                    data)
 })
 
+test_that("a last chunk of one byte is processed on every in-memory path (#100)", {
+  # src/zucrypt_crypt.c loops over in-memory input 1 MiB at a time. Either
+  # side of the chunk, and at one byte, the last chunk is a single byte (or
+  # block): a loop bound off by one drops it. The oracles are one unchunked
+  # adapter call and, where it is installed, openssl.
+  chunk <- 1048576L
+  key <- as.raw(1:20)
+  have_openssl <- requireNamespace("openssl", quietly = TRUE)
+  for (n in c(1L, chunk - 1L, chunk, chunk + 1L)) {
+    data <- as.raw(rep_len(c(0:255, 7L), n))
+    for (algorithm in c("sha1", "sha256", "sha512")) {
+      info <- paste(algorithm, n)
+      expect_identical(crypt_hash(data, algorithm),
+                       native_hash(algorithm, data), info = info)
+      expect_identical(crypt_hmac(data, key, algorithm),
+                       native_hmac(algorithm, key, data), info = info)
+      if (have_openssl) {
+        f <- getExportedValue("openssl", algorithm)
+        expect_identical(crypt_hash(data, algorithm), as.vector(f(data)),
+                         info = info)
+        expect_identical(crypt_hmac(data, key, algorithm),
+                         as.vector(f(data, key = key)), info = info)
+      }
+    }
+  }
+
+  # CBC works in blocks, so its straddle is a block either side.
+  aes_key <- as.raw(rep(0x2b, 32))
+  iv <- as.raw(0:15)
+  for (n in c(16L, chunk - 16L, chunk, chunk + 16L)) {
+    info <- paste("n =", n)
+    data <- as.raw(rep_len(c(0:255, 7L), n))
+    ct <- crypt_aes_cbc_encrypt_nopad(data, aes_key, iv)
+    expect_identical(ct, native_aes("cbc", TRUE, aes_key, iv, data),
+                     info = info)
+    expect_identical(crypt_aes_cbc_decrypt_nopad(ct, aes_key, iv), data,
+                     info = info)
+    if (have_openssl) {
+      # openssl pads; its first n bytes are the unpadded encryption.
+      theirs <- openssl::aes_cbc_encrypt(data, aes_key, iv)
+      expect_identical(ct, as.vector(theirs)[seq_len(n)], info = info)
+    }
+  }
+
+  # Random bytes: the fill loop runs over a buffer pre-filled with a
+  # sentinel. A byte left unfilled is the sentinel in every draw; a filled
+  # one is the sentinel in all four with probability 2^-32.
+  for (n in c(1L, chunk - 1L, chunk, chunk + 1L)) {
+    last <- vapply(1:4, function(i) {
+      native_rand_fill(rep(as.raw(0xAA), n))[n]
+    }, raw(1))
+    expect_false(all(last == as.raw(0xAA)), info = paste("n =", n))
+    expect_length(native_rand_fill(raw(n)), n)
+    expect_length(crypt_rand_bytes(n), n)
+  }
+})
+
 test_that("processing a large input does not allocate per block", {
   # The native entry points write into one preallocated output vector and
   # loop in the C layer. If a future change moved the loop into R, or

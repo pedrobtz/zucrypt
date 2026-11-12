@@ -95,6 +95,11 @@ native_random_enosys <- function(on) {
 native_random_fail <- function(on) {
   invisible(.Call(zucrypt:::zucrypt_test_random_fail, isTRUE(on)))
 }
+native_random_script <- function(steps, len = 64L) {
+  .Call(zucrypt:::zucrypt_test_random_script, as.character(steps),
+        as.integer(len))
+}
+native_rand_fill <- function(x) .Call(zucrypt:::zucrypt_test_rand_fill, x)
 native_live_handles <- function(n) {
   .Call(zucrypt:::zucrypt_test_live_handles, as.integer(n))
 }

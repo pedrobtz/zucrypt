@@ -2,6 +2,7 @@
 """Write, or check, the RSA known-answer fixtures (Stage 15a).
 
     python3 tools/make-rsa-kat.py RFC7515.txt RFC7516.txt   write the fixtures
+    python3 tools/make-rsa-kat.py --limits                  (re)write the limit rows
     python3 tools/make-rsa-kat.py --check                   check them
 
 Maintainer tooling, never run at check time. Needs the `cryptography`
@@ -17,7 +18,11 @@ MANIFEST.tsv. Two kinds of vector:
     RSAES-PKCS1-v1_5 encrypted key);
   - generated with `cryptography`, for what no RFC publishes: PSS
     signatures and OAEP ciphertexts over SHA-256, SHA-384 and SHA-512, on
-    one generated 2048-bit key. Their source says so.
+    one generated 2048-bit key. Their source says so;
+  - the message-length limits (#102), also generated: on that key, for
+    PKCS#1 v1.5 (k - 11) and OAEP with each hash (k - 2 hLen - 2), a
+    ciphertext of a message at the limit and one byte under it.
+    --limits rewrites only these rows, for the key already committed.
 
 PSS and OAEP are randomised, so writing again generates new values. --check
 does not regenerate: it verifies every row with `cryptography` -- each
@@ -92,6 +97,87 @@ def private_key(row):
         p, q, d, dp, dq, qi, rsa.RSAPublicNumbers(e, n)).private_key()
 
 
+LIMIT_PREFIX = "rsa-limit-"
+
+
+def limit_vectors(key, key_id):
+    """Ciphertexts at each padding's longest message and one byte under."""
+    k = key.key_size // 8
+    pub = key.public_key()
+    version = __import__("cryptography").__version__
+    out = []
+    for scheme, h in [("pkcs1v15", ""), ("oaep", "sha1"), ("oaep", "sha256"),
+                      ("oaep", "sha384"), ("oaep", "sha512")]:
+        if scheme == "oaep":
+            hc = HASHES[h]
+            limit = k - 2 * hc.digest_size - 2
+            pad = padding.OAEP(mgf=padding.MGF1(hc()), algorithm=hc(),
+                               label=None)
+        else:
+            limit = k - 11
+            pad = padding.PKCS1v15()
+        for n in (limit - 1, limit):
+            msg = bytes((7 * i + n) % 256 for i in range(n))
+            out.append({
+                "id": "%s%s-%s-%d" % (LIMIT_PREFIX, scheme, h or "none", n),
+                "key": key_id, "operation": "decrypt", "scheme": scheme,
+                "hash": h, "input": msg.hex(),
+                "output": pub.encrypt(msg, pad).hex(),
+                "source": "Python cryptography %s, generated: a %d-byte "
+                          "message, %s the %s limit (#102)" % (
+                              version, n,
+                              "at" if n == limit else "one byte under",
+                              scheme + ("-" + h if h else ""))})
+    return out
+
+
+def write_vectors(vectors, keys):
+    cols = ["id", "key", "operation", "scheme", "hash", "input", "output"]
+    with open(os.path.join(FIXTURES, "rsa.tsv"), "w", newline="") as f:
+        w = csv.DictWriter(f, cols, delimiter="\t", lineterminator="\n",
+                           extrasaction="ignore")
+        w.writeheader()
+        w.writerows(vectors)
+
+    # MANIFEST.tsv is shared: keep the other generators' rows, and put ours
+    # back where they were (make-wycheproof.py --check expects its own last).
+    path = os.path.join(FIXTURES, "MANIFEST.tsv")
+    ours = ("rsa.tsv", "rsa-keys.tsv")
+    old = list(csv.DictReader(open(path), delimiter="\t"))
+    at = next((i for i, r in enumerate(old) if r["file"] in ours), len(old))
+    rows = [r for r in old[:at] if r["file"] not in ours]
+    rows += [{"file": "rsa-keys.tsv", "id": k["id"],
+              "source": k.get("source") or next(
+                  (v["source"] for v in vectors if v["key"] == k["id"]), ""),
+              "generator": GENERATOR} for k in keys]
+    rows += [{"file": "rsa.tsv", "id": v["id"], "source": v["source"],
+              "generator": GENERATOR} for v in vectors]
+    rows += [r for r in old[at:] if r["file"] not in ours]
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, ["file", "id", "source", "generator"],
+                           delimiter="\t", lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
+
+
+def limits():
+    """Replace the limit rows, keeping every other row and the keys."""
+    keys = list(csv.DictReader(
+        open(os.path.join(FIXTURES, "rsa-keys.tsv")), delimiter="\t"))
+    manifest = {(r["file"], r["id"]): r["source"] for r in csv.DictReader(
+        open(os.path.join(FIXTURES, "MANIFEST.tsv")), delimiter="\t")}
+    for k in keys:
+        k["source"] = manifest.get(("rsa-keys.tsv", k["id"]), "")
+    vectors = [dict(v, source=manifest[("rsa.tsv", v["id"])])
+               for v in csv.DictReader(
+                   open(os.path.join(FIXTURES, "rsa.tsv")), delimiter="\t")
+               if not v["id"].startswith(LIMIT_PREFIX)]
+    gen = next(k for k in keys if k["id"] == "generated-2048")
+    vectors += limit_vectors(private_key(gen), "generated-2048")
+    write_vectors(vectors, keys)
+    print("wrote %d vectors" % len(vectors))
+
+
 def write(rfc7515, rfc7516):
     keys, vectors, manifest = [], [], []
 
@@ -151,34 +237,14 @@ def write(rfc7515, rfc7516):
             "input": secret.hex(), "output": ct.hex(),
             "source": "Python cryptography %s, generated (no published vector)"
                       % __import__("cryptography").__version__})
+    vectors += limit_vectors(gen, "generated-2048")
 
     with open(os.path.join(FIXTURES, "rsa-keys.tsv"), "w", newline="") as f:
         w = csv.DictWriter(f, ["id"] + KEY_FIELDS, delimiter="\t",
                            lineterminator="\n")
         w.writeheader()
         w.writerows(keys)
-    cols = ["id", "key", "operation", "scheme", "hash", "input", "output"]
-    with open(os.path.join(FIXTURES, "rsa.tsv"), "w", newline="") as f:
-        w = csv.DictWriter(f, cols, delimiter="\t", lineterminator="\n",
-                           extrasaction="ignore")
-        w.writeheader()
-        w.writerows(vectors)
-
-    # MANIFEST.tsv is make-kat.R's; keep its rows and replace ours.
-    path = os.path.join(FIXTURES, "MANIFEST.tsv")
-    rows = [r for r in csv.DictReader(open(path), delimiter="\t")
-            if r["file"] not in ("rsa.tsv", "rsa-keys.tsv")]
-    rows += [{"file": "rsa-keys.tsv", "id": k["id"],
-              "source": next((v["source"] for v in vectors
-                              if v["key"] == k["id"]), ""),
-              "generator": GENERATOR} for k in keys]
-    rows += [{"file": "rsa.tsv", "id": v["id"], "source": v["source"],
-              "generator": GENERATOR} for v in vectors]
-    with open(path, "w", newline="") as f:
-        w = csv.DictWriter(f, ["file", "id", "source", "generator"],
-                           delimiter="\t", lineterminator="\n")
-        w.writeheader()
-        w.writerows(rows)
+    write_vectors(vectors, keys)
     print("wrote %d keys and %d vectors" % (len(keys), len(vectors)))
 
 
@@ -211,6 +277,8 @@ def check():
 if __name__ == "__main__":
     if sys.argv[1:] == ["--check"]:
         check()
+    elif sys.argv[1:] == ["--limits"]:
+        limits()
     elif len(sys.argv) == 3:
         write(sys.argv[1], sys.argv[2])
     else:

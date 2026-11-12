@@ -865,6 +865,22 @@ SEXP zucrypt_test_random_contract(void)
     return res;
 }
 
+/* crypt_rand_bytes()'s chunked fill loop (src/zucrypt_crypt.c), run over a
+ * copy of `x`: the suite pre-fills it with a sentinel and counts what is
+ * left, which an R vector freshly allocated cannot show (#100). */
+zuc_status zucrypt_int_rand_fill(uint8_t *bytes, size_t len);
+
+SEXP zucrypt_test_rand_fill(SEXP x)
+{
+    SEXP out = PROTECT(Rf_duplicate(x));
+    zuc_status st = zucrypt_int_rand_fill(RAW(out), (size_t) XLENGTH(out));
+    UNPROTECT(1);
+    if (st != ZUC_OK) {
+        Rf_error("zucrypt: the random source failed (%s)", zuc_status_name(st));
+    }
+    return out;
+}
+
 /* Turn the random source's failure switch on or off, so the R suite can
  * check the condition crypt_rand_bytes() raises. The caller must switch it
  * off again; test-random.R does that with withr::defer(). */
@@ -879,6 +895,52 @@ SEXP zucrypt_test_random_fail(SEXP on)
 SEXP zucrypt_test_random_enosys(SEXP on)
 {
     return Rf_ScalarLogical(zuc_int_random_enosys(Rf_asLogical(on) == TRUE));
+}
+
+/* Run zuc_random_bytes() for `len` bytes over a buffer pre-filled with
+ * 0xAA, with the next getrandom() calls scripted by `steps` (#119): each
+ * step a short read of at most that many bytes, or one of "EINTR", "EIO",
+ * "EPERM", "ENOSYS". The value is list(status, bytes, unused steps), or
+ * NULL on a build that does not use getrandom(). The script and the
+ * fallback it may cause are cleared before returning. */
+SEXP zucrypt_test_random_script(SEXP steps, SEXP len)
+{
+    int codes[ZUC_RANDOM_SCRIPT_MAX];
+    int i, n = (int) XLENGTH(steps), unused;
+    size_t size = (size_t) Rf_asInteger(len);
+    zuc_status st;
+    SEXP buf, res;
+
+    if (!Rf_isString(steps) || n > ZUC_RANDOM_SCRIPT_MAX) {
+        Rf_error("zucrypt: steps must be at most %d strings",
+                 ZUC_RANDOM_SCRIPT_MAX);
+    }
+    for (i = 0; i < n; i++) {
+        const char *s = CHAR(STRING_ELT(steps, i));
+        codes[i] = strcmp(s, "EINTR") == 0 ? ZUC_RANDOM_STEP_EINTR
+                 : strcmp(s, "EIO") == 0 ? ZUC_RANDOM_STEP_EIO
+                 : strcmp(s, "EPERM") == 0 ? ZUC_RANDOM_STEP_EPERM
+                 : strcmp(s, "ENOSYS") == 0 ? ZUC_RANDOM_STEP_ENOSYS
+                 : atoi(s);
+        if (codes[i] == 0) {
+            Rf_error("zucrypt: unknown step '%s'", s);
+        }
+    }
+    buf = PROTECT(Rf_allocVector(RAWSXP, (R_xlen_t) size));
+    memset(RAW(buf), 0xAA, size);
+    if (zuc_int_random_script(codes, n) < 0) {
+        UNPROTECT(1);
+        return R_NilValue;
+    }
+    st = zuc_random_bytes(RAW(buf), size);
+    unused = zuc_int_random_script(NULL, 0);
+    zuc_int_random_enosys(0);
+    res = PROTECT(Rf_allocVector(VECSXP, 3));
+    SET_VECTOR_ELT(res, 0, Rf_mkString(zuc_status_name(st)));
+    SET_VECTOR_ELT(res, 1, buf);
+    SET_VECTOR_ELT(res, 2, Rf_ScalarInteger(unused));
+    UNPROTECT(2);
+    return res;
 }
 
 /* The AEAD and KDF contracts of zucrypt.h, and design.md section 12's
@@ -901,7 +963,7 @@ static int all_bytes(const uint8_t *p, size_t n, uint8_t v)
 
 SEXP zucrypt_test_aead_contract(void)
 {
-    enum { N = 26, LEN = 40 };
+    enum { N = 29, LEN = 40 };
     static const char *names[N] = {
         "encrypt", "decrypt", "roundtrip",
         "tampered_ciphertext", "tampered_tag", "tampered_aad",
@@ -911,12 +973,13 @@ SEXP zucrypt_test_aead_contract(void)
         "null_key", "null_data_0", "null_aad_0", "bad_key_length",
         "bad_nonce_length", "short_tag_encrypt", "not_an_aead",
         "hash_refuses_gcm", "hmac_refuses_gcm", "pbkdf2_refuses_gcm",
-        "pbkdf2_zero_iterations"
+        "pbkdf2_zero_iterations", "long_tag", "doubled_tag", "long_tag_wiped"
     };
     const char *got[N];
     uint8_t key[32], key2[32], nonce[ZUC_GCM_NONCE_SIZE], aad[13];
     uint8_t pt[LEN], ct[LEN], out[LEN], buf[LEN + 8];
     uint8_t tag[ZUC_GCM_TAG_SIZE], tag2[ZUC_GCM_TAG_SIZE];
+    uint8_t longtag[2 * ZUC_GCM_TAG_SIZE];
     uint8_t digest[ZUC_MAX_DIGEST_SIZE];
     size_t i, dlen = 0;
     int wiped = 1;
@@ -1023,6 +1086,22 @@ SEXP zucrypt_test_aead_contract(void)
                                               16, 1, digest, 32));
     got[25] = zuc_status_name(zuc_pbkdf2_hmac(ZUC_ALG_SHA256, key, 32, pt,
                                               16, 0, digest, 32));
+
+    /* Longer than 16 bytes: the right tag followed by one more byte, and
+     * the right tag twice. A check written as `tag_len < 16`, or a compare
+     * over the first 16 bytes, would accept both (#101). */
+    memcpy(longtag, tag, sizeof tag);
+    memcpy(longtag + sizeof tag, tag, sizeof tag);
+    wiped = 1;
+    memset(out, 0xA5, LEN);
+    got[26] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
+                                       ct, LEN, longtag, sizeof tag + 1, out));
+    if (!all_bytes(out, LEN, 0)) wiped = 0;
+    memset(out, 0xA5, LEN);
+    got[27] = zuc_status_name(AEAD_DEC(key, 32, nonce, 12, aad, sizeof aad,
+                                       ct, LEN, longtag, sizeof longtag, out));
+    if (!all_bytes(out, LEN, 0)) wiped = 0;
+    got[28] = wiped ? "TRUE" : "FALSE";
 
     zuc_secure_zero(out, sizeof out);
     zuc_secure_zero(buf, sizeof buf);
@@ -1842,6 +1921,8 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_null_buffers",   (DL_FUNC) &zucrypt_test_null_buffers,   0},
     {"zucrypt_test_random_contract", (DL_FUNC) &zucrypt_test_random_contract, 0},
     {"zucrypt_test_random_fail",    (DL_FUNC) &zucrypt_test_random_fail,    1},
+    {"zucrypt_test_random_script",  (DL_FUNC) &zucrypt_test_random_script,  2},
+    {"zucrypt_test_rand_fill",      (DL_FUNC) &zucrypt_test_rand_fill,      1},
     {"zucrypt_test_random_enosys",  (DL_FUNC) &zucrypt_test_random_enosys,  1},
     {"zucrypt_test_aead_contract",  (DL_FUNC) &zucrypt_test_aead_contract,  0},
     {"zucrypt_test_pkey_contract",  (DL_FUNC) &zucrypt_test_pkey_contract,  1},

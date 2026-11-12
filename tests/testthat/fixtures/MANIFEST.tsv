@@ -65,6 +65,16 @@ rsa.tsv	rsa-pss-sha384	Python cryptography 50.0.2, generated (no published vecto
 rsa.tsv	rsa-oaep-sha384	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
 rsa.tsv	rsa-pss-sha512	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
 rsa.tsv	rsa-oaep-sha512	Python cryptography 50.0.2, generated (no published vector)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-pkcs1v15-none-244	Python cryptography 50.0.2, generated: a 244-byte message, one byte under the pkcs1v15 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-pkcs1v15-none-245	Python cryptography 50.0.2, generated: a 245-byte message, at the pkcs1v15 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-oaep-sha1-213	Python cryptography 50.0.2, generated: a 213-byte message, one byte under the oaep-sha1 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-oaep-sha1-214	Python cryptography 50.0.2, generated: a 214-byte message, at the oaep-sha1 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-oaep-sha256-189	Python cryptography 50.0.2, generated: a 189-byte message, one byte under the oaep-sha256 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-oaep-sha256-190	Python cryptography 50.0.2, generated: a 190-byte message, at the oaep-sha256 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-oaep-sha384-157	Python cryptography 50.0.2, generated: a 157-byte message, one byte under the oaep-sha384 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-oaep-sha384-158	Python cryptography 50.0.2, generated: a 158-byte message, at the oaep-sha384 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-oaep-sha512-125	Python cryptography 50.0.2, generated: a 125-byte message, one byte under the oaep-sha512 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-oaep-sha512-126	Python cryptography 50.0.2, generated: a 126-byte message, at the oaep-sha512 limit (#102)	tools/make-rsa-kat.py
 ec-keys.tsv	rfc6979-p256	RFC 6979 A.2.5, SHA-1, message sample	tools/make-ec-kat.py
 ec-keys.tsv	rfc6979-p384	RFC 6979 A.2.6, SHA-1, message sample	tools/make-ec-kat.py
 ec-keys.tsv	rfc6979-p521	RFC 6979 A.2.7, SHA-1, message sample	tools/make-ec-kat.py
