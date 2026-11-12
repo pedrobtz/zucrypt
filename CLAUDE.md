@@ -65,9 +65,10 @@ roadmap, kept as the record. Read
 Verified 2026-11-09: 0.1.0 is on CRAN, published 2026-10-23 (crandb); it
 was submitted 2026-09-30 and resubmitted 2026-10-13 from `5a43275`, tagged
 `v0.1.0` with its GitHub release. `main` is `0.1.0.9000`. The open version
-issue is [v0.1.1 (#77)](https://github.com/pedrobtz/zucrypt/issues/77), with
-no stage sub-issues yet; the roadmap's release table plans each tranche as
-its own minor release (v0.2.0 onwards).
+issue is [v0.1.1 (#77)](https://github.com/pedrobtz/zucrypt/issues/77): it
+ships Stages 13a–16a as they are, after Stages R1–R3 (#166–#168), from
+2026-12-04 (re-planned 2026-11-12). Everything else is scoped to v0.1.2 or
+later; the tranches keep their own minor releases (v0.2.0 onwards).
 
 On `main`, beyond the v0.1.0 surface: Stages 13a (randomness, #9), 14a
 (AES-GCM and PBKDF2, #10, #12), 15a (RSA and key I/O, #80) and 16a (EC keys,

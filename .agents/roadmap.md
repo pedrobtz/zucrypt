@@ -32,6 +32,14 @@ implements [design.md](design.md) revision 4.
   renamed `_nopad` (design §7). Stage 14's GCM keeps RFC 5116's contract rather than
   `openssl`'s. Stages 15–17 are candidates, each decided when the one before it has shipped.
   Stage 13's survey counts detected usage, and real migrations are added before any claim.
+- **Re-planned 2026-11-12: v0.1.1 ships what `main` has.** Stages 13a, 14a, 15a and 16a were
+  split off their tranches for `zujwt` and are done; v0.1.1 releases them together, as additions
+  only, without waiting for 13b or 14b. This supersedes each stage's "nothing is released until
+  13b/14b/15b" line. Before submission, v0.1.1 closes the test gaps in the new key code, a set
+  of small documentation and CI fixes, and the pre-submission reviews (Stages R1–R3 below). CRAN
+  cadence allows the submission from 2026-12-04 (#79). Everything else is scoped to v0.1.2 or
+  later: the remaining assurance work (#130, #69, #97, #117, #123, #99) and the tranches, which
+  keep their order (13b, 14b, then the candidates).
 
 Date: 2026-09-20; reviewed 2026-09-22 (#37); re-planned 2026-09-25; updated 2026-09-26;
 re-planned 2026-09-29.
@@ -62,7 +70,9 @@ every surface change first.
 | Release | Where | What it promises | Gated by |
 | --- | --- | --- | --- |
 | **v0.1.0** | CRAN, first release | The seven R functions are stable (six, plus `crypt_hex()`, #59), and `crypt_hash()`/`crypt_hmac()` take connections (#11). The archive is frozen as ABI 1. The table is *experimental* (design §8.6) | Stages 7–12, the CBC rename (#56), and `zuxlsx`'s decryption core in C ([zuxlsx#22](https://github.com/pedrobtz/zuxlsx/issues/22) step 3) |
-| **v0.2.0** | CRAN | Tranche 1: randomness, the remaining digests, Base64, and the openssl-shaped layer with its gate and migration article (design §7.1) | Stage 13 |
+| **v0.1.1** | CRAN | Additions only: randomness, AES-GCM, PBKDF2, RSA and key I/O, EC keys, ECDSA, ECDH and X25519, each appended to the archive and the table. ABI 1 unchanged | Stages 13a, 14a, 15a, 16a (done) and R1–R3 |
+| **v0.1.2 or later** | CRAN | The assurance work deferred from v0.1.1: mutation survivors outside the key code (#130), upstream suites (#69), constant-time measurement (#97), vendor reproduction (#117), fuzzing the DER reader (#123), the handles' sequence test (#99) | Planned when v0.1.1 is on CRAN |
+| **v0.2.0** | CRAN | Tranche 1: the remaining digests, Base64, and the openssl-shaped layer with its gate and migration article (design §7.1) | Stage 13 |
 | **v0.3.0** | CRAN | Tranche 2: AES-GCM, ChaCha20-Poly1305, CTR, PKCS#7 padding, PBKDF2, HKDF | Stage 14 |
 | **v0.4.0** | CRAN | *Candidate.* Tranche 3: key objects, PEM and DER, RSA, signatures, envelopes | Stage 15, if admitted |
 | **v0.5.0** | CRAN | *Candidate.* Tranche 4: EC keys, ECDSA, ECDH, X25519 | Stage 16, if admitted |
@@ -110,13 +120,16 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | — Hex output and connection hashing | v0.1.0 | #59, #11 | — | in progress |
 | 11 — The first consumer, and the freeze | v0.1.0 | #28 (the freeze itself); the `zuc_alg` ranges (revision 4) | The rename. `zuxlsx`'s decryption core in C (zuxlsx#22 step 3) | **done**, 2026-09-29 |
 | 12 — v0.1.0 and CRAN | v0.1.0 | #17, #13, #15 | Stage 11 | |
-| 13a — Randomness | v0.2.0 | #9 | Stage 12 | **done**, 2026-11-02 |
+| 13a — Randomness | v0.1.1 | #9 | Stage 12 | **done**, 2026-11-02 |
 | 13b — Tranche 1: the openssl-shaped layer over what exists | v0.2.0 | #16 | Stage 13a | |
-| 14a — AES-GCM and PBKDF2 | v0.3.0 | #10, #12 | Stage 13a | **done**, 2026-11-03 |
+| 14a — AES-GCM and PBKDF2 | v0.1.1 | #10, #12 | Stage 13a | **done**, 2026-11-03 |
 | 14b — Tranche 2: the rest | v0.3.0 | new | Stages 13b and 14a | |
-| 15a — RSA and key I/O | v0.4.0 | #80 | Stage 14a | **done**, 2026-11-03 |
+| 15a — RSA and key I/O | v0.1.1 | #80 | Stage 14a | **done**, 2026-11-03 |
 | 15b — Tranche 3: the rest | v0.4.0 | new | Stage 15a | |
-| 16a — EC keys, ECDSA, ECDH, X25519 | v0.5.0 | #81 | Stage 15a | **done**, 2026-11-03 |
+| 16a — EC keys, ECDSA, ECDH, X25519 | v0.1.1 | #81 | Stage 15a | **done**, 2026-11-03 |
+| R1 — Test gaps in the new key code (#166) | v0.1.1 | #126, #127, #128, #129, #116 | Stage 16a | |
+| R2 — Documentation and CI fixes (#167) | v0.1.1 | #112, #118, #146 | — | |
+| R3 — v0.1.1 review and CRAN (#168) | v0.1.1 | — | Stages R1 and R2; CRAN cadence (#79) | |
 | 17 — Tranche 5: certificates | v0.6.0 | new | Stage 16 | |
 | 18 — The TLS engine for zuhttp | next minor | new | Stage 17, and `zuhttp`'s trigger | |
 
@@ -462,6 +475,26 @@ Work items:
 
 Exit: accepted on CRAN, `main` at `0.1.0.9000`, and `zuxlsx` notified that it can submit 0.1.0
 once the rest of zuxlsx#22 has merged.
+
+## Stages R1–R3 — v0.1.1
+
+Added 2026-11-12. v0.1.1 carries Stages 13a–16a to CRAN. None of these stages adds a function.
+
+**R1 — Test gaps in the new key code.** CI tier `quick`. The mutation survivors in
+`src/zuc_pkey.c` (#126–#129) are killed by checks in the C driver (`ctest/`), each check shown
+red by its mutant; and the lifetime tests reach the failure points they name (#116). Exit: those
+mutants killed in a local Mull run, the issues closed, `.agents/assurance.md` at 0 problems.
+#130, outside the key code, is scoped to v0.1.2 or later.
+
+**R2 — Documentation and CI fixes.** CI tier `quick`. `?zucrypt_c_api` and the C-API article
+state that the archive cannot share a shared object with another PSA or Mbed TLS (#112);
+`test-size.R` either sees the backend's allocations or records that it cannot (#118); and the
+jobs that run on documentation-only pull requests are gated (#146).
+
+**R3 — v0.1.1 review and CRAN.** CI tier `full`: it is the release commit. `pkg-critical-review`
+over the surface added since 0.1.0, then `pkg-cran-review`, and every finding fixed or filed.
+`Version: 0.1.1`, the NEWS heading, `cran-comments.md`, and `backend.Rmd`'s facts checked. A
+green dispatched full run on the release commit, then submission on or after 2026-12-04.
 
 ## Stage 13 — Tranche 1: the openssl-shaped layer over what exists
 
