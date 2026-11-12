@@ -347,6 +347,12 @@ backend”, \#17) is what a CRAN or security reviewer reads.
   and `platform.sh` do. Every valid Wycheproof case must be accepted
   with its output and every invalid one refused. Generators and oracles
   are under Commands.
+- **The randomized differential** (`test-differential.R`, \#68) compares
+  hashes, HMAC, AES-CBC/GCM and the public-key operations with `openssl`
+  at seeded random lengths, keys and split points. `ZUCRYPT_DIFF_SEED`
+  and `ZUCRYPT_DIFF_N` set the seed and count (40 a family by default);
+  `aes-paths.yaml` runs 2,000 with the run id as seed, and a failure
+  names the seed and iteration that reproduce it.
 - **Helpers**: `helper-kat.R` (fixture access and `zucrypt_test_*`
   harness wrappers), `helper-abi.R` (symbol audit of the loaded shared
   object), `helper-linking.R` (audits of the installed `LinkingTo`
