@@ -83,6 +83,18 @@ test_that("signatures, encryption and key agreement interoperate with openssl (#
              `P-521` = ec_fixture_key("rfc6979-p521"))
   their <- function(k) openssl::read_key(crypt_write_pem(k))
   digests <- c("sha1", "sha256", "sha384", "sha512")
+  # Some system OpenSSL builds refuse SHA-1 signatures by policy (the
+  # gcc-asan container's does: "invalid digest"). That is openssl's host,
+  # not zucrypt, so SHA-1 is compared only where openssl will sign with it.
+  sha1_ok <- tryCatch({
+    for (k in c(list(rsa), ec)) {
+      tk <- their(k)
+      s <- openssl::signature_create(raw(1), openssl::sha1, tk)
+      stopifnot(openssl::signature_verify(raw(1), s, openssl::sha1, tk$pubkey))
+    }
+    TRUE
+  }, error = function(e) FALSE)
+  if (!sha1_ok) digests <- setdiff(digests, "sha1")
   with_diff_seed(seed, for (i in seq_len(n)) {
     msg <- diff_bytes(diff_length(64L, 3000L))
     alg <- sample(digests, 1L)
