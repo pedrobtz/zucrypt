@@ -35,6 +35,21 @@ if [ -z "${ZUCRYPT_LIB}" ] || [ ! -f "${ZUCRYPT_LIB}/libzucrypt.a" ]; then
   exit 1
 fi
 
-sed -e "s|@ZUCRYPT_LIB@|${ZUCRYPT_LIB}|g" src/Makevars.in > src/Makevars
+# The path goes into a sed replacement and a single-quoted PKG_LIBS (#110):
+# &, | and \ are escaped for sed, and a ' cannot be quoted there at all, so
+# it is refused rather than written into a broken Makevars. zuxlsx's
+# configure does the same.
+case "${ZUCRYPT_LIB}" in
+  *"'"*)
+    echo "configure: cannot link from a library path containing a single" >&2
+    echo "  quote: ${ZUCRYPT_LIB}" >&2
+    exit 1
+    ;;
+esac
+sed_escape() {
+  printf '%s\n' "$1" | sed -e 's/[&|\\]/\\&/g'
+}
+
+sed -e "s|@ZUCRYPT_LIB@|$(sed_escape "${ZUCRYPT_LIB}")|g" src/Makevars.in > src/Makevars
 
 echo "configure: linking ${ZUCRYPT_LIB}/libzucrypt.a"

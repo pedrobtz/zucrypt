@@ -200,4 +200,46 @@ cat("    three load/unload cycles; the DLL is released each time\n")
 UNLOAD
 rscript "$WORK/unload.R"
 
+echo "==> 10. library paths with characters sed and the shell treat specially (#110)"
+# configure substitutes the path into sed and into a single-quoted PKG_LIBS.
+# A path with & or | must still link; one with ' cannot be quoted there and
+# must be refused with a message, not turned into a broken Makevars.
+# Windows does not allow | in a file name, so it checks & alone there.
+odds="r&lib r|lib"
+case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) odds="r&lib" ;; esac
+for odd in $odds; do
+  OLIB="$WORK/$odd"
+  mkdir -p "$OLIB"
+  cp -R "$LIB/zucrypt" "$OLIB/"
+  R_LIBS="$OLIB" R CMD INSTALL --preclean --no-multiarch --library="$OLIB" \
+    tools/zucryptlink >"$WORK/install-odd.log" 2>&1 \
+    || { echo "FAIL: the consumer did not install from '$OLIB'" >&2;
+         cat "$WORK/install-odd.log" >&2; exit 1; }
+  R_LIBS="$OLIB" Rscript --vanilla -e \
+    'stopifnot(identical(paste(format(zucryptlink::archive_hash(charToRaw("abc")), width = 2), collapse = ""), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"))' \
+    || { echo "FAIL: the consumer built from '$OLIB' does not work" >&2; exit 1; }
+  echo "    linked and ran from a library named '$odd'"
+done
+# On Windows R CMD INSTALL itself cannot use a library whose path has a '
+# ("cannot cd to directory"), so configure.win never meets one there.
+case "$(uname -s)" in
+MINGW*|MSYS*|CYGWIN*)
+  echo "    skipped the r'lib case on Windows: R cannot install into such a path"
+  ;;
+*)
+  OLIB="$WORK/r'lib"
+  mkdir -p "$OLIB"
+  cp -R "$LIB/zucrypt" "$OLIB/"
+  if R_LIBS="$OLIB" R CMD INSTALL --preclean --no-multiarch --library="$OLIB" \
+       tools/zucryptlink >"$WORK/install-odd.log" 2>&1; then
+    echo "FAIL: configure accepted a library path containing a single quote" >&2
+    exit 1
+  fi
+  grep -q "path containing a single" "$WORK/install-odd.log" \
+    || { echo "FAIL: the refusal does not say why" >&2;
+         cat "$WORK/install-odd.log" >&2; exit 1; }
+  echo "    refused a library named \"r'lib\", saying why"
+  ;;
+esac
+
 echo "all checks passed"

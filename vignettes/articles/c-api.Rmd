@@ -69,7 +69,14 @@ if [ -z "${ZUCRYPT_LIB}" ] || [ ! -f "${ZUCRYPT_LIB}/libzucrypt.a" ]; then
   exit 1
 fi
 
-sed -e "s|@ZUCRYPT_LIB@|${ZUCRYPT_LIB}|g" src/Makevars.in > src/Makevars
+# The path goes into sed and a single-quoted PKG_LIBS: escape &, | and \
+# for sed, and refuse a ' outright.
+case "${ZUCRYPT_LIB}" in
+  *"'"*) echo "configure: cannot link from a path containing '" >&2; exit 1 ;;
+esac
+sed_escape() { printf '%s\n' "$1" | sed -e 's/[&|\\]/\\&/g'; }
+sed -e "s|@ZUCRYPT_LIB@|$(sed_escape "${ZUCRYPT_LIB}")|g" \
+  src/Makevars.in > src/Makevars
 ```
 
 `configure.win` is the same script writing `src/Makevars.win`. Check for the

@@ -128,6 +128,7 @@ python3 tools/make-rsa-kat.py --check     # rsa.tsv, rsa-keys.tsv vs the RFCs
 python3 tools/make-ec-kat.py --check      # ec.tsv, ec-keys.tsv vs the RFCs
 python3 tools/make-derivation-kat.py ZUXLSX_CHECKOUT --check
 python3 tools/make-cavp.py --check       # cavp.tsv, tools/cavp/ vs NIST's archives
+python3 tools/make-wycheproof.py --check # wycheproof.tsv, tools/wycheproof/ vs C2SP
 sh tools/check-layering.sh                # adapter R-free, glue backend-free
 bash tools/ci/check-abi.sh                # ABI 1 against the frozen v0.1.0 headers
 bash tools/check-linking.sh               # the archive, as a consumer links it
@@ -312,12 +313,16 @@ CRAN or security reviewer reads.
   compatibility. A self round trip is not sufficient. Tests run offline
   from synthetic fixtures.
 - **Fixtures** are in `tests/testthat/fixtures/` (`kat.tsv`, `aead.tsv`,
-  `kdf.tsv`, `rsa*.tsv`, `ec*.tsv`, `cavp.tsv`), with provenance in
-  `MANIFEST.tsv`, read as committed and never regenerated at test time.
-  `cavp.tsv` is a subset of the NIST CAVP set in `tools/cavp/cavp.tsv.gz`
-  (kept out of the tarball), which `test-cavp.R` runs whole when
-  `ZUCRYPT_CAVP` names it, as `aes-paths.yaml` and `platform.sh` do. Generators and oracles
-  are under Commands.
+  `kdf.tsv`, `rsa*.tsv`, `ec*.tsv`, `cavp.tsv`, `wycheproof.tsv`), with
+  provenance in `MANIFEST.tsv`, read as committed and never regenerated at
+  test time. `cavp.tsv` is a subset of the NIST CAVP set in
+  `tools/cavp/cavp.tsv.gz`, and `wycheproof.tsv` of Project Wycheproof's
+  cases in `tools/wycheproof/wycheproof.tsv.gz` (both kept out of the
+  tarball); `test-cavp.R` and `test-wycheproof.R` run them whole when
+  `ZUCRYPT_CAVP` and `ZUCRYPT_WYCHEPROOF` name them, as `aes-paths.yaml`
+  and `platform.sh` do. Every valid Wycheproof case must be accepted with
+  its output and every invalid one refused. Generators and oracles are
+  under Commands.
 - **Helpers**: `helper-kat.R` (fixture access and `zucrypt_test_*` harness
   wrappers), `helper-abi.R` (symbol audit of the loaded shared object),
   `helper-linking.R` (audits of the installed `LinkingTo` surface, which

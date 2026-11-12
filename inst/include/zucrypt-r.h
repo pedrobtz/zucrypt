@@ -265,14 +265,31 @@ static inline const zucrypt_api_v1 *zucrypt_api(void)
          * which -Wall -Wextra -Werror turns into a build failure for the
          * *consumer*. Going through a union keeps this header usable by a
          * package with strict flags, which is the whole point of shipping
-         * it. */
-        union {
-            DL_FUNC fn;
-            const zucrypt_api_v1 *(*get)(uint32_t);
-        } resolve;
-        resolve.fn = R_GetCCallable("zucrypt", "zucrypt_get_api");
-        if (resolve.fn != NULL) {
+         * it.
+         *
+         * In C++ a union read through the member it was not written through
+         * is undefined (C99 TC3 and C11 define it; ISO C++ does not), so a
+         * C++ consumer converts with reinterpret_cast instead, which C++
+         * defines for a function pointer converted back to its original
+         * type (#113). It goes through void (*)(void), the type compilers
+         * exempt from -Wcast-function-type{,-mismatch}: DL_FUNC is not that
+         * type everywhere (void *(*)() in some R builds). */
+        DL_FUNC fn = R_GetCCallable("zucrypt", "zucrypt_get_api");
+        if (fn != NULL) {
+#ifdef __cplusplus
+            typedef void (*zucrypt_any_fn)(void);
+            typedef const zucrypt_api_v1 *(*zucrypt_get_api_fn)(uint32_t);
+            zucrypt_get_api_fn get = reinterpret_cast<zucrypt_get_api_fn>(
+                reinterpret_cast<zucrypt_any_fn>(fn));
+            cached = get((uint32_t) ZUCRYPT_ABI_VERSION);
+#else
+            union {
+                DL_FUNC fn;
+                const zucrypt_api_v1 *(*get)(uint32_t);
+            } resolve;
+            resolve.fn = fn;
             cached = resolve.get((uint32_t) ZUCRYPT_ABI_VERSION);
+#endif
         }
     }
     return cached;
