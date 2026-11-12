@@ -116,11 +116,11 @@ to derive a key from a password.
 key <- crypt_rand_bytes(32)
 sealed <- crypt_aes_gcm_encrypt(charToRaw("attack at dawn"), key)
 sealed
-#>  [1] 3d db ee 95 82 73 74 59 13 82 8b e9 5d 9b
+#>  [1] 34 00 9b 73 97 9c ce cc 25 aa 1c 6f f4 33
 #> attr(,"iv")
-#>  [1] 84 f7 1d 46 ad c7 62 e7 87 36 8e 10
+#>  [1] 13 3a 4c d2 6d 12 9f d4 32 b7 72 97
 #> attr(,"tag")
-#>  [1] 45 63 7b de 76 0e af 62 97 c9 c8 35 3f 7f ed c4
+#>  [1] 1c 4f db c9 c8 f1 fb 1b d0 9d ba bb 96 92 7b 0d
 
 rawToChar(crypt_aes_gcm_decrypt(sealed, key))
 #> [1] "attack at dawn"
