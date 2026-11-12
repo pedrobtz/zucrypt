@@ -190,7 +190,14 @@ one:</p>
 <span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>  <span class="bu">exit</span> 1</span>
 <span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="cf">fi</span></span>
 <span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a></span>
-<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="fu">sed</span> <span class="at">-e</span> <span class="st">"s|@ZUCRYPT_LIB@|</span><span class="va">${ZUCRYPT_LIB}</span><span class="st">|g"</span> src/Makevars.in <span class="op">&gt;</span> src/Makevars</span></code></pre></div>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co"># The path goes into sed and a single-quoted PKG_LIBS: escape &amp;, | and \</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co"># for sed, and refuse a ' outright.</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="cf">case</span> <span class="st">"</span><span class="va">${ZUCRYPT_LIB}</span><span class="st">"</span> <span class="kw">in</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>  <span class="pp">*</span><span class="st">"'"</span><span class="pp">*</span><span class="kw">)</span> <span class="bu">echo</span> <span class="st">"configure: cannot link from a path containing '"</span> <span class="op">&gt;&amp;</span><span class="dv">2</span><span class="kw">;</span> <span class="bu">exit</span> 1 <span class="cf">;;</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="cf">esac</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="fu">sed_escape()</span> <span class="kw">{</span> <span class="bu">printf</span> <span class="st">'%s\n'</span> <span class="st">"</span><span class="va">$1</span><span class="st">"</span> <span class="kw">|</span> <span class="fu">sed</span> <span class="at">-e</span> <span class="st">'s/[&amp;|\\]/\\&amp;/g'</span><span class="kw">;</span> <span class="kw">}</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a><span class="fu">sed</span> <span class="at">-e</span> <span class="st">"s|@ZUCRYPT_LIB@|</span><span class="va">$(</span><span class="ex">sed_escape</span> <span class="st">"</span><span class="va">${ZUCRYPT_LIB}</span><span class="st">"</span><span class="va">)</span><span class="st">|g"</span> <span class="dt">\</span></span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a>  src/Makevars.in <span class="op">&gt;</span> src/Makevars</span></code></pre></div>
 <p><code>configure.win</code> is the same script writing
 <code>src/Makevars.win</code>. Check for the file, not for a version: an
 older zucrypt that predates the archive has no way to say so.</p>

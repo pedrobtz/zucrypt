@@ -116,6 +116,19 @@
 
 ### Bug fixes
 
+- C interface: `zucrypt-r.h` resolved the function table through a
+  union, which is defined in C and undefined in ISO C++
+  ([\#113](https://github.com/pedrobtz/zucrypt/issues/113)). A C++
+  consumer now converts with `reinterpret_cast`; C consumers are
+  unchanged.
+
+- The archive-consumer `configure` recipe in “Using zucrypt from C” put
+  the library path into `sed` unescaped, so a path containing `&` or `|`
+  linked the wrong file, and one containing `'` broke the quoting of
+  `PKG_LIBS` ([\#110](https://github.com/pedrobtz/zucrypt/issues/110)).
+  The recipe now escapes the first and refuses the second with a
+  message, as `zuxlsx`’s configure does.
+
 - Unloading zucrypt –
   [`unloadNamespace()`](https://rdrr.io/r/base/ns-load.html), and so
   [`pkgload::unload()`](https://pkgload.r-lib.org/reference/unload.html)
