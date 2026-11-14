@@ -14,7 +14,7 @@ on:
     # `labeled`/`unlabeled`, so that adding or removing a CI label reruns it.
     types: [opened, synchronize, reopened, labeled, unlabeled]
   schedule:
-    - cron: '3 20 * * 6'
+    - cron: '3 20 * * 6'  # weekly, Saturdays
   workflow_dispatch:
     inputs:
       soak_seconds:
