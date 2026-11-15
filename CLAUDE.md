@@ -5,16 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Shared conventions
 
-The portfolio's shared rules are synced into `.claude/shared/` from
-`pedrobtz/packages:claude/shared/`. Never edit them here. Where this file and
-a shared file disagree, this file wins for zucrypt.
+<!-- r-skills: shared-rules -->
 
-@.claude/shared/workflow.md
-@.claude/shared/r-package.md
-@.claude/shared/ci.md
-@.claude/shared/native-code.md
-@.claude/shared/correctness.md
-@.claude/shared/assurance.md
+The portfolio's shared rules (`workflow`, `r-package`, `ci`, `native-code`,
+`correctness`, `assurance`) come from the
+[r-skills](https://github.com/pedrobtz/r-skills) plugin's `rules/`, loaded at
+session start because of the marker above. Never copy them here. Where this
+file and a shared rule disagree, this file wins for this package. Cloud
+sessions do not load the plugin and run without them.
 
 ## What this is
 
@@ -103,7 +101,7 @@ The current version's parent issue is
   its `DESCRIPTION` has no `Imports:` and its one pin implementation hashes
   with the TLS backend's own SHA-256 (#14).
 
-Deviations from `.claude/shared/workflow.md`: there is no
+Deviations from the shared `workflow.md` rules: there is no
 `cran-release.yaml`, `CRAN-SUBMISSION` is git-ignored, and the 0.1.0 tag is
 `v0.1.0`, not the bare version. A release is tagged by hand with
 `pkg-post-cran`.
