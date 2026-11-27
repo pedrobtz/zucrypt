@@ -576,3 +576,25 @@ wycheproof.tsv	wp-x25519-120	Project Wycheproof a3d5d14 testvectors_v1/x25519_te
 wycheproof.tsv	wp-x25519-154	Project Wycheproof a3d5d14 testvectors_v1/x25519_test.json tcId 154 (acceptable)	tools/make-wycheproof.py
 wycheproof.tsv	wp-x25519-165	Project Wycheproof a3d5d14 testvectors_v1/x25519_test.json tcId 165 (acceptable)	tools/make-wycheproof.py
 wycheproof.tsv	wp-x25519-511	Project Wycheproof a3d5d14 testvectors_v1/x25519_test.json tcId 511 (valid)	tools/make-wycheproof.py
+ec-encodings.tsv	rfc6979-p256-sec1-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p256-sec1-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p256-pkcs8-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p256-pkcs8-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p256-spki-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p256-spki-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p384-sec1-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p384-sec1-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p384-pkcs8-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p384-pkcs8-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p384-spki-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p384-spki-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p521-sec1-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p521-sec1-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p521-pkcs8-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p521-pkcs8-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p521-spki-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc6979-p521-spki-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc7748-alice-pkcs8-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc7748-alice-pkcs8-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc7748-alice-spki-der	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
+ec-encodings.tsv	rfc7748-alice-spki-pem	OpenSSL's encoding of the ec-keys.tsv key, written through cryptography	tools/make-ec-kat.py
