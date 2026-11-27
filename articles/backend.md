@@ -230,7 +230,8 @@ point; - the Office key-derivation loop is checked against a vector
 whose independent source is msoffcrypto-tool; - a weekly sweep fails
 allocations inside the backend and requires a clean error rather than a
 wrong answer; - the suite runs under the address and undefined-behaviour
-sanitizers, valgrind and `gctorture`, and on i386, musl and aarch64.
+sanitizers, valgrind and `gctorture`, and on musl and aarch64. It ran on
+i386 too until November 2026; no 32-bit build is checked now.
 
 **What it does not establish.** This package has not been independently
 audited. The tests show that the configured algorithms give the right

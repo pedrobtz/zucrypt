@@ -324,6 +324,17 @@ when its length is 0.</li>
 <strong>Handles are bounded only by memory.</strong> Each AES and
 HMAC handle holds one key in a key store that grows on demand.</li>
 <li>
+<strong>No second PSA or Mbed TLS in the same shared
+object.</strong> Hidden visibility keeps the archive’s backend private
+to your shared object, not inside it: <code>libzucrypt.a</code> defines
+<code>psa_crypto_init()</code>, the <code>mbedtls_*()</code> functions
+and the rest as ordinary symbols. Linking another copy of PSA Crypto or
+Mbed TLS into the same shared object fails with a duplicate symbol
+(<code>multiple definition</code> from GNU ld,
+<code>duplicate symbol</code> from Apple’s linker). A copy in another
+shared object, <code>zucrypt.so</code> included, does not interfere.
+<code>tools/check-linking.sh</code> checks both.</li>
+<li>
 <strong>Report what you linked.</strong> Call
 <code>zuc_get_info()</code> at run time for the backend and its version;
 a macro says what you compiled against, not what is in your shared
