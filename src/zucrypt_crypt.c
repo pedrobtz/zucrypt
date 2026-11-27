@@ -36,6 +36,7 @@
 #include <R_ext/Rdynload.h>
 
 #include "zucrypt.h"
+#include "zuc_live.h"
 
 /* How much input to process between interrupt checks. Large enough that the
  * per-chunk overhead is noise on a big input, small enough that Ctrl-C on a
@@ -165,6 +166,32 @@ static void free_hash(void *p) { zuc_hash_free((zuc_hash *) p); }
 static void free_hmac(void *p) { zuc_hmac_free((zuc_hmac *) p); }
 static void free_aes(void *p)  { zuc_aes_free((zuc_aes *) p); }
 
+/* The interrupt check after each chunk of a loop that owns a context. The
+ * test harness can make it raise an R error after the `n`th chunk instead
+ * (zucrypt_test_chunk_error()), so that the suite reaches "an R error with
+ * the context owned only by its pointer" deterministically, where an
+ * interrupt from setTimeLimit() lands only when the clock says (#116). The
+ * live count at that moment is kept, so the test can see a context was
+ * live when the error fired, not only that the count came back. */
+static long chunk_error_in = 0;
+static long chunk_error_live = -1;
+
+void zucrypt_int_chunk_error_at(long n, long *live_when_fired)
+{
+    if (live_when_fired != NULL) *live_when_fired = chunk_error_live;
+    chunk_error_in = n > 0 ? n : 0;
+    chunk_error_live = -1;
+}
+
+static void chunk_done(void)
+{
+    R_CheckUserInterrupt();
+    if (chunk_error_in > 0 && --chunk_error_in == 0) {
+        chunk_error_live = zuc_int_live_contexts();
+        Rf_error("zucrypt: injected error after a chunk (test harness)");
+    }
+}
+
 /* ------------------------------------------------------------------ *
  * Result shape
  * ------------------------------------------------------------------ */
@@ -274,7 +301,7 @@ SEXP zucrypt_hash(SEXP data, SEXP algorithm)
         offset += n;
         /* After the update, so an interrupt never lands between reading the
          * input and accounting for it. */
-        R_CheckUserInterrupt();
+        chunk_done();
     }
 
     if (st != ZUC_OK) {
@@ -327,7 +354,7 @@ SEXP zucrypt_hmac(SEXP data, SEXP key, SEXP algorithm)
         if (n > ZUCRYPT_CHUNK) n = ZUCRYPT_CHUNK;
         st = zuc_hmac_update(h, bytes + offset, n);
         offset += n;
-        R_CheckUserInterrupt();
+        chunk_done();
     }
 
     if (st != ZUC_OK) {
@@ -441,11 +468,18 @@ SEXP zucrypt_stream_update(SEXP ptr, SEXP data)
     st = tag[0] == ZUCRYPT_STREAM_HASH
         ? zuc_hash_update((zuc_hash *) ctx, bytes, n)
         : zuc_hmac_update((zuc_hmac *) ctx, bytes, n);
+    /* A failed update ends the operation (#108), and R raises on it, so the
+     * context is released now, as the one-shot loops release theirs, rather
+     * than left to the collector (#116). */
+    if (st != ZUC_OK) {
+        release_ptr(ptr, tag[0] == ZUCRYPT_STREAM_HASH ? free_hash : free_hmac);
+        return Rf_ScalarInteger((int) st);
+    }
     /* As in the one-shot loops: after the update, once per chunk. The R loop
      * that calls this runs too few evaluations for R's own polling to answer
      * Ctrl-C (or setTimeLimit()) promptly, and the context is owned by `ptr`,
      * so the longjmp strands nothing. */
-    R_CheckUserInterrupt();
+    chunk_done();
     return Rf_ScalarInteger((int) st);
 }
 
@@ -526,7 +560,7 @@ SEXP zucrypt_aes_cbc(SEXP data, SEXP key, SEXP iv, SEXP encrypt)
             : zuc_aes_cbc_decrypt(aes, bytes + offset, n,
                                   (uint8_t *) RAW(out) + offset);
         offset += n;
-        R_CheckUserInterrupt();
+        chunk_done();
     }
 
     release_ptr(ptr, free_aes);

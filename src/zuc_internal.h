@@ -60,10 +60,25 @@ int zuc_int_ready(void);
 unsigned long zuc_int_generation(void);
 int zuc_int_current(unsigned long generation);
 
-/* Adjust the count zuc_int_live_contexts() reports: +1 when a handle is
- * handed to a caller, -1 when it is freed. Only the constructors and the
- * free functions call it. */
+/* Adjust the count zuc_int_live_contexts() reports. Only the two handle
+ * allocators below call it. */
 void zuc_int_live_add(int delta);
+
+/* A handle's own storage (zuc_hash, zuc_hmac, zuc_aes, zuc_pkey), zeroed,
+ * and its release, which wipes it first (#116). The live count follows the
+ * storage, not the hand-over: it rises when the block is allocated and
+ * falls when it is freed, so a constructor that fails after allocating
+ * and forgets to free shows as a live handle, which the suite sees. The
+ * allocation is one step of the failure countdown in zuc_live.h.
+ * zuc_int_handle_free(NULL, n) does nothing. */
+void *zuc_int_handle_new(size_t size);
+void zuc_int_handle_free(void *p, size_t size);
+
+/* `ps`, unless the failure countdown (zuc_live.h) has reached this step,
+ * in which case PSA_ERROR_INSUFFICIENT_MEMORY. Wrapped around the backend
+ * calls in a constructor that make no allocation of their own, so the
+ * suite can fail a construction after the handle exists (#116). */
+psa_status_t zuc_int_step(psa_status_t ps);
 
 /* Allocation and entropy failures inside the backend (src/zuc_util.c). An
  * operation calls zuc_int_watch() first and passes its result through

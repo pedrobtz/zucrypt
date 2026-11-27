@@ -101,6 +101,44 @@ long zuc_int_alloc_fail_pending(void)
     return alloc_fail_in;
 }
 
+/* One step of that countdown: whether this is the step to fail. */
+static int countdown_fires(void)
+{
+    return alloc_fail_in > 0 && --alloc_fail_in == 0;
+}
+
+void *zuc_int_handle_new(size_t size)
+{
+    void *p = countdown_fires() ? NULL : calloc(1, size);
+    if (p == NULL) {
+        alloc_failed = 1;
+        return NULL;
+    }
+    zuc_int_live_add(1);
+    return p;
+}
+
+void zuc_int_handle_free(void *p, size_t size)
+{
+    if (p == NULL) {
+        return;
+    }
+    zuc_secure_zero(p, size);
+    free(p);
+    zuc_int_live_add(-1);
+}
+
+psa_status_t zuc_int_step(psa_status_t ps)
+{
+    /* Counted whatever the call returned, so a step's position does not
+     * depend on whether it succeeded. */
+    if (countdown_fires() && ps == PSA_SUCCESS) {
+        alloc_failed = 1;
+        return PSA_ERROR_INSUFFICIENT_MEMORY;
+    }
+    return ps;
+}
+
 /* See zuc_live.h: the residue scan's state, all zero when disarmed. */
 #define ZUC_RESIDUE_SLOTS 4096
 static struct {
@@ -177,7 +215,7 @@ void *zuc_int_calloc(size_t n, size_t size)
 {
     void *p;
 
-    if (alloc_fail_in > 0 && --alloc_fail_in == 0) {
+    if (countdown_fires()) {
         p = NULL;
     } else {
         p = calloc(n, size);

@@ -133,6 +133,83 @@ SEXP zl_hmac(SEXP algorithm, SEXP key, SEXP data)
     return out;
 }
 
+/* An HMAC held open across calls, so tools/check-linking.sh can keep a
+ * context live in this copy of the backend while zucrypt.so holds one in
+ * its own, and interleave their updates (#116). The context is owned by a
+ * finalized external pointer from the moment it exists; close releases it
+ * eagerly. */
+static void held_finalizer(SEXP ptr)
+{
+    zuc_hmac *m = (zuc_hmac *) R_ExternalPtrAddr(ptr);
+    if (m != NULL) {
+        R_ClearExternalPtr(ptr);
+        zuc_hmac_free(m);
+    }
+}
+
+static zuc_hmac *held_arg(SEXP ptr)
+{
+    zuc_hmac *m;
+    if (TYPEOF(ptr) != EXTPTRSXP ||
+        (m = (zuc_hmac *) R_ExternalPtrAddr(ptr)) == NULL) {
+        Rf_error("zucryptlink: not an open HMAC");
+    }
+    return m;
+}
+
+SEXP zl_hmac_open(SEXP algorithm, SEXP key)
+{
+    zuc_alg alg = alg_arg(algorithm);
+    zuc_hmac *m = NULL;
+    zuc_status st;
+    SEXP ptr;
+
+    require_backend();
+    raw_arg(key, "key");
+    ptr = PROTECT(R_MakeExternalPtr(NULL, R_NilValue, R_NilValue));
+    R_RegisterCFinalizerEx(ptr, held_finalizer, TRUE);
+    st = zuc_hmac_new(alg, RAW(key), (size_t) XLENGTH(key), &m);
+    if (st != ZUC_OK) {
+        UNPROTECT(1);
+        Rf_error("zucryptlink: zuc_hmac_new() failed (%s)", zuc_status_name(st));
+    }
+    R_SetExternalPtrAddr(ptr, m);
+    UNPROTECT(1);
+    return ptr;
+}
+
+SEXP zl_hmac_feed(SEXP ptr, SEXP data)
+{
+    zuc_hmac *m = held_arg(ptr);
+    zuc_status st;
+
+    raw_arg(data, "data");
+    st = zuc_hmac_update(m, RAW(data), (size_t) XLENGTH(data));
+    if (st != ZUC_OK) {
+        Rf_error("zucryptlink: zuc_hmac_update() failed (%s)", zuc_status_name(st));
+    }
+    return R_NilValue;
+}
+
+SEXP zl_hmac_close(SEXP ptr)
+{
+    zuc_hmac *m = held_arg(ptr);
+    size_t n = 0;
+    zuc_status st;
+    SEXP out = PROTECT(Rf_allocVector(RAWSXP, 64));
+
+    st = zuc_hmac_finish(m, RAW(out), 64, &n);
+    R_ClearExternalPtr(ptr);
+    zuc_hmac_free(m);
+    if (st != ZUC_OK) {
+        UNPROTECT(1);
+        Rf_error("zucryptlink: zuc_hmac_finish() failed (%s)", zuc_status_name(st));
+    }
+    out = Rf_lengthgets(out, (R_xlen_t) n);
+    UNPROTECT(1);
+    return out;
+}
+
 /* n bytes from the archive's own copy of the random source. */
 SEXP zl_random(SEXP n)
 {
@@ -408,6 +485,9 @@ static const R_CallMethodDef call_methods[] = {
     {"zl_pbkdf2",             (DL_FUNC) &zl_pbkdf2,             4},
     {"zl_rsa_sign",           (DL_FUNC) &zl_rsa_sign,           2},
     {"zl_x25519",             (DL_FUNC) &zl_x25519,             2},
+    {"zl_hmac_open",          (DL_FUNC) &zl_hmac_open,          2},
+    {"zl_hmac_feed",          (DL_FUNC) &zl_hmac_feed,          2},
+    {"zl_hmac_close",         (DL_FUNC) &zl_hmac_close,         1},
     {NULL, NULL, 0}
 };
 

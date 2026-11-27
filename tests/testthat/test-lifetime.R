@@ -13,8 +13,11 @@ test_that("successful calls leave no live context", {
   key <- as.raw(rep(1L, 32))
   crypt_hash(charToRaw("abc"))
   crypt_hmac(charToRaw("abc"), key)
-  crypt_aes_cbc_decrypt_nopad(crypt_aes_cbc_encrypt_nopad(raw(32), key, raw(16)),
-                        key, raw(16))
+  crypt_aes_cbc_decrypt_nopad(
+    crypt_aes_cbc_encrypt_nopad(raw(32), key, raw(16)),
+    key,
+    raw(16)
+  )
   # Released eagerly, not by the collector: no gc() before this check.
   expect_identical(live_contexts(), before)
 })
@@ -25,13 +28,82 @@ test_that("a native failure leaves no live context", {
   # An unsupported algorithm name never reaches C (R refuses it), so use a
   # failure the adapter itself reports: an AES key of the wrong length is
   # validated in R too, so this goes through the harness instead.
-  expect_error(native_aes("cbc", TRUE, raw(17), raw(16), raw(16)),
-               "ZUC_ERR_BAD_LENGTH")
+  expect_error(
+    native_aes("cbc", TRUE, raw(17), raw(16), raw(16)),
+    "ZUC_ERR_BAD_LENGTH"
+  )
   expect_identical(live_contexts(), before)
 })
 
+test_that("a failure at every step of a call leaves no live context (#116)", {
+  # Each fallible step in turn: the handle's own storage, the backend setup
+  # after it, the key import and, for HMAC, the setup after the import, then
+  # every allocation the updates make. Each must raise the memory class and
+  # release what it built at once (no gc() before the count), and the next
+  # call must work. A constructor that forgets to free on a failure path
+  # leaves its storage counted as live (src/zuc_live.h).
+  key <- as.raw(rep(1L, 32))
+  iv <- raw(16)
+  data <- as.raw(rep_len(0:255, 2L * 1048576L + 32L)) # three chunks
+  path <- tempfile()
+  on.exit(unlink(path), add = TRUE)
+  writeBin(data, path)
+  calls <- list(
+    hash = function() crypt_hash(data),
+    hmac = function() crypt_hmac(data, key),
+    aes = function() crypt_aes_cbc_encrypt_nopad(data, key, iv),
+    stream = function() crypt_hash(file(path))
+  )
+  # The construction steps alone: the storage and the setup for a digest;
+  # the storage, three key-store allocations and the setup for an HMAC; the
+  # storage and two key-store allocations for AES.
+  at_least <- c(hash = 2L, hmac = 5L, aes = 3L, stream = 2L)
+  gc()
+  before <- live_contexts()
+  for (name in names(calls)) {
+    want <- calls[[name]]()
+    fired <- sweep_steps(calls[[name]], function(n, cnd) {
+      info <- paste(name, "step", n)
+      expect_s3_class(cnd, "zucrypt_memory_error")
+      expect_identical(live_contexts(), before, info = info)
+      expect_identical(calls[[name]](), want, info = info)
+    })
+    expect_gte(fired, at_least[[name]])
+  }
+})
+
+test_that("an R error after the first chunk leaves the context to its finalizer (#116)", {
+  # The error lands where an interrupt would, after a chunk, with the
+  # context owned only by its external pointer: the live count at that
+  # moment is one above the baseline, and the collection brings it back.
+  key <- as.raw(rep(1L, 32))
+  iv <- raw(16)
+  data <- as.raw(rep_len(0:255, 3L * 1048576L))
+  path <- tempfile()
+  on.exit(unlink(path), add = TRUE)
+  writeBin(data, path)
+  calls <- list(
+    hash = function() crypt_hash(data),
+    hmac = function() crypt_hmac(data, key),
+    aes = function() crypt_aes_cbc_encrypt_nopad(data, key, iv),
+    stream = function() crypt_hmac(file(path), key)
+  )
+  on.exit(chunk_error_at(0), add = TRUE)
+  gc()
+  before <- live_contexts()
+  for (name in names(calls)) {
+    want <- calls[[name]]()
+    chunk_error_at(1)
+    expect_error(calls[[name]](), "injected error after a chunk")
+    expect_identical(chunk_error_at(0), before + 1, info = name)
+    gc()
+    expect_identical(live_contexts(), before, info = name)
+    expect_identical(calls[[name]](), want, info = name)
+  }
+})
+
 test_that("an interrupted call frees its context once collected", {
-  skip_on_cran()   # 64 MiB inputs, and timing-dependent by construction
+  skip_on_cran() # 64 MiB inputs, and timing-dependent by construction
   gc()
   before <- live_contexts()
 
@@ -44,7 +116,7 @@ test_that("an interrupted call frees its context once collected", {
   calls <- list(
     hash = function() crypt_hash(data, "sha512"),
     hmac = function() crypt_hmac(data, key, "sha512"),
-    aes  = function() crypt_aes_cbc_encrypt_nopad(data, key, iv)
+    aes = function() crypt_aes_cbc_encrypt_nopad(data, key, iv)
   )
 
   for (name in names(calls)) {
@@ -88,7 +160,7 @@ test_that("connection input leaves no live context, however it ends", {
 })
 
 test_that("an interrupted connection hash frees its context once collected", {
-  skip_on_cran()   # a 64 MiB file, and timing-dependent by construction
+  skip_on_cran() # a 64 MiB file, and timing-dependent by construction
   path <- tempfile()
   writeBin(as.raw(rep_len(0:255, 64L * 1024L * 1024L)), path)
   on.exit(unlink(path))
