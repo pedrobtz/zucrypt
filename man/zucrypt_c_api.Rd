@@ -89,6 +89,14 @@ zucrypt does nothing for you until your package is reinstalled -- including
 a security fix -- so report the version you actually linked, by calling
 \code{zuc_get_info()} rather than reading a macro.
 
+Hidden visibility keeps the backend private to your shared object, not
+inside it. The archive defines \verb{psa_*()} and \verb{mbedtls_*()} as ordinary
+symbols, so do not link another PSA Crypto or Mbed TLS (a second vendored
+copy, or a system \code{libmbedcrypto}) into the same shared object as
+\code{libzucrypt.a}. It is not supported, and a static link fails with a
+duplicate symbol. In separate shared objects, \code{zucrypt.so} included, the
+copies do not interfere (#112).
+
 The archive is built from the objects zucrypt was compiled into, with
 zucrypt's flags. If zucrypt was installed with link-time optimisation
 (\code{LTO = -flto} in \verb{~/.R/Makevars}), those objects hold compiler

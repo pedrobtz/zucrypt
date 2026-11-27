@@ -74,6 +74,10 @@
   `zuc_alg` values: `ZUC_ALG_EC_P256` to `_P521` (193-195),
   `ZUC_ALG_X25519 = 196`, `ZUC_ALG_ECDH = 197`, `ZUC_ALG_ECDSA = 226` and
   `ZUC_ALG_ECDSA_DETERMINISTIC = 227`.
+* `?zucrypt_c_api` and the C-API article now say that no other PSA Crypto or
+  Mbed TLS may be linked into the same shared object as `libzucrypt.a`: the
+  archive's backend symbols are hidden from other shared objects, not inside
+  your own, so the link fails with a duplicate symbol (#112).
 
 ## Bug fixes
 

@@ -210,6 +210,14 @@ CBC adds and strips no padding and authenticates nothing. Verify a MAC with
 - **Threads:** main thread only, in this version.
 - **Handles are bounded only by memory.** Each AES and HMAC handle holds one
   key in a key store that grows on demand.
+- **No second PSA or Mbed TLS in the same shared object.** Hidden
+  visibility keeps the archive's backend private to your shared object, not
+  inside it: `libzucrypt.a` defines `psa_crypto_init()`, the `mbedtls_*()`
+  functions and the rest as ordinary symbols. Linking another copy of PSA
+  Crypto or Mbed TLS into the same shared object fails with a duplicate
+  symbol (`multiple definition` from GNU ld, `duplicate symbol` from Apple's
+  linker). A copy in another shared object, `zucrypt.so` included, does not
+  interfere. `tools/check-linking.sh` checks both.
 - **Report what you linked.** Call `zuc_get_info()` at run time for the
   backend and its version; a macro says what you compiled against, not what
   is in your shared object.

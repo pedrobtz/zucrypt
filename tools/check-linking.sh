@@ -21,7 +21,10 @@
 #      order: two backend copies, two key stores, no crosstalk;
 #   8. the fixture still works with zucrypt removed from the library path;
 #   9. unloading the fixture unloads its DLL -- so R_unload_ runs and the
-#      backend is shut down -- and it reloads and works, three times over.
+#      backend is shut down -- and it reloads and works, three times over;
+#  10. library paths with & | and ' link, or are refused saying why;
+#  11. another PSA linked into the same shared object as the archive is a
+#      duplicate-symbol link error, as ?zucrypt_c_api documents (#112).
 #
 # zukomp's tools/check-linking.sh, with tools/zukomplink, is the model. Its
 # CLAUDE.md records why a hand-compiled main() was retired: it "exercised
@@ -254,5 +257,43 @@ MINGW*|MSYS*|CYGWIN*)
   echo "    refused a library named \"r'lib\", saying why"
   ;;
 esac
+
+echo "==> 11. a second PSA in the same shared object is a link error (#112)"
+# Hidden visibility keeps the backend from binding across shared objects
+# (steps 4 and 7), but inside one it changes nothing: libzucrypt.a defines
+# psa_crypto_init, mbedtls_* and the rest as ordinary symbols, so a consumer
+# that links another PSA or Mbed TLS beside it gets a duplicate definition.
+# ?zucrypt_c_api and the C-API article say so. This holds the documented
+# failure: a probe defining its own psa_crypto_init() must fail to link, and
+# the same probe without it must link, so the failure is that and nothing
+# else. GNU ld says "multiple definition", Apple's ld "duplicate symbol".
+DUP="$WORK/dup"
+mkdir -p "$DUP"
+cp "$ZUCRYPT_LIB/libzucrypt.a" "$DUP/"   # $LIB has a space; SHLIB's PKG_LIBS does not quote
+for variant in control duplicate; do
+  {
+    echo '#include "zucrypt.h"'
+    if [ "$variant" = duplicate ]; then
+      echo 'int psa_crypto_init(void) { return 0; }'
+    fi
+    echo 'int zucrypt_dup_probe(void) { return (int) zuc_init(); }'
+  } >"$DUP/$variant.c"
+done
+shlib() {
+  (cd "$DUP" && PKG_CPPFLAGS="-I$ROOT/inst/include" PKG_LIBS="libzucrypt.a" \
+    R CMD SHLIB -o "$1$SHLIB_EXT" "$1.c") >"$DUP/$1.log" 2>&1
+}
+SHLIB_EXT=$(Rscript --vanilla -e 'cat(.Platform$dynlib.ext)')
+shlib control || { echo "FAIL: the control probe does not link with libzucrypt.a" >&2;
+                   cat "$DUP/control.log" >&2; exit 1; }
+if shlib duplicate; then
+  echo "FAIL: a second psa_crypto_init() linked beside libzucrypt.a;" >&2
+  echo "  the duplicate-symbol limit documented in ?zucrypt_c_api no longer holds" >&2
+  exit 1
+fi
+grep -qiE '(multiple definition|duplicate symbol).*psa_crypto_init' "$DUP/duplicate.log" \
+  || { echo "FAIL: the probe failed to link, but not on psa_crypto_init:" >&2;
+       cat "$DUP/duplicate.log" >&2; exit 1; }
+echo "    $(grep -iE '(multiple definition|duplicate symbol).*psa_crypto_init' "$DUP/duplicate.log" | head -1 | sed 's/^[[:space:]]*//')"
 
 echo "all checks passed"
