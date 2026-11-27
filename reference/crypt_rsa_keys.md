@@ -14,7 +14,7 @@ encodings interoperate: a key one package writes, the other reads.
   PKCS#1 PEM (`RSA PRIVATE KEY`, `RSA PUBLIC KEY`); `crypt_write_der()`
   writes a private key as PKCS#1 DER and a public key as
   SubjectPublicKeyInfo DER, as
-  [`openssl::write_der()`](https://jeroen.r-universe.dev/openssl/reference/write_pem.html)
+  [`openssl::write_der()`](https://rdrr.io/pkg/openssl/man/write_pem.html)
   does.
 
 - `crypt_rsa_keygen()` generates a key pair from the operating system's
@@ -149,13 +149,13 @@ key
 pem <- crypt_write_pem(key$pubkey)
 cat(pem)
 #> -----BEGIN PUBLIC KEY-----
-#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2ypRZNKTolxbRSxOIfi3
-#> KErjwpR9Ot8Y1VM0+Ml/h5kTD4Kr08Stj7jjBOHZd/N1pUuwGWGq+DNv+i9+QgrQ
-#> ymN1VDlCts0SuSBXFagyX7Vooa0ychPtaMaPSxdoBdWEMMrF6Qew5xTeKNm1moBh
-#> DwL1T5sDzdehvmg+vv/oHK9dgmQWmJ5q4VwQbmmMq/gCv2fthuJan6oeHvZndNSs
-#> ZKo06pHxHAeUjed1onzZNjj+JYdfzup+u1t/M39G2kb6dgrMRHmJnJrWqM8kQpyE
-#> KX4d9LidqZJ9/Zq3X4TGMskFwBcXl6+ZaZ8mWyaSCHaSXofzQpVP3D2P+1FfrZLW
-#> CQIDAQAB
+#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsjLOZ4WsKZH0oJvNINbq
+#> Tv9oKxdwhytMNVJ2nfDiHwkG6MJiDQBqsqXqGgIiIl5eUno0dNQYHRHhy6qlAsxd
+#> QZF3z6bOcDehFTyEvMyPXWKGm5N3R6zW9F4eNle5eToBDVbq4qQJ/eRCQYFs/dEQ
+#> p+h3BY1b9FgYiBbswnBHIeLv7YUfj8nULiS/+tMk5VK/Soo7o4gtfKvYk+H6xwhZ
+#> F/fCgz//gyt3kJ2xXhgH13/I1EhiS9cAjcCTHvpm2Y4FCRbQbGmjQ1ZHqEQMY+PQ
+#> K8+8ElQLpZLoz7/4jHntGfdDPoK77iL6xwk43nK+56rANzV3zQOBCgV1UAd3OObp
+#> 0QIDAQAB
 #> -----END PUBLIC KEY-----
 pub <- crypt_read_pubkey(pem)
 

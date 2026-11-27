@@ -83,9 +83,9 @@ and a missing or non-raw argument is `zucrypt_invalid_argument`.
 ## Compared with openssl
 
 The names and argument order follow
-[`openssl::aes_gcm_encrypt()`](https://jeroen.r-universe.dev/openssl/reference/aes_cbc.html)
+[`openssl::aes_gcm_encrypt()`](https://rdrr.io/pkg/openssl/man/aes_cbc.html)
 and
-[`openssl::aes_gcm_decrypt()`](https://jeroen.r-universe.dev/openssl/reference/aes_cbc.html),
+[`openssl::aes_gcm_decrypt()`](https://rdrr.io/pkg/openssl/man/aes_cbc.html),
 and the ciphertext bytes are the same. The behaviour differs on purpose.
 openssl's encryption returns no tag, and its decryption returns altered
 plaintext without an error. Here the tag is returned, and decryption
@@ -116,11 +116,11 @@ to derive a key from a password.
 key <- crypt_rand_bytes(32)
 sealed <- crypt_aes_gcm_encrypt(charToRaw("attack at dawn"), key)
 sealed
-#>  [1] 34 00 9b 73 97 9c ce cc 25 aa 1c 6f f4 33
+#>  [1] d2 71 6f 2b 23 a8 18 e1 f0 83 0c 81 75 2e
 #> attr(,"iv")
-#>  [1] 13 3a 4c d2 6d 12 9f d4 32 b7 72 97
+#>  [1] 18 e3 c7 5b 63 a0 05 ba d7 17 b3 a9
 #> attr(,"tag")
-#>  [1] 1c 4f db c9 c8 f1 fb 1b d0 9d ba bb 96 92 7b 0d
+#>  [1] 57 88 ab 25 77 bd ef f7 86 f6 49 05 cc 8d 22 f2
 
 rawToChar(crypt_aes_gcm_decrypt(sealed, key))
 #> [1] "attack at dawn"

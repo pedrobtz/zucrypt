@@ -1,14 +1,13 @@
 # Digests in the Style of openssl
 
 `crypt_sha1()`, `crypt_sha256()`, `crypt_sha384()` and `crypt_sha512()`
-mirror
-[`openssl::sha1()`](https://jeroen.r-universe.dev/openssl/reference/hash.html)
+mirror [`openssl::sha1()`](https://rdrr.io/pkg/openssl/man/hash.html)
 and its siblings for raw input: the digest, or with `key` the HMAC, as a
 raw vector of class `c("hash", "<algorithm>")`, and `"hmac"` after them
 for an HMAC. They exist first so that
 [`crypt_signature_create()`](https://pedrobtz.github.io/zucrypt/reference/crypt_rsa_crypto.md)
 can take `hash = crypt_sha256` as
-[`openssl::signature_create()`](https://jeroen.r-universe.dev/openssl/reference/signatures.html)
+[`openssl::signature_create()`](https://rdrr.io/pkg/openssl/man/signatures.html)
 takes `hash = sha256`.
 
 This version accepts raw vectors only. openssl also hashes character

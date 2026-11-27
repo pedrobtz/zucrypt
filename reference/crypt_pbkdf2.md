@@ -77,8 +77,8 @@ which takes the key this derives.
 salt <- crypt_rand_bytes(16)
 key <- crypt_pbkdf2(charToRaw("correct horse"), salt, iterations = 10000)
 key
-#>  [1] 77 da f4 f4 6d ca cd 47 13 59 d5 33 36 0f a7 fd eb 16 81 ad aa af af 43 98
-#> [26] ec 24 0f a8 66 b3 40
+#>  [1] 1d 20 ee 02 71 19 9f cc 49 72 c2 b9 3f b9 db 65 fb 59 87 b5 39 e8 94 8e 6b
+#> [26] 86 e8 ef 08 70 aa bb
 
 # RFC 6070, test case 2.
 crypt_hex(crypt_pbkdf2(charToRaw("password"), charToRaw("salt"),

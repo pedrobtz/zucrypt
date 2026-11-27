@@ -189,7 +189,7 @@ crypt_hex(crypt_hmac(charToRaw("what do ya want for nothing?"), key, "sha512"))
 In real use the key should be random bytes from a cryptographic source,
 at least as long as the digest, and kept secret. zucrypt does not
 generate randomness;
-[`openssl::rand_bytes()`](https://jeroen.r-universe.dev/openssl/reference/rand_bytes.html)
+[`openssl::rand_bytes()`](https://rdrr.io/pkg/openssl/man/rand_bytes.html)
 or `sodium::random()` do. R’s own
 [`sample()`](https://rdrr.io/r/base/sample.html) and
 [`runif()`](https://rdrr.io/r/stats/Uniform.html) do not, whatever the
@@ -237,7 +237,7 @@ draws them from the operating system’s cryptographic source:
 ``` r
 
 crypt_rand_bytes(16)
-#>  [1] 73 48 db 3b bd c1 69 ae 6f de fd 32 53 0b e5 e0
+#>  [1] 67 fe 07 8d c8 ea 2c 95 fc e6 40 5b 45 40 ab fb
 ```
 
 R’s own random number generator is not involved, so
@@ -268,11 +268,11 @@ nonce is drawn fresh for each message unless you supply one:
 key <- crypt_rand_bytes(32)
 sealed <- crypt_aes_gcm_encrypt(charToRaw("meet at noon"), key)
 sealed
-#>  [1] 6e ee 72 58 82 8f ab aa cc e0 2c 23
+#>  [1] 11 67 8a 35 1c e5 5e a1 84 b1 a0 d7
 #> attr(,"iv")
-#>  [1] 80 4a 2a bb 78 0a aa fc 69 5a fc 86
+#>  [1] 1c 5f d2 0f 31 2e 69 cd 3a cf 43 b0
 #> attr(,"tag")
-#>  [1] 0e 75 38 0c 85 46 1b d6 23 fc 6f f0 27 23 51 fb
+#>  [1] 7e 6c 12 82 5c bd 65 5d 66 d5 3f 38 6e 5b 10 c7
 ```
 
 [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
@@ -307,7 +307,7 @@ the key a key: 16, 24 or 32 random bytes, or the output of
 [`crypt_pbkdf2()`](https://pedrobtz.github.io/zucrypt/reference/crypt_pbkdf2.md).
 
 The names and argument order follow
-[`openssl::aes_gcm_encrypt()`](https://jeroen.r-universe.dev/openssl/reference/aes_cbc.html),
+[`openssl::aes_gcm_encrypt()`](https://rdrr.io/pkg/openssl/man/aes_cbc.html),
 and the ciphertext bytes are the same. openssl returns no tag, though,
 and its decryption accepts altered ciphertext, so the two are not
 interchangeable.
@@ -377,13 +377,13 @@ key
 #> [2048-bit rsa private key]
 cat(crypt_write_pem(key$pubkey))
 #> -----BEGIN PUBLIC KEY-----
-#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnLVj8Sr2vBwqZcYIMl8e
-#> 7FYmI9SjPe16yoH53eY2LjuGFR36oxCTtTlsK2fHpvDHxy8Y8HgyVfDKNdzDbEwQ
-#> g1xn7raQvABtpAXhqk4ZsEV6MSzNabmgN5mWU1X/CvCPg35x6o0u61Q8d6s193L2
-#> 52k00OnWLh7zoXrKKD/13fKfjlAs32ewF9kiftjpM5XTj/hCnA9i5UIqFzEE6Zd2
-#> /hexEOqqaCCfzf4iU6/1tESIwW0RDBRfxdWellcSc6uTuw9Ohu0i8E9nFD3BdO4t
-#> rnOiGz/Zje+qiGK6Sp5dp14JqyHYgiNH9K3qaMrFXaC49CmO99RJNfbqvzaAkGpS
-#> qwIDAQAB
+#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvVNCGLZehRFfXMWuz9Op
+#> 5oANRmq5eEXuWMZdzboRlle3EqzIt02cJyJ8zrz+1/Vb+Im6g57ugPRCVc3tvEeQ
+#> IgtRTgvlle2s4/UaZ5r7Gn5yhvQ8Lgxb01yZNuHJncZAwLMGAgBM22hDBC+9vXer
+#> Kv2z9GzaurR14C1CRYgevrnUsaVrTYIopkBA2RnkWTEF8DWel7GvlY9KzZuWlWI7
+#> F1t9drFpa3439aZQwasYLxca1WuOzPTSxukpitawRrDdEypkyl7ZPlkqygqvY/lt
+#> Abxc/piJMOyBm/1vUA5WBh+hzf8zOmx3qjmp6/s9Fufn3sFol2eeo7aAKsWAnlPB
+#> 0QIDAQAB
 #> -----END PUBLIC KEY-----
 ```
 

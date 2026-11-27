@@ -6,7 +6,7 @@
 
 - `crypt_rand_bytes(n = 1)` returns `n` bytes from the operating
   system’s cryptographic random source, mirroring
-  [`openssl::rand_bytes()`](https://jeroen.r-universe.dev/openssl/reference/rand_bytes.html)
+  [`openssl::rand_bytes()`](https://rdrr.io/pkg/openssl/man/rand_bytes.html)
   ([\#9](https://github.com/pedrobtz/zucrypt/issues/9)). R’s random
   number generator is never used or disturbed, so
   [`set.seed()`](https://rdrr.io/r/base/Random.html) has no effect on
@@ -265,7 +265,7 @@
   truncated INTEGER with invented zero bytes, and negative and
   non-minimal INTEGERs. It now refuses them, and bytes after the
   signature too, which
-  [`openssl::ecdsa_parse()`](https://jeroen.r-universe.dev/openssl/reference/signatures.html)
+  [`openssl::ecdsa_parse()`](https://rdrr.io/pkg/openssl/man/signatures.html)
   ignores. Signature verification was not affected.
 
 - An RSA key over 4096 bits, the bundled library’s limit, is
@@ -405,7 +405,7 @@ Renamed before release
 ([\#56](https://github.com/pedrobtz/zucrypt/issues/56)): the CBC pair
 was `crypt_aes_cbc_encrypt()` and `crypt_aes_cbc_decrypt()` during
 development. The `_nopad` suffix names the difference from
-[`openssl::aes_cbc_encrypt()`](https://jeroen.r-universe.dev/openssl/reference/aes_cbc.html),
+[`openssl::aes_cbc_encrypt()`](https://rdrr.io/pkg/openssl/man/aes_cbc.html),
 which pads, so that code moved from `openssl` by changing a prefix can
 never silently get the padding back as plaintext. The unsuffixed names
 are reserved for an `openssl`-compatible padded pair. The C interface

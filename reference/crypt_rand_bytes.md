@@ -36,7 +36,7 @@ deliberate: R's generator is seeded from the session and reproducible on
 purpose, which is exactly what a key must not be.
 
 The name, argument and default mirror
-[`openssl::rand_bytes()`](https://jeroen.r-universe.dev/openssl/reference/rand_bytes.html),
+[`openssl::rand_bytes()`](https://rdrr.io/pkg/openssl/man/rand_bytes.html),
 so code moving from openssl changes only the prefix.
 
 ## Errors
@@ -56,11 +56,11 @@ is one.
 
 ``` r
 crypt_rand_bytes(16)
-#>  [1] df 43 0f e6 41 b2 02 34 de 9e 3f 47 96 0b 09 58
+#>  [1] 4e 77 2e 61 b2 89 69 db 00 93 6f ab 4e dd 44 b8
 
 # A 256-bit key, printed as hex.
 crypt_hex(crypt_rand_bytes(32))
-#> [1] "a915543c7e43b73246c9d6cb4dc4192e34572fa8fc41d61e81a5f0db924a3ed2"
+#> [1] "cc8143c913c008f57ea107e5f4265e3a72b42980bca0f4700e6e750090215f1b"
 
 # set.seed() does not repeat it.
 set.seed(1)
