@@ -53,8 +53,9 @@ only.}
 \code{"sha384"} or \code{"sha512"}. Ignored unless \code{oaep = TRUE}.}
 }
 \value{
-\code{crypt_signature_create()} returns the signature, a raw vector as
-long as the modulus. \code{crypt_signature_verify()} returns \code{TRUE}, or
+\code{crypt_signature_create()} returns the signature, a raw vector:
+as long as the modulus for RSA, and DER of varying length for ECDSA.
+\code{crypt_signature_verify()} returns \code{TRUE}, or
 signals \code{zucrypt_auth_error}. \code{crypt_rsa_encrypt()} returns the
 ciphertext and \code{crypt_rsa_decrypt()} the plaintext, as raw vectors.
 }
@@ -69,8 +70,12 @@ A signature covers a digest: \code{hash} is applied to \code{data} and the diges
 signed, so \code{hash = crypt_sha256} gives an RSA-SHA256 signature. With
 \code{hash = NULL}, \code{data} must already be a SHA-1 or SHA-2 digest. PKCS#1
 v1.5 signatures are deterministic. PSS signatures (\code{pss = TRUE}, RFC 8017
-section 8.1) are randomised, use MGF1 with the same digest, and a salt as
-long as the digest; verification requires that salt length.
+section 8.1) are randomised and use MGF1 with the same digest. The salt is
+as long as the digest, or as long as fits when the key is too small for
+that (a 1024-bit key with SHA-512 takes 62 bytes). Verification requires
+that same length: a PSS signature with any other salt, such as the
+longest that fits (\code{PSS.MAX_LENGTH} in Python's \code{cryptography}), is
+refused.
 
 With a key on P-256, P-384 or P-521 the signature is ECDSA, encoded in DER
 as openssl encodes it; \code{\link[=crypt_ecdsa_parse]{crypt_ecdsa_parse()}} gives its \code{r} and \code{s}.
@@ -96,9 +101,10 @@ key is \code{zucrypt_bad_length}.
 
 \section{Compared with openssl}{
 
-\code{pss}, \code{deterministic} and \code{oaep_hash} are additions. There is no default key: openssl
-reads \verb{~/.ssh}. PKCS#1 v1.5 decryption of an invalid ciphertext is an
-error here; OpenSSL 3 returns random bytes instead (implicit rejection).
+\code{pss}, \code{deterministic} and \code{oaep_hash} are additions. There is no default
+key: openssl reads \verb{~/.ssh}. PKCS#1 v1.5 decryption of an invalid
+ciphertext is an error here; OpenSSL 3 returns random bytes instead
+(implicit rejection).
 }
 
 \examples{

@@ -65,8 +65,9 @@
 #'
 #' @section Compared with openssl:
 #' `pss`, `deterministic` and `oaep_hash` are additions. There is no default
-#' key: openssl reads `~/.ssh`. PKCS#1 v1.5 decryption of an invalid ciphertext is an
-#' error here; OpenSSL 3 returns random bytes instead (implicit rejection).
+#' key: openssl reads `~/.ssh`. PKCS#1 v1.5 decryption of an invalid
+#' ciphertext is an error here; OpenSSL 3 returns random bytes instead
+#' (implicit rejection).
 #'
 #' @examples
 #' key <- crypt_rsa_keygen(2048)

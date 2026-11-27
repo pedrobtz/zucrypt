@@ -21,7 +21,6 @@
 #'
 #' A key object is an external pointer to key material held in C, and the
 #' material of a private key is wiped when the object is garbage collected.
-#' Key objects do not survive [saveRDS()]; save the PEM instead.
 #'
 #' @param file The key: a raw vector of DER or PEM bytes, a single string of
 #'   PEM text, a path to a file holding either, or a connection.

@@ -128,8 +128,9 @@ reference, including what is and is not promised.
 
 ## Status
 
-Version 0.1.0. The R functions are stable, the static archive is frozen
-as ABI 1, and the registered table is experimental, as above. Every change
+Version 0.1.1. The R functions are stable, each from the release that
+shipped it; the static archive is frozen as ABI 1, with additions only, and
+the registered table is experimental, as above. Every change
 to either is recorded in `NEWS.md`. What is compiled in, where it came from,
 and how a security fix reaches you are in
 [The vendored backend](https://pedrobtz.github.io/zucrypt/articles/backend.html).
