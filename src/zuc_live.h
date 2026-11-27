@@ -13,8 +13,10 @@
 #ifndef ZUC_LIVE_H
 #define ZUC_LIVE_H
 
-/* Handles created by zuc_hash_new(), zuc_hmac_new() and zuc_aes_new() and
- * not yet freed, in this copy of the library. Not atomic: the library is
+/* Handles (zuc_hash, zuc_hmac, zuc_aes, zuc_pkey) whose storage is
+ * allocated and not yet freed, in this copy of the library: counted from
+ * the allocation, not from a successful construction, so a constructor
+ * that leaks on its failure path is seen (#116). Not atomic: the library is
  * main-thread only. A test compares it before and after an operation that
  * was interrupted or failed; any difference is a leaked context, which in
  * this package means leaked key material. The pattern is zukomp's
@@ -46,10 +48,13 @@ int zuc_int_random_enosys(int on);
 #define ZUC_RANDOM_STEP_ENOSYS (-4)
 int zuc_int_random_script(const int *steps, int n);
 
-/* Make the backend's `n`th allocation from now fail (n >= 1), once; 0
- * switches it off. Only allocations through zuc_int_calloc() count -- the
- * backend's, not the adapter's own -- so a test can fail an operation at a
- * chosen point inside the backend (#108, #116). Test harness only. */
+/* Make the `n`th fallible step from now fail (n >= 1), once; 0 switches it
+ * off. The steps are the backend's allocations (through zuc_int_calloc()),
+ * a handle's own storage (zuc_int_handle_new()), and the backend calls a
+ * constructor marks with zuc_int_step(); each fails as an allocation
+ * failure. So a test can fail an operation at a chosen point: the
+ * handle's allocation, the backend setup after it, the key import, an
+ * update (#108, #116). Test harness only. */
 void zuc_int_alloc_fail_at(long n);
 
 /* How many allocations are still to come before the injected failure: 0

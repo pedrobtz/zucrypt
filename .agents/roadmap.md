@@ -127,7 +127,7 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 15a — RSA and key I/O | v0.1.1 | #80 | Stage 14a | **done**, 2026-11-03 |
 | 15b — Tranche 3: the rest | v0.4.0 | new | Stage 15a | |
 | 16a — EC keys, ECDSA, ECDH, X25519 | v0.1.1 | #81 | Stage 15a | **done**, 2026-11-03 |
-| R1 — Test gaps in the new key code (#166) | v0.1.1 | #126, #127, #128, #129, #116 | Stage 16a | |
+| R1 — Test gaps in the new key code (#166) | v0.1.1 | #126, #127, #128, #129, #116, #174 | Stage 16a | **done**, 2026-11-27, [#176](https://github.com/pedrobtz/zucrypt/pull/176) |
 | R2 — Documentation and CI fixes (#167) | v0.1.1 | #112, #118, #146 | — | |
 | R3 — v0.1.1 review and CRAN (#168) | v0.1.1 | — | Stages R1 and R2; CRAN cadence (#79) | |
 | 17 — Tranche 5: certificates | v0.6.0 | new | Stage 16 | |
@@ -485,6 +485,18 @@ Added 2026-11-12. v0.1.1 carries Stages 13a–16a to CRAN. None of these stages 
 red by its mutant; and the lifetime tests reach the failure points they name (#116). Exit: those
 mutants killed in a local Mull run, the issues closed, `.agents/assurance.md` at 0 problems.
 #130, outside the key code, is scoped to v0.1.2 or later.
+
+R1 done 2026-11-27. A local Mull 0.35.0 run over `src/zuc_pkey.c` (LLVM 18, the
+mutation.yaml configuration, in an Ubuntu 24.04 container) went from 98 survivors of 295 on
+`main` at 773d709 to 24 of 293. Each of the 24 is equivalent or unreachable, with its reason
+in the #166 comment: the DER length boundaries at exactly 128, 255 and 65,471 bytes, which no
+encoding this code writes has; the X25519 public-key branch of the reader and the all-zero
+X25519 check, which TF-PSA-Crypto 1.1.1 never lets an input reach; allocation and entropy
+remaps that `zuc_int_watched_or()` overrides; and comparisons that differ only by reading past
+the input. Added to the stage: #174 (the unload test on musl; the finalizers ran, the test
+misread musl's `<pointer: 0>`). Found by it: `rsa-limit.tsv`'s PKCS#8 DER rows were PKCS#1
+(fixed, and the generator's `--check` now checks the structure), and X25519 private keys are
+written clamped, unlike OpenSSL (#175, not fixed here; the C driver compares up to clamping).
 
 **R2 — Documentation and CI fixes.** CI tier `quick`. `?zucrypt_c_api` and the C-API article
 state that the archive cannot share a shared object with another PSA or Mbed TLS (#112);

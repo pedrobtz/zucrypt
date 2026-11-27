@@ -46,10 +46,16 @@ pem_body <- function(pem) {
                                collapse = ""))
 }
 
+# PKCS#8 DER is the body of the "PRIVATE KEY" PEM. Not write_der(key): for
+# a private key that writes PKCS#1, so until #127 every private_pkcs8_der
+# row was a second copy of the PKCS#1 one, and no PKCS#8 DER reached a
+# reader.
+pkcs8_der <- function(pem) pem_body(pem)
+
 encodings <- function(key) {
   pub <- key$pubkey
   list(
-    private_pkcs8_der = openssl::write_der(key),
+    private_pkcs8_der = pkcs8_der(openssl::write_pem(key)),
     private_pkcs1_der = pem_body(openssl::write_pkcs1(key)),
     private_pkcs8_pem = charToRaw(openssl::write_pem(key)),
     public_spki_der   = openssl::write_der(pub),
@@ -80,6 +86,23 @@ check <- function() {
     } else {
       openssl::read_pubkey(input, der = !pem)
     }
+    # The structure, not only the size: openssl reads PKCS#1 and PKCS#8 DER
+    # alike, so a PKCS#1 key filed as PKCS#8 passed this check (#127).
+    # PKCS#8 opens with SEQUENCE, INTEGER 0, then the rsaEncryption
+    # AlgorithmIdentifier; PKCS#1 with INTEGER 0 and then the modulus.
+    if (grepl("pkcs8_der", r$encoding)) {
+      want <- "020100300d06092a864886f70d0101010500"
+      body <- substring(r$data, 1L, 2000L)
+      if (!grepl(paste0("^3082[0-9a-f]{4}", want), body)) {
+        stop(sprintf("%s: not a PKCS#8 PrivateKeyInfo", r$id))
+      }
+      pem_row <- rows[rows$bits == r$bits &
+                        rows$encoding == "private_pkcs8_pem", ]
+      if (!identical(tohex(pkcs8_der(rawToChar(unhex(pem_row$data)))),
+                     r$data)) {
+        stop(sprintf("%s: not the body of %s", r$id, pem_row$id))
+      }
+    }
     if (as.list(key)$size != as.integer(r$bits)) {
       stop(sprintf("%s: openssl reads %d bits, the row says %s",
                    r$id, as.list(key)$size, r$bits))
@@ -109,6 +132,13 @@ generate <- function() {
     }
   }
   rows <- do.call(rbind, rows)
+  # Rows kept from before #127 hold PKCS#1 under the PKCS#8 name; the key's
+  # own PEM row gives its PKCS#8 DER.
+  for (i in which(rows$encoding == "private_pkcs8_der")) {
+    pem <- rows$data[rows$bits == rows$bits[i] &
+                       rows$encoding == "private_pkcs8_pem"]
+    rows$data[i] <- tohex(pkcs8_der(rawToChar(unhex(pem))))
+  }
   rows <- rows[order(as.integer(rows$bits), seq_len(nrow(rows))), ]
   utils::write.table(rows, OUT, sep = "\t", quote = FALSE, row.names = FALSE)
 

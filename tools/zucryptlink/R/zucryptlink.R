@@ -25,13 +25,22 @@ archive_segments <- function(data, key, iv, segment, encrypt = FALSE) {
 
 archive_random <- function(n) .Call(zl_random, as.integer(n))
 
-archive_gcm_encrypt <- function(key, iv, data) .Call(zl_gcm_encrypt, key, iv, data)
+archive_gcm_encrypt <- function(key, iv, data) {
+  .Call(zl_gcm_encrypt, key, iv, data)
+}
 archive_gcm_decrypt_status <- function(key, iv, data, tag) {
   .Call(zl_gcm_decrypt_status, key, iv, data, tag)
 }
 archive_rsa_sign <- function(pem, digest) .Call(zl_rsa_sign, pem, digest)
 
 archive_x25519 <- function(priv, pub) .Call(zl_x25519, priv, pub)
+
+# An HMAC held open across calls (tools/check-linking.sh, step 7).
+archive_hmac_open <- function(key, algorithm = "sha256") {
+  .Call(zl_hmac_open, algorithm, key)
+}
+archive_hmac_feed <- function(h, data) invisible(.Call(zl_hmac_feed, h, data))
+archive_hmac_close <- function(h) .Call(zl_hmac_close, h)
 
 archive_pbkdf2 <- function(password, salt, iterations, n) {
   .Call(zl_pbkdf2, password, salt, as.integer(iterations), as.integer(n))

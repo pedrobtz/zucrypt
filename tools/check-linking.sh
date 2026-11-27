@@ -142,6 +142,19 @@ for (alg in c("sha1", "sha256", "sha512")) {
   stopifnot(identical(zucrypt::crypt_hash(data, alg), zucryptlink::archive_hash(data, alg)))
   stopifnot(identical(zucrypt::crypt_hmac(data, key, alg), zucryptlink::archive_hmac(data, key, alg)))
 }
+# Contexts held open in both copies at once, updates interleaved (#116):
+# zucrypt.so's connection stream and the fixture's held HMAC each keep a
+# key in their own store while the other one works.
+hz <- .Call(zucrypt:::zucrypt_hmac_stream_new, key, "sha256")$value
+ha <- zucryptlink::archive_hmac_open(key, "sha256")
+for (i in 0:3) {
+  part <- data[seq_len(1024L) + i * 1024L]
+  stopifnot(.Call(zucrypt:::zucrypt_stream_update, hz, part) == 0L)
+  zucryptlink::archive_hmac_feed(ha, part)
+}
+want <- zucrypt::crypt_hmac(data, key, "sha256")
+stopifnot(identical(.Call(zucrypt:::zucrypt_stream_finish, hz)$value, want))
+stopifnot(identical(zucryptlink::archive_hmac_close(ha), want))
 ct <- zucrypt::crypt_aes_cbc_encrypt_nopad(data, key, iv)
 stopifnot(identical(zucryptlink::archive_segments(data, key, iv, 4096L, encrypt = TRUE), ct))
 stopifnot(identical(zucryptlink::archive_segments(ct, key, iv, 4096L), data))

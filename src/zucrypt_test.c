@@ -890,6 +890,34 @@ SEXP zucrypt_test_random_fail(SEXP on)
     return R_NilValue;
 }
 
+/* Deterministic failure points for the lifetime tests (#116).
+ *
+ * zucrypt_test_fail_at(n) arms the adapter's failure countdown
+ * (zuc_live.h): the `n`th fallible step from now -- a handle's storage, a
+ * backend allocation, a marked backend call -- fails as an allocation
+ * failure. 0 disarms. Returns how many steps the previous arming had left,
+ * 0 when it fired: a test that gets a non-zero value back has reached past
+ * the last step of the operation it ran.
+ *
+ * zucrypt_test_chunk_error(n) makes the chunk loops of zucrypt_crypt.c
+ * raise an R error after their `n`th chunk; 0 disarms. Returns the live
+ * count at the moment the previous arming fired, -1 if it did not. */
+void zucrypt_int_chunk_error_at(long n, long *live_when_fired);
+
+SEXP zucrypt_test_fail_at(SEXP n)
+{
+    long pending = zuc_int_alloc_fail_pending();
+    zuc_int_alloc_fail_at((long) Rf_asReal(n));
+    return Rf_ScalarReal((double) pending);
+}
+
+SEXP zucrypt_test_chunk_error(SEXP n)
+{
+    long live = -1;
+    zucrypt_int_chunk_error_at((long) Rf_asReal(n), &live);
+    return Rf_ScalarReal((double) live);
+}
+
 /* Turn the simulated ENOSYS from getrandom() on or off (#144). TRUE when
  * this build draws from getrandom(), FALSE (and nothing done) otherwise. */
 SEXP zucrypt_test_random_enosys(SEXP on)
@@ -1921,6 +1949,8 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_null_buffers",   (DL_FUNC) &zucrypt_test_null_buffers,   0},
     {"zucrypt_test_random_contract", (DL_FUNC) &zucrypt_test_random_contract, 0},
     {"zucrypt_test_random_fail",    (DL_FUNC) &zucrypt_test_random_fail,    1},
+    {"zucrypt_test_fail_at",        (DL_FUNC) &zucrypt_test_fail_at,        1},
+    {"zucrypt_test_chunk_error",    (DL_FUNC) &zucrypt_test_chunk_error,    1},
     {"zucrypt_test_random_script",  (DL_FUNC) &zucrypt_test_random_script,  2},
     {"zucrypt_test_rand_fill",      (DL_FUNC) &zucrypt_test_rand_fill,      1},
     {"zucrypt_test_random_enosys",  (DL_FUNC) &zucrypt_test_random_enosys,  1},

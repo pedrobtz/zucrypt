@@ -2,6 +2,7 @@
 """Write, or check, the elliptic-curve known-answer fixtures (Stage 16a).
 
     python3 tools/make-ec-kat.py RFC6979.txt RFC7748.txt RFC5903.txt RFC7515.txt
+    python3 tools/make-ec-kat.py --encodings
     python3 tools/make-ec-kat.py --check
 
 Maintainer tooling, never run at check time. Needs the `cryptography`
@@ -20,6 +21,14 @@ command line, so writing again gives the same fixtures:
 Writes tests/testthat/fixtures/ec-keys.tsv (each key: curve, d, x, y in
 hex) and ec.tsv (one vector per row), and replaces its own rows in
 MANIFEST.tsv. --check verifies every row with `cryptography`.
+
+ec-encodings.tsv (#126) holds OpenSSL's own encodings of one key per curve
+(the RFC 6979 keys and RFC 7748's Alice), written by `cryptography`, which
+calls OpenSSL: the private key as SEC1 ("EC PRIVATE KEY", with the curve)
+and PKCS#8, the public key as SubjectPublicKeyInfo, each in DER and PEM
+(the PEM as the hex of its text). It is derived from ec-keys.tsv, so
+writing the RFC fixtures writes it too; --encodings writes it alone, and
+--check compares every row with what OpenSSL writes now.
 """
 import base64
 import csv
@@ -28,7 +37,7 @@ import os
 import re
 import sys
 
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, x25519
 from cryptography.hazmat.primitives.asymmetric.utils import (
     decode_dss_signature, encode_dss_signature)
@@ -194,6 +203,57 @@ def rfc7515(path):
     return keys, vectors
 
 
+ENCODED_KEYS = ["rfc6979-p256", "rfc6979-p384", "rfc6979-p521",
+                "rfc7748-alice"]
+
+
+def encodings(keys):
+    """OpenSSL's encodings of ENCODED_KEYS: (id, key, format, hex) rows."""
+    E, F = serialization.Encoding, serialization.PrivateFormat
+    rows = []
+    for kid in ENCODED_KEYS:
+        key = private(keys[kid])
+        forms = [] if keys[kid]["curve"] == "X25519" else [
+            ("sec1", lambda e: key.private_bytes(e, F.TraditionalOpenSSL,
+                                                 serialization.NoEncryption()))]
+        forms += [
+            ("pkcs8", lambda e: key.private_bytes(e, F.PKCS8,
+                                                  serialization.NoEncryption())),
+            ("spki", lambda e: key.public_key().public_bytes(
+                e, serialization.PublicFormat.SubjectPublicKeyInfo))]
+        for name, enc in forms:
+            for suffix, e in [("der", E.DER), ("pem", E.PEM)]:
+                rows.append({"id": "%s-%s-%s" % (kid, name, suffix),
+                             "key": kid, "format": "%s-%s" % (name, suffix),
+                             "encoding": enc(e).hex()})
+    return rows
+
+
+def write_encodings():
+    keys = {r["id"]: r for r in csv.DictReader(
+        open(os.path.join(FIXTURES, "ec-keys.tsv")), delimiter="\t")}
+    rows = encodings(keys)
+    with open(os.path.join(FIXTURES, "ec-encodings.tsv"), "w",
+              newline="") as f:
+        w = csv.DictWriter(f, ["id", "key", "format", "encoding"],
+                           delimiter="\t", lineterminator="\n")
+        w.writeheader()
+        w.writerows(rows)
+    path = os.path.join(FIXTURES, "MANIFEST.tsv")
+    manifest = [r for r in csv.DictReader(open(path), delimiter="\t")
+                if r["file"] != "ec-encodings.tsv"]
+    manifest += [{"file": "ec-encodings.tsv", "id": r["id"],
+                  "source": "OpenSSL's encoding of the ec-keys.tsv key, "
+                            "written through cryptography",
+                  "generator": GENERATOR} for r in rows]
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, ["file", "id", "source", "generator"],
+                           delimiter="\t", lineterminator="\n")
+        w.writeheader()
+        w.writerows(manifest)
+    print("wrote %d encodings" % len(rows))
+
+
 def write(p6979, p7748, p5903, p7515):
     keys, vectors = [], []
     for k, v in [rfc6979(p6979), rfc7748(p7748), rfc5903(p5903),
@@ -213,7 +273,7 @@ def write(p6979, p7748, p5903, p7515):
         w.writerows(vectors)
     path = os.path.join(FIXTURES, "MANIFEST.tsv")
     rows = [r for r in csv.DictReader(open(path), delimiter="\t")
-            if r["file"] not in ("ec.tsv", "ec-keys.tsv")]
+            if r["file"] not in ("ec.tsv", "ec-keys.tsv", "ec-encodings.tsv")]
     rows += [{"file": "ec-keys.tsv", "id": k["id"],
               "source": next(v["source"] for v in vectors
                              if k["id"] in (v["key"], v["peer"])),
@@ -226,6 +286,7 @@ def write(p6979, p7748, p5903, p7515):
         w.writeheader()
         w.writerows(rows)
     print("wrote %d keys and %d vectors" % (len(keys), len(vectors)))
+    write_encodings()
 
 
 def private(k):
@@ -270,11 +331,20 @@ def check():
             sys.exit("make-ec-kat: FAILED " + v["id"])
         n += 1
     print("make-ec-kat: %d EC vectors verify with cryptography." % n)
+    want = encodings(keys)
+    have = list(csv.DictReader(
+        open(os.path.join(FIXTURES, "ec-encodings.tsv")), delimiter="\t"))
+    if have != want:
+        sys.exit("make-ec-kat: FAILED ec-encodings.tsv differs from what "
+                 "OpenSSL writes")
+    print("make-ec-kat: %d EC encodings match OpenSSL's." % len(want))
 
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["--check"]:
         check()
+    elif sys.argv[1:] == ["--encodings"]:
+        write_encodings()
     elif len(sys.argv) == 5:
         write(*sys.argv[1:])
     else:

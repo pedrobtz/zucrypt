@@ -1415,6 +1415,785 @@ static void test_entropy(void)
 }
 
 /* ------------------------------------------------------------------ *
+ * DER and PEM, built by hand for the reader tests
+ * ------------------------------------------------------------------ */
+
+/* DER helpers for building inputs: a TLV around `v`, into a fresh buffer. */
+static uint8_t *tlv_wrap(uint8_t tag, const uint8_t *v, size_t n,
+                         size_t *out_len)
+{
+    size_t h = 1 + der_len(NULL, n);
+    uint8_t *p = malloc(h + n);
+    p[0] = tag;
+    der_len(p + 1, n);
+    memcpy(p + h, v, n);
+    *out_len = h + n;
+    return p;
+}
+
+static uint8_t *concat(const uint8_t *a, size_t an, const uint8_t *b,
+                       size_t bn, size_t *out_len)
+{
+    uint8_t *p = malloc(an + bn);
+    memcpy(p, a, an);
+    memcpy(p + an, b, bn);
+    *out_len = an + bn;
+    return p;
+}
+
+/* PEM around `der` with `label`, NUL-free, lines of 64. */
+static char *pem_wrap(const char *label, const uint8_t *der, size_t n,
+                      size_t *out_len)
+{
+    static const char b64[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    char *p = malloc(4 * n / 3 + n / 48 + 200), *q = p;
+    size_t i, col = 0;
+
+    q += sprintf(q, "-----BEGIN %s-----\n", label);
+    for (i = 0; i < n; i += 3) {
+        uint32_t v = (uint32_t) der[i] << 16;
+        if (i + 1 < n) v |= (uint32_t) der[i + 1] << 8;
+        if (i + 2 < n) v |= der[i + 2];
+        *q++ = b64[(v >> 18) & 63];
+        *q++ = b64[(v >> 12) & 63];
+        *q++ = i + 1 < n ? b64[(v >> 6) & 63] : '=';
+        *q++ = i + 2 < n ? b64[v & 63] : '=';
+        if ((col += 4) == 64) {
+            *q++ = '\n';
+            col = 0;
+        }
+    }
+    if (col) *q++ = '\n';
+    q += sprintf(q, "-----END %s-----\n", label);
+    *out_len = (size_t) (q - p);
+    return p;
+}
+
+static const uint8_t RSA_ALG_ID[] = {
+    0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01,
+    0x01, 0x05, 0x00
+};
+
+static uint8_t *limit_row(const table *t, const char *id, size_t *n)
+{
+    return unhex(get(t, find_row(t, id), "data"), n);
+}
+
+/* ------------------------------------------------------------------ *
+ * EC and X25519 encodings against OpenSSL's (#126)
+ * ------------------------------------------------------------------ */
+
+/* The zuc_pkey_format a fixture format names, and whether it is one of
+ * the private-key encodings. */
+static zuc_pkey_format format_of(const char *name, int *is_private)
+{
+    *is_private = strncmp(name, "spki", 4) != 0;
+    if (strcmp(name, "sec1-der") == 0) return ZUC_PKEY_PKCS1_DER;
+    if (strcmp(name, "sec1-pem") == 0) return ZUC_PKEY_PKCS1_PEM;
+    if (strstr(name, "-der") != NULL) return ZUC_PKEY_INFO_DER;
+    return ZUC_PKEY_INFO_PEM;
+}
+
+static void test_ec_encodings(void)
+{
+    table keys = read_table("ec-keys.tsv"), t = read_table("ec-encodings.tsv");
+    static uint8_t out[ZUC_PKEY_MAX_WRITE_SIZE], again[ZUC_PKEY_MAX_WRITE_SIZE];
+    size_t len, len2;
+    int r;
+
+    for (r = 1; r < t.nrow; r++) {
+        const char *kid = get(&t, r, "key"), *fmt = get(&t, r, "format");
+        int is_private;
+        zuc_pkey_format f = format_of(fmt, &is_private);
+        size_t want_len;
+        uint8_t *want = unhex(get(&t, r, "encoding"), &want_len);
+        zuc_pkey *priv = ec_key(&keys, kid, 1), *pub = ec_key(&keys, kid, 0);
+        zuc_pkey *read = NULL, *half = NULL;
+        uint8_t *x_der = NULL;
+        const uint8_t *exp;
+        size_t x_n = 0, exp_len;
+
+        context = get(&t, r, "id");
+        if (priv == NULL || pub == NULL) goto next;
+        /* X25519 private keys are written with the scalar clamped (RFC 7748
+         * section 5), OpenSSL's as given: #175. Until that is fixed the
+         * comparison is with OpenSSL's encoding of the clamped scalar,
+         * which is the same DER structure; for PEM, the DER row put in PEM
+         * here, after checking that doing so gives OpenSSL's PEM. */
+        x_der = NULL;
+        if (is_private && zuc_pkey_type(priv) == ZUC_ALG_X25519) {
+            char id[64];
+            size_t dn, pn;
+            uint8_t *d;
+            char *p;
+            snprintf(id, sizeof id, "%s-pkcs8-der", kid);
+            d = unhex(get(&t, find_row(&t, id), "encoding"), &dn);
+            if (f == ZUC_PKEY_INFO_PEM) {
+                p = pem_wrap("PRIVATE KEY", d, dn, &pn);
+                CHECK(pn == want_len && memcmp(p, want, pn) == 0,
+                      "pem_wrap() is not OpenSSL's PEM");
+                free(p);
+            }
+            d[dn - 32] &= 248;
+            d[dn - 1] = (uint8_t) ((d[dn - 1] & 127) | 64);
+            x_der = d;
+            x_n = dn;
+            if (f == ZUC_PKEY_INFO_PEM) {
+                x_der = (uint8_t *) pem_wrap("PRIVATE KEY", d, dn, &x_n);
+                free(d);
+            }
+        }
+        exp = x_der != NULL ? x_der : want;
+        exp_len = x_der != NULL ? x_n : want_len;
+        /* Written as OpenSSL writes it: each private encoding from the
+         * private key, SubjectPublicKeyInfo from either half. */
+        if (is_private) {
+            ST(zuc_pkey_write(priv, f, 0, out, sizeof out, &len), ZUC_OK);
+            CHECK(len == exp_len && memcmp(out, exp, len) == 0,
+                  "wrote %zu bytes; OpenSSL's are %zu", len, exp_len);
+        } else {
+            ST(zuc_pkey_write(priv, f, 1, out, sizeof out, &len), ZUC_OK);
+            CHECK(len == want_len && memcmp(out, want, len) == 0,
+                  "the private key's public half");
+            ST(zuc_pkey_write(pub, f, 0, out, sizeof out, &len), ZUC_OK);
+            CHECK(len == want_len && memcmp(out, want, len) == 0,
+                  "the public key");
+            /* PKCS#1 has no public EC or X25519 form. */
+            len = 99;
+            ST(zuc_pkey_write(pub, f == ZUC_PKEY_INFO_DER ? ZUC_PKEY_PKCS1_DER
+                                                          : ZUC_PKEY_PKCS1_PEM,
+                              0, out, sizeof out, &len), ZUC_ERR_UNSUPPORTED);
+            CHECK(len == 0, "a refused write reports no length");
+        }
+        /* Read back: OpenSSL's bytes are the same key, which writes them
+         * again. */
+        ST(zuc_pkey_parse(want, want_len, is_private, &read), ZUC_OK);
+        if (read == NULL) goto next;
+        CHECK(zuc_pkey_type(read) == zuc_pkey_type(priv), "type");
+        CHECK(zuc_pkey_bits(read) == zuc_pkey_bits(priv), "bits");
+        CHECK(zuc_pkey_is_private(read) == is_private, "half");
+        ST(zuc_pkey_write(read, f, 0, again, sizeof again, &len2), ZUC_OK);
+        CHECK(len2 == exp_len && memcmp(again, exp, len2) == 0,
+              "read and written again");
+        if (is_private) {
+            /* The public reader keeps the public half of a private key,
+             * which is OpenSSL's SubjectPublicKeyInfo. */
+            char id[64];
+            size_t spki_len;
+            uint8_t *spki;
+            snprintf(id, sizeof id, "%s-spki-der", kid);
+            spki = unhex(get(&t, find_row(&t, id), "encoding"), &spki_len);
+            ST(zuc_pkey_parse(want, want_len, 0, &half), ZUC_OK);
+            CHECK(half != NULL && !zuc_pkey_is_private(half), "public half");
+            if (half != NULL) {
+                ST(zuc_pkey_write(half, ZUC_PKEY_INFO_DER, 0, again,
+                                  sizeof again, &len2), ZUC_OK);
+                CHECK(len2 == spki_len && memcmp(again, spki, len2) == 0,
+                      "the public half is OpenSSL's SubjectPublicKeyInfo");
+            }
+            free(spki);
+        } else {
+            /* A private reader handed a public key refuses it. */
+            ST(zuc_pkey_parse(want, want_len, 1, &half),
+               ZUC_ERR_INVALID_ARGUMENT);
+            CHECK(half == NULL, "no handle for a refusal");
+        }
+    next:
+        zuc_pkey_free(read);
+        zuc_pkey_free(half);
+        zuc_pkey_free(priv);
+        zuc_pkey_free(pub);
+        free(want);
+        free(x_der);
+    }
+
+    /* X25519 has no SEC1 form; and a format outside the enumeration is a
+     * usage error for every key type. */
+    context = "ec formats";
+    {
+        zuc_pkey *x = ec_key(&keys, "rfc7748-alice", 1);
+        zuc_pkey *p = ec_key(&keys, "rfc6979-p256", 1);
+        ST(zuc_pkey_write(x, ZUC_PKEY_PKCS1_DER, 0, out, sizeof out, &len),
+           ZUC_ERR_UNSUPPORTED);
+        ST(zuc_pkey_write(x, ZUC_PKEY_PKCS1_PEM, 0, out, sizeof out, &len),
+           ZUC_ERR_UNSUPPORTED);
+        ST(zuc_pkey_write(p, (zuc_pkey_format) 0, 0, out, sizeof out, &len),
+           ZUC_ERR_INVALID_ARGUMENT);
+        ST(zuc_pkey_write(p, (zuc_pkey_format) 5, 0, out, sizeof out, &len),
+           ZUC_ERR_INVALID_ARGUMENT);
+        ST(zuc_pkey_write(x, (zuc_pkey_format) 0, 1, out, sizeof out, &len),
+           ZUC_ERR_INVALID_ARGUMENT);
+        ST(zuc_pkey_write(x, (zuc_pkey_format) 5, 1, out, sizeof out, &len),
+           ZUC_ERR_INVALID_ARGUMENT);
+        zuc_pkey_free(x);
+        zuc_pkey_free(p);
+    }
+}
+
+/* ------------------------------------------------------------------ *
+ * The RSA size reader's own answers (#127)
+ * ------------------------------------------------------------------ */
+
+static void test_rsa_size_reader(void)
+{
+    table t = read_table("rsa-limit.tsv");
+    uint8_t *spki, *pkcs8, *pub1, *priv1, *a, *b, *c;
+    size_t spki_n, pkcs8_n, pub1_n, priv1_n, an, bn, cn;
+    zuc_pkey *key = NULL;
+
+    spki = limit_row(&t, "rsa8192-public-spki-der", &spki_n);
+    pkcs8 = limit_row(&t, "rsa8192-private-pkcs8-der", &pkcs8_n);
+    pub1 = limit_row(&t, "rsa8192-public-pkcs1-der", &pub1_n);
+    priv1 = limit_row(&t, "rsa8192-private-pkcs1-der", &priv1_n);
+
+    /* The reader looks inside one wrapper, never two: a SubjectPublicKeyInfo
+     * or PrivateKeyInfo around another one is not a key, whatever size the
+     * innermost modulus is. */
+    context = "rsa nested spki";
+    {
+        uint8_t bits[1 + 8192];
+        bits[0] = 0;
+        memcpy(bits + 1, spki, spki_n);
+        a = tlv_wrap(0x03, bits, 1 + spki_n, &an);
+        b = concat(RSA_ALG_ID, sizeof RSA_ALG_ID, a, an, &bn);
+        c = tlv_wrap(0x30, b, bn, &cn);
+        ST(zuc_pkey_parse(c, cn, 0, &key), ZUC_ERR_INVALID_ARGUMENT);
+        free(a); free(b); free(c);
+    }
+    context = "rsa nested pkcs8";
+    {
+        static const uint8_t version[] = {0x02, 0x01, 0x00};
+        uint8_t *v_alg;
+        size_t v_alg_n;
+        v_alg = concat(version, 3, RSA_ALG_ID, sizeof RSA_ALG_ID, &v_alg_n);
+        a = tlv_wrap(0x04, pkcs8, pkcs8_n, &an);
+        b = concat(v_alg, v_alg_n, a, an, &bn);
+        c = tlv_wrap(0x30, b, bn, &cn);
+        ST(zuc_pkey_parse(c, cn, 1, &key), ZUC_ERR_INVALID_ARGUMENT);
+        ST(zuc_pkey_parse(c, cn, 0, &key), ZUC_ERR_INVALID_ARGUMENT);
+        free(a); free(b); free(c); free(v_alg);
+    }
+
+    /* The bit count, straddled: a 4096-bit modulus behind two redundant
+     * zero bytes is inside the rule, so a key the reader refuses for
+     * something else (here an even modulus) is malformed, not unsupported;
+     * 0x01 followed by 512 bytes is 4097 bits, outside it. Each also
+     * through import, which applies the same rule to PKCS#1. */
+    context = "rsa modulus bits";
+    {
+        static uint8_t mod[2 + 513], body[600];
+        static const uint8_t e[] = {0x02, 0x03, 0x01, 0x00, 0x01};
+        size_t mod_n;
+        uint8_t *m;
+
+        memset(mod, 0, sizeof mod);
+        mod[2] = 0x80;                     /* 00 00 80 00 .. 00: even */
+        m = tlv_wrap(0x02, mod, 2 + 512, &mod_n);
+        memcpy(body, m, mod_n);
+        memcpy(body + mod_n, e, sizeof e);
+        a = tlv_wrap(0x30, body, mod_n + sizeof e, &an);
+        ST(zuc_pkey_parse(a, an, 0, &key), ZUC_ERR_INVALID_ARGUMENT);
+        ST(zuc_pkey_import(ZUC_ALG_RSA, 0, a, an, &key),
+           ZUC_ERR_INVALID_ARGUMENT);
+        free(m); free(a);
+
+        memset(mod, 0x5b, sizeof mod);
+        mod[0] = 0x01;                     /* 01 then 512 bytes: 4097 bits */
+        m = tlv_wrap(0x02, mod, 513, &mod_n);
+        memcpy(body, m, mod_n);
+        memcpy(body + mod_n, e, sizeof e);
+        a = tlv_wrap(0x30, body, mod_n + sizeof e, &an);
+        ST(zuc_pkey_parse(a, an, 0, &key), ZUC_ERR_UNSUPPORTED);
+        ST(zuc_pkey_import(ZUC_ALG_RSA, 0, a, an, &key), ZUC_ERR_UNSUPPORTED);
+        free(m); free(a);
+    }
+    /* An all-zero modulus is no key, even with zero bytes after it. */
+    context = "rsa zero modulus";
+    {
+        static const uint8_t zero[] = {
+            0x30, 0x06, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00, 0x00, 0x80
+        };
+        ST(zuc_pkey_parse(zero, sizeof zero, 1, &key),
+           ZUC_ERR_INVALID_ARGUMENT);
+    }
+
+    /* Every PEM label the size check knows, each over the limit: PKCS#1
+     * "RSA PUBLIC KEY" and "RSA PRIVATE KEY" as well as the PKCS#8 and
+     * SubjectPublicKeyInfo ones the fixture holds. And a label it does not
+     * know, which is no RSA key at all. */
+    context = "rsa pem labels";
+    {
+        static const struct {
+            const char *label;
+            int which, priv;
+            zuc_status want;
+        } cases[] = {
+            {"PUBLIC KEY", 0, 0, ZUC_ERR_UNSUPPORTED},
+            {"RSA PUBLIC KEY", 1, 0, ZUC_ERR_UNSUPPORTED},
+            {"PRIVATE KEY", 2, 1, ZUC_ERR_UNSUPPORTED},
+            {"RSA PRIVATE KEY", 3, 1, ZUC_ERR_UNSUPPORTED},
+            {"RSA PRIVATE KEY", 3, 0, ZUC_ERR_UNSUPPORTED},
+            {"EC PRIVATE KEY", 3, 0, ZUC_ERR_INVALID_ARGUMENT},
+            {"EC PRIVATE KEY", 3, 1, ZUC_ERR_INVALID_ARGUMENT}
+        };
+        const uint8_t *ders[4];
+        size_t lens[4], i, pn;
+        ders[0] = spki; lens[0] = spki_n;
+        ders[1] = pub1; lens[1] = pub1_n;
+        ders[2] = pkcs8; lens[2] = pkcs8_n;
+        ders[3] = priv1; lens[3] = priv1_n;
+        for (i = 0; i < sizeof cases / sizeof cases[0]; i++) {
+            char *pem = pem_wrap(cases[i].label, ders[cases[i].which],
+                                 lens[cases[i].which], &pn);
+            key = NULL;
+            ST(zuc_pkey_parse((const uint8_t *) pem, pn, cases[i].priv, &key),
+               cases[i].want);
+            CHECK(key == NULL, "%s: no handle", cases[i].label);
+            free(pem);
+        }
+    }
+    free(spki); free(pkcs8); free(pub1); free(priv1);
+}
+
+/* ------------------------------------------------------------------ *
+ * The reader's other paths, and key generation (#128, #129)
+ * ------------------------------------------------------------------ */
+
+static void test_pkey_reader(void)
+{
+    table rk = read_table("rsa-keys.tsv");
+    static uint8_t buf[ZUC_PKEY_MAX_WRITE_SIZE + 8];
+    uint8_t *der;
+    char *pem;
+    size_t der_n, pem_n, len;
+    zuc_pkey *key = NULL;
+    static const char *const leads[] = {" ", "\t", "\r", "\n", " \t\r\n "};
+    size_t i;
+
+    der = rsa_der(&rk, "rfc7515-a2", &der_n);
+    pem = pem_wrap("RSA PRIVATE KEY", der, der_n, &pem_n);
+
+    /* PEM is recognised after any leading whitespace, and only from a whole
+     * "-----BEGIN". */
+    context = "pem whitespace";
+    for (i = 0; i < sizeof leads / sizeof leads[0]; i++) {
+        size_t lead = strlen(leads[i]);
+        memcpy(buf, leads[i], lead);
+        memcpy(buf + lead, pem, pem_n);
+        key = NULL;
+        ST(zuc_pkey_parse(buf, lead + pem_n, 1, &key), ZUC_OK);
+        CHECK(key != NULL && zuc_pkey_bits(key) == 2048, "lead %zu", i);
+        if (key != NULL) {
+            ST(zuc_pkey_write(key, ZUC_PKEY_PKCS1_DER, 0, buf, sizeof buf,
+                              &len), ZUC_OK);
+            CHECK(len == der_n && memcmp(buf, der, len) == 0, "same key");
+        }
+        zuc_pkey_free(key);
+    }
+    context = "pem near misses";
+    {
+        static const char *const misses[] = {
+            "-----BEGI", " -----BEGI", "-----BEGIN", "\n-----BEGIN",
+            "   ", "-----BEGIN RSA PRIVATE KEY-----\n"
+        };
+        for (i = 0; i < sizeof misses / sizeof misses[0]; i++) {
+            key = NULL;
+            ST(zuc_pkey_parse((const uint8_t *) misses[i], strlen(misses[i]),
+                              1, &key), ZUC_ERR_INVALID_ARGUMENT);
+            CHECK(key == NULL, "near miss %zu", i);
+        }
+        /* An embedded NUL in PEM is refused before the reader sees it. */
+        memcpy(buf, pem, pem_n);
+        buf[40] = 0;
+        ST(zuc_pkey_parse(buf, pem_n, 1, &key), ZUC_ERR_INVALID_ARGUMENT);
+    }
+    /* The reader's NUL-terminated copy of PEM input holds the key's base64:
+     * it is wiped before it is freed (zuc_live.h's residue scan). */
+    context = "pem copy wiped";
+    {
+        static uint8_t needle[24];
+        memcpy(needle, pem + pem_n / 2, sizeof needle);
+        key = NULL;
+        zuc_int_residue_arm(needle, sizeof needle);
+        ST(zuc_pkey_parse((const uint8_t *) pem, pem_n, 1, &key), ZUC_OK);
+        CHECK(zuc_int_residue_disarm() == 0, "the PEM copy was freed unwiped");
+        zuc_pkey_free(key);
+    }
+    free(pem);
+    free(der);
+
+    /* A key the reader recognises, on a curve this build does not include,
+     * is unsupported to the public reader and not a private key to the
+     * private one: secp256k1, d = 12345, its SubjectPublicKeyInfo as
+     * OpenSSL writes it (through cryptography 50). */
+    context = "unsupported curve";
+    {
+        static const char k1[] =
+            "3056301006072a8648ce3d020106052b8104000a03420004f01d6b9018ab421d"
+            "d410404cb869072065522bf85734008f105cf385a023a80f0eba29d0f0c5408e"
+            "d681984dc525982abefccd9f7ff01dd26da4999cf3f6a295";
+        size_t n;
+        uint8_t *spki = unhex(k1, &n);
+        ST(zuc_pkey_parse(spki, n, 0, &key), ZUC_ERR_UNSUPPORTED);
+        ST(zuc_pkey_parse(spki, n, 1, &key), ZUC_ERR_INVALID_ARGUMENT);
+        CHECK(key == NULL, "no handle");
+        free(spki);
+    }
+
+    /* The documented status of each regress seed of the reader's fuzz
+     * corpus (fuzz/make-seeds.R): RSA keys outside the size rule are
+     * unsupported (#93, #141), the malformed DER of #91 is invalid. */
+    context = "regress seeds";
+    {
+        static const char *const seeds[] = {
+            "regress-91-",
+            "regress-93-rsa4104-private-pkcs1-der",
+            "regress-93-rsa4104-private-pkcs8-der",
+            "regress-93-rsa4104-private-pkcs8-pem",
+            "regress-93-rsa4104-public-pkcs1-der",
+            "regress-93-rsa4104-public-spki-der",
+            "regress-93-rsa4104-public-spki-pem",
+            "regress-141-rsa512-private-pkcs1-der",
+            "regress-141-rsa512-private-pkcs8-der",
+            "regress-141-rsa512-private-pkcs8-pem",
+            "regress-141-rsa512-public-pkcs1-der",
+            "regress-141-rsa512-public-spki-der",
+            "regress-141-rsa512-public-spki-pem",
+            "regress-141-rsa1000-private-pkcs1-der",
+            "regress-141-rsa1000-public-spki-pem",
+            "regress-141-rsa1028-private-pkcs8-der",
+            "regress-141-rsa1028-public-pkcs1-der",
+            "regress-141-rsa2047-private-pkcs8-pem",
+            "regress-141-rsa2047-public-spki-der"
+        };
+        char path[1200];
+        static uint8_t seed[20000];
+        for (i = 0; i < sizeof seeds / sizeof seeds[0]; i++) {
+            FILE *f;
+            size_t n;
+            snprintf(path, sizeof path, "%s/../../../fuzz/corpus/pkey/%s",
+                     fixture_dir, seeds[i]);
+            f = fopen(path, "rb");
+            if (f == NULL) {
+                CHECK(0, "cannot read %s", path);
+                continue;
+            }
+            n = fread(seed, 1, sizeof seed, f);
+            fclose(f);
+            key = NULL;
+            ST(zuc_pkey_parse(seed + 1, n - 1, seed[0] & 1, &key),
+               i == 0 ? ZUC_ERR_INVALID_ARGUMENT : ZUC_ERR_UNSUPPORTED);
+            CHECK(key == NULL, "%s left a handle", seeds[i]);
+        }
+    }
+}
+
+/* One key of each type, generated: the sizes it takes and refuses, and a
+ * key that works -- it signs and verifies, or agrees with a peer, and
+ * survives its own encoding. */
+static void test_pkey_generate(void)
+{
+    static const struct {
+        zuc_alg type;
+        size_t bits, other;
+    } kinds[] = {
+        {ZUC_ALG_EC_P256, 256, 384},
+        {ZUC_ALG_EC_P384, 384, 256},
+        {ZUC_ALG_EC_P521, 521, 528},
+        {ZUC_ALG_X25519, 255, 256}
+    };
+    static uint8_t enc[ZUC_PKEY_MAX_WRITE_SIZE], enc2[ZUC_PKEY_MAX_WRITE_SIZE];
+    uint8_t digest[32], sig[256], s1[66], s2[66];
+    size_t i, len, len2, sig_len, n1, n2;
+    zuc_pkey *key, *other, *back;
+
+    memset(digest, 0x42, sizeof digest);
+    for (i = 0; i < sizeof kinds / sizeof kinds[0]; i++) {
+        context = "generate";
+        key = other = back = NULL;
+        ST(zuc_pkey_generate(kinds[i].type, kinds[i].other, &key),
+           ZUC_ERR_BAD_LENGTH);
+        CHECK(key == NULL, "no key at %zu bits", kinds[i].other);
+        ST(zuc_pkey_generate(kinds[i].type, kinds[i].bits, &key), ZUC_OK);
+        ST(zuc_pkey_generate(kinds[i].type, 0, &other), ZUC_OK);
+        if (key == NULL || other == NULL) goto next;
+        CHECK(zuc_pkey_type(key) == kinds[i].type && zuc_pkey_is_private(key),
+              "type %d", (int) kinds[i].type);
+        CHECK(zuc_pkey_bits(key) == kinds[i].bits &&
+              zuc_pkey_bits(other) == kinds[i].bits, "bits");
+        if (kinds[i].type == ZUC_ALG_X25519) {
+            zuc_pkey *pa = NULL, *pb = NULL;
+            ST(zuc_pkey_public(key, &pa), ZUC_OK);
+            ST(zuc_pkey_public(other, &pb), ZUC_OK);
+            ST(zuc_pkey_agree(key, pb, s1, sizeof s1, &n1), ZUC_OK);
+            ST(zuc_pkey_agree(other, pa, s2, sizeof s2, &n2), ZUC_OK);
+            CHECK(n1 == 32 && n2 == 32 && memcmp(s1, s2, 32) == 0,
+                  "both sides agree");
+            zuc_pkey_free(pa);
+            zuc_pkey_free(pb);
+        } else {
+            ST(zuc_pkey_sign_hash(key, ZUC_ALG_ECDSA, ZUC_ALG_SHA256, digest,
+                                  32, sig, sizeof sig, &sig_len), ZUC_OK);
+            ST(zuc_pkey_verify_hash(key, ZUC_ALG_ECDSA, ZUC_ALG_SHA256, digest,
+                                    32, sig, sig_len), ZUC_OK);
+            ST(zuc_pkey_verify_hash(other, ZUC_ALG_ECDSA, ZUC_ALG_SHA256,
+                                    digest, 32, sig, sig_len), ZUC_ERR_AUTH);
+        }
+        ST(zuc_pkey_write(key, ZUC_PKEY_INFO_DER, 0, enc, sizeof enc, &len),
+           ZUC_OK);
+        ST(zuc_pkey_parse(enc, len, 1, &back), ZUC_OK);
+        if (back != NULL) {
+            ST(zuc_pkey_write(back, ZUC_PKEY_INFO_DER, 0, enc2, sizeof enc2,
+                              &len2), ZUC_OK);
+            CHECK(len2 == len && memcmp(enc, enc2, len) == 0,
+                  "generated key survives its encoding");
+        }
+    next:
+        zuc_pkey_free(key);
+        zuc_pkey_free(other);
+        zuc_pkey_free(back);
+    }
+    /* RSA, at the smallest size, in the same way. */
+    context = "generate rsa";
+    key = back = NULL;
+    ST(zuc_pkey_generate(ZUC_ALG_RSA, 1024, &key), ZUC_OK);
+    if (key != NULL) {
+        ST(zuc_pkey_sign_hash(key, ZUC_ALG_RSA_PSS, ZUC_ALG_SHA256, digest, 32,
+                              sig, sizeof sig, &sig_len), ZUC_OK);
+        ST(zuc_pkey_verify_hash(key, ZUC_ALG_RSA_PSS, ZUC_ALG_SHA256, digest,
+                                32, sig, sig_len), ZUC_OK);
+        ST(zuc_pkey_write(key, ZUC_PKEY_INFO_PEM, 0, enc, sizeof enc, &len),
+           ZUC_OK);
+        ST(zuc_pkey_parse(enc, len, 1, &back), ZUC_OK);
+        CHECK(zuc_pkey_bits(back) == 1024, "rsa round trip");
+    }
+    zuc_pkey_free(key);
+    zuc_pkey_free(back);
+    /* Not a key type at all. */
+    context = "generate refusals";
+    key = NULL;
+    ST(zuc_pkey_generate(ZUC_ALG_SHA256, 0, &key), ZUC_ERR_UNSUPPORTED);
+    ST(zuc_pkey_generate(ZUC_ALG_ECDSA, 0, &key), ZUC_ERR_UNSUPPORTED);
+    ST(zuc_pkey_generate(ZUC_ALG_EC_P256, 0, NULL), ZUC_ERR_INVALID_ARGUMENT);
+    CHECK(key == NULL, "no handle");
+}
+
+/* ------------------------------------------------------------------ *
+ * Edge cases of the key operations (#128)
+ * ------------------------------------------------------------------ */
+
+static void test_pkey_edges(void)
+{
+    table rk = read_table("rsa-keys.tsv"), ek = read_table("ec-keys.tsv");
+    static uint8_t out[2048];
+    uint8_t *der, digest[32], ct[256], msg[300];
+    size_t der_n, len, need, sz;
+    zuc_pkey *rsa = NULL, *rpub = NULL, *p256, *x, *xpub;
+
+    der = rsa_der(&rk, "rfc7515-a2", &der_n);
+    ST(zuc_pkey_parse(der, der_n, 1, &rsa), ZUC_OK);
+    free(der);
+    ST(zuc_pkey_public(rsa, &rpub), ZUC_OK);
+    p256 = ec_key(&ek, "rfc6979-p256", 1);
+    x = ec_key(&ek, "rfc7748-alice", 1);
+    xpub = ec_key(&ek, "rfc7748-bob", 0);
+    if (!rsa || !rpub || !p256 || !x || !xpub) return;
+    memset(digest, 0x17, sizeof digest);
+    memset(msg, 0x33, sizeof msg);
+
+    /* Each output buffer a byte short, then exactly long enough: the short
+     * one is refused with nothing reported, the exact one works. */
+#define STRADDLE(what, call_with_size, need_)                               \
+    do {                                                                    \
+        context = what;                                                     \
+        for (sz = (need_) - 1; sz <= (need_); sz++) {                       \
+            memset(out, 0x5a, sizeof out);                                  \
+            len = 99;                                                       \
+            ST(call_with_size, sz < (need_) ? ZUC_ERR_BAD_LENGTH : ZUC_OK); \
+            CHECK(sz < (need_) ? len == 0 : len == (need_),                 \
+                  "%s at %zu: length %zu", what, sz, len);                  \
+        }                                                                   \
+    } while (0)
+    STRADDLE("sign rsa", zuc_pkey_sign_hash(rsa, ZUC_ALG_RSA_PKCS1V15_SIGN,
+             ZUC_ALG_SHA256, digest, 32, out, sz, &len), 256);
+    STRADDLE("sign ecdsa", zuc_pkey_sign_hash(p256, ZUC_ALG_ECDSA,
+             ZUC_ALG_SHA256, digest, 32, out, sz, &len), 64);
+    STRADDLE("encrypt", zuc_pkey_encrypt(rpub, ZUC_ALG_RSA_OAEP,
+             ZUC_ALG_SHA256, msg, 3, out, sz, &len), 256);
+    STRADDLE("agree", zuc_pkey_agree(x, xpub, out, sz, &len), 32);
+    need = 0;
+    ST(zuc_pkey_export(rsa, 0, out, sizeof out, &need), ZUC_OK);
+    STRADDLE("export private", zuc_pkey_export(rsa, 0, out, sz, &len), need);
+    ST(zuc_pkey_export(rsa, 1, out, sizeof out, &need), ZUC_OK);
+    STRADDLE("export public", zuc_pkey_export(rsa, 1, out, sz, &len), need);
+    ST(zuc_pkey_export(p256, 0, out, sizeof out, &need), ZUC_OK);
+    STRADDLE("export ec private", zuc_pkey_export(p256, 0, out, sz, &len),
+             need);
+#undef STRADDLE
+
+    /* An early refusal still reports no length. */
+    context = "early refusals";
+    len = 99;
+    ST(zuc_pkey_sign_hash(NULL, ZUC_ALG_ECDSA, ZUC_ALG_SHA256, digest, 32, out,
+                          sizeof out, &len), ZUC_ERR_INVALID_ARGUMENT);
+    CHECK(len == 0, "sign");
+    len = 99;
+    ST(zuc_pkey_encrypt(NULL, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, msg, 3, out,
+                        sizeof out, &len), ZUC_ERR_INVALID_ARGUMENT);
+    CHECK(len == 0, "encrypt");
+    len = 99;
+    ST(zuc_pkey_decrypt(NULL, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, msg, 3, out,
+                        sizeof out, &len), ZUC_ERR_INVALID_ARGUMENT);
+    CHECK(len == 0, "decrypt");
+    len = 99;
+    ST(zuc_pkey_export(NULL, 0, out, sizeof out, &len),
+       ZUC_ERR_INVALID_ARGUMENT);
+    CHECK(len == 0, "export");
+    len = 99;
+    ST(zuc_pkey_agree(NULL, xpub, out, sizeof out, &len),
+       ZUC_ERR_INVALID_ARGUMENT);
+    CHECK(len == 0, "agree");
+    len = 99;
+    ST(zuc_pkey_write(NULL, ZUC_PKEY_INFO_DER, 0, out, sizeof out, &len),
+       ZUC_ERR_INVALID_ARGUMENT);
+    CHECK(len == 0, "write");
+    /* With no length to report into, a refusal is still only a refusal. */
+    ST(zuc_pkey_decrypt(rsa, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, msg, 3, out,
+                        sizeof out, NULL), ZUC_ERR_INVALID_ARGUMENT);
+    ST(zuc_pkey_agree(x, xpub, out, sizeof out, NULL),
+       ZUC_ERR_INVALID_ARGUMENT);
+
+    /* Encrypting nothing is allowed, with or without a pointer; something
+     * with no pointer is not. A message longer than OAEP leaves room for
+     * (256 - 2 * 32 - 2 = 190 bytes) is a length error. */
+    context = "encrypt inputs";
+    ST(zuc_pkey_encrypt(rpub, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, NULL, 0, ct,
+                        sizeof ct, &len), ZUC_OK);
+    CHECK(len == 256, "empty message");
+    ST(zuc_pkey_encrypt(rpub, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, NULL, 5, ct,
+                        sizeof ct, &len), ZUC_ERR_INVALID_ARGUMENT);
+    ST(zuc_pkey_encrypt(rpub, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, msg, 190, ct,
+                        sizeof ct, &len), ZUC_OK);
+    ST(zuc_pkey_encrypt(rpub, ZUC_ALG_RSA_OAEP, ZUC_ALG_SHA256, msg, 191, ct,
+                        sizeof ct, &len), ZUC_ERR_BAD_LENGTH);
+    CHECK(len == 0 && all_bytes(ct, sizeof ct, 0), "an over-long message");
+
+    /* An empty signature with no pointer is a signature that does not
+     * verify, not a usage error; a pointer-less non-empty one is. */
+    context = "verify inputs";
+    ST(zuc_pkey_verify_hash(p256, ZUC_ALG_ECDSA, ZUC_ALG_SHA256, digest, 32,
+                            NULL, 0), ZUC_ERR_AUTH);
+    ST(zuc_pkey_verify_hash(p256, ZUC_ALG_ECDSA, ZUC_ALG_SHA256, digest, 32,
+                            NULL, 64), ZUC_ERR_INVALID_ARGUMENT);
+
+    /* RFC 7748 section 6.1: a low-order peer point would give the all-zero
+     * secret. The backend refuses each canonical one at import, so
+     * pkey_agree_impl()'s own all-zero check is a second line no input can
+     * reach; this is the first. */
+    context = "x25519 low order";
+    {
+        static const char *const low[] = {
+            "0000000000000000000000000000000000000000000000000000000000000000",
+            "0100000000000000000000000000000000000000000000000000000000000000",
+            "e0eb7a7c3b41b8ae1656e3faf19fc46ada098deb9c32b1fd866205165f49b800",
+            "5f9c95bca3508c24b1d0b1559c83ef5b04445cc4581c8e86d8224eddd09f1157",
+            "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+            "edffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+            "eeffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f"
+        };
+        size_t i, n;
+        for (i = 0; i < sizeof low / sizeof low[0]; i++) {
+            zuc_pkey *peer = NULL;
+            uint8_t *u = unhex(low[i], &n);
+            ST(zuc_pkey_import(ZUC_ALG_X25519, 0, u, n, &peer),
+               ZUC_ERR_INVALID_ARGUMENT);
+            CHECK(peer == NULL, "low-order point %zu", i);
+            free(u);
+        }
+    }
+    zuc_pkey_free(rsa);
+    zuc_pkey_free(rpub);
+    zuc_pkey_free(p256);
+    zuc_pkey_free(x);
+    zuc_pkey_free(xpub);
+}
+
+/* ------------------------------------------------------------------ *
+ * Construction failures at every step (#116)
+ * ------------------------------------------------------------------ */
+
+typedef zuc_status (*constructor)(void **out);
+
+static zuc_status make_hash(void **out)
+{
+    return zuc_hash_new(ZUC_ALG_SHA256, (zuc_hash **) out);
+}
+static zuc_status make_hmac(void **out)
+{
+    static const uint8_t key[16] = {1};
+    return zuc_hmac_new(ZUC_ALG_SHA256, key, sizeof key, (zuc_hmac **) out);
+}
+static zuc_status make_aes(void **out)
+{
+    static const uint8_t key[16] = {1};
+    return zuc_aes_new(key, sizeof key, (zuc_aes **) out);
+}
+static void free_hash(void *p) { zuc_hash_free((zuc_hash *) p); }
+static void free_hmac(void *p) { zuc_hmac_free((zuc_hmac *) p); }
+static void free_aes(void *p) { zuc_aes_free((zuc_aes *) p); }
+
+static void test_construction(void)
+{
+    static const struct {
+        const char *name;
+        constructor make;
+        void (*destroy)(void *);
+        long steps;
+    } kinds[] = {
+        /* the storage, then the hash setup */
+        {"hash_new", make_hash, free_hash, 2},
+        /* the storage, three key-store allocations, the MAC setup */
+        {"hmac_new", make_hmac, free_hmac, 5},
+        /* the storage, two key-store allocations */
+        {"aes_new", make_aes, free_aes, 3}
+    };
+    size_t k;
+    long n;
+
+    for (k = 0; k < sizeof kinds / sizeof kinds[0]; k++) {
+        context = kinds[k].name;
+        for (n = 1; n <= kinds[k].steps + 1; n++) {
+            void *h = (void *) 0x1;
+            zuc_status st;
+            zuc_int_alloc_fail_at(n);
+            st = kinds[k].make(&h);
+            if (n <= kinds[k].steps) {
+                CHECK(zuc_int_alloc_fail_pending() == 0, "step %ld not reached",
+                      n);
+                CHECK(st == ZUC_ERR_MEMORY && h == NULL,
+                      "step %ld: %s", n, zuc_status_name(st));
+                CHECK(zuc_int_live_contexts() == 0,
+                      "step %ld left %ld live", n, zuc_int_live_contexts());
+            } else {
+                /* One past the last step: the construction is untouched. */
+                CHECK(zuc_int_alloc_fail_pending() == 1,
+                      "more than %ld steps", kinds[k].steps);
+                CHECK(st == ZUC_OK && h != NULL && zuc_int_live_contexts() == 1,
+                      "after the steps: %s", zuc_status_name(st));
+            }
+            zuc_int_alloc_fail_at(0);
+            if (st == ZUC_OK) kinds[k].destroy(h);
+            /* And the next construction works. */
+            h = NULL;
+            ST(kinds[k].make(&h), ZUC_OK);
+            kinds[k].destroy(h);
+            CHECK(zuc_int_live_contexts() == 0, "live after free");
+        }
+    }
+}
+
+/* ------------------------------------------------------------------ *
  * An allocation-failure sweep, in process
  * ------------------------------------------------------------------ */
 
@@ -1577,6 +2356,12 @@ int main(int argc, char **argv)
     RUN(test_pkey_outputs);
     RUN(test_ec);
     RUN(test_entropy);
+    RUN(test_ec_encodings);
+    RUN(test_rsa_size_reader);
+    RUN(test_pkey_reader);
+    RUN(test_pkey_generate);
+    RUN(test_pkey_edges);
+    RUN(test_construction);
     RUN(test_alloc_sweep);
     RUN(test_lifetime);   /* last: it tears the backend down and back up */
 #undef RUN

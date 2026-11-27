@@ -165,12 +165,11 @@ static void pkey_destroy(zuc_pkey *key)
     if (key == NULL) {
         return;
     }
-    if (key->der != NULL) {
-        zuc_secure_zero(key->der, key->der_len);
-        free(key->der);
-    }
-    zuc_secure_zero(key, sizeof *key);
-    free(key);
+    /* Both accept NULL: a handle whose material was moved out (public_der)
+     * has none. */
+    zuc_secure_zero(key->der, key->der_len);
+    free(key->der);
+    zuc_int_handle_free(key, sizeof *key);
 }
 
 void zuc_pkey_free(zuc_pkey *key)
@@ -179,7 +178,6 @@ void zuc_pkey_free(zuc_pkey *key)
         return;
     }
     pkey_destroy(key);
-    zuc_int_live_add(-1);
 }
 
 zuc_alg zuc_pkey_type(const zuc_pkey *key)
@@ -224,10 +222,10 @@ static zuc_status pkey_from_psa(psa_key_id_t id, int want_private,
         ? PSA_EXPORT_KEY_OUTPUT_SIZE(type, psa_get_key_bits(&attr))
         : PSA_EXPORT_PUBLIC_KEY_OUTPUT_SIZE(type, psa_get_key_bits(&attr));
 
-    key = calloc(1, sizeof *key);
+    key = zuc_int_handle_new(sizeof *key);
     buf = malloc(cap);
     if (key == NULL || buf == NULL) {
-        free(key);
+        zuc_int_handle_free(key, sizeof *key);
         free(buf);
         psa_reset_key_attributes(&attr);
         return ZUC_ERR_MEMORY;
@@ -237,7 +235,7 @@ static zuc_status pkey_from_psa(psa_key_id_t id, int want_private,
     if (ps != PSA_SUCCESS) {
         zuc_secure_zero(buf, cap);
         free(buf);
-        free(key);
+        zuc_int_handle_free(key, sizeof *key);
         psa_reset_key_attributes(&attr);
         return zuc_int_from_psa(ps);
     }
@@ -249,7 +247,6 @@ static zuc_status pkey_from_psa(psa_key_id_t id, int want_private,
     key->der_len = len;
     psa_reset_key_attributes(&attr);
     *out = key;
-    zuc_int_live_add(1);
     return ZUC_OK;
 }
 
@@ -455,7 +452,9 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
         if (memchr(in, 0, len) != NULL) {
             return ZUC_ERR_INVALID_ARGUMENT;
         }
-        copy = malloc(len + 1);
+        /* Through the backend's allocator, so that the residue scan sees
+         * the copy freed (zuc_live.h): it holds the key's base64. */
+        copy = zuc_int_calloc(1, len + 1);
         if (copy == NULL) {
             return ZUC_ERR_MEMORY;
         }
@@ -487,10 +486,9 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
         rsa_outside_rule(in, len, copy, private_key)) {
         ret = MBEDTLS_ERR_PK_FEATURE_UNAVAILABLE;
     }
-    if (copy != NULL) {
-        zuc_secure_zero(copy, len + 1);
-        free(copy);
-    }
+    /* Both accept NULL, which `copy` is for DER input. */
+    zuc_secure_zero(copy, len + 1);
+    zuc_int_free(copy);
     if (ret != 0) {
         mbedtls_pk_free(&pk);
         return parse_status(ret);
@@ -509,7 +507,10 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
     }
     if (ret != 0 && !is_pair && mbedtls_pk_get_bitlen(&pk) == 255) {
         /* A public X25519 key has no usage the PK layer will describe; its
-         * raw 32 bytes are what the backend imports. */
+         * raw 32 bytes are what the backend imports. Not reached with
+         * TF-PSA-Crypto 1.1.1, whose PK layer describes one for
+         * verification; kept for a backend that does not (#129: the
+         * mutants here survive because no input reaches the branch). */
         uint8_t raw[32];
         size_t raw_len = 0;
         psa_reset_key_attributes(&attr);

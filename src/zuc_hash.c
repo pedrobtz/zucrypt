@@ -98,7 +98,7 @@ zuc_status zuc_hash_new(zuc_alg alg, zuc_hash **out)
         return ZUC_ERR_UNSUPPORTED;
     }
 
-    h = calloc(1, sizeof *h);
+    h = zuc_int_handle_new(sizeof *h);
     if (h == NULL) {
         return ZUC_ERR_MEMORY;
     }
@@ -107,19 +107,17 @@ zuc_status zuc_hash_new(zuc_alg alg, zuc_hash **out)
     h->op   = psa_hash_operation_init();
     h->generation = zuc_int_generation();
 
-    ps = psa_hash_setup(&h->op, h->palg);
+    ps = zuc_int_step(psa_hash_setup(&h->op, h->palg));
     if (ps != PSA_SUCCESS) {
         /* A partially built context is destroyed, never returned. Handing
          * one back and trusting the caller to free it is how a failed init
          * turns into a leak or a use of half-initialised backend state. */
         psa_hash_abort(&h->op);
-        zuc_secure_zero(h, sizeof *h);
-        free(h);
+        zuc_int_handle_free(h, sizeof *h);
         return zuc_int_from_psa(ps);
     }
     h->active = 1;
     *out = h;
-    zuc_int_live_add(1);
     return ZUC_OK;
 }
 
@@ -209,9 +207,7 @@ void zuc_hash_free(zuc_hash *hash)
      * release them. Then wipe our own struct, which holds the algorithm and
      * whatever the operation object kept inline. */
     psa_hash_abort(&hash->op);
-    zuc_secure_zero(hash, sizeof *hash);
-    free(hash);
-    zuc_int_live_add(-1);
+    zuc_int_handle_free(hash, sizeof *hash);
 }
 
 /* ------------------------------------------------------------------ *
@@ -324,7 +320,7 @@ zuc_status zuc_hmac_new(zuc_alg alg, const uint8_t *key, size_t key_len,
         return ZUC_ERR_UNSUPPORTED;
     }
 
-    h = calloc(1, sizeof *h);
+    h = zuc_int_handle_new(sizeof *h);
     if (h == NULL) {
         return ZUC_ERR_MEMORY;
     }
@@ -335,22 +331,19 @@ zuc_status zuc_hmac_new(zuc_alg alg, const uint8_t *key, size_t key_len,
 
     st = import_hmac_key(alg, key, key_len, h->palg, &h->key);
     if (st != ZUC_OK) {
-        zuc_secure_zero(h, sizeof *h);
-        free(h);
+        zuc_int_handle_free(h, sizeof *h);
         return st;
     }
 
-    ps = psa_mac_sign_setup(&h->op, h->key, h->palg);
+    ps = zuc_int_step(psa_mac_sign_setup(&h->op, h->key, h->palg));
     if (ps != PSA_SUCCESS) {
         psa_mac_abort(&h->op);
         psa_destroy_key(h->key);
-        zuc_secure_zero(h, sizeof *h);
-        free(h);
+        zuc_int_handle_free(h, sizeof *h);
         return zuc_int_from_psa(ps);
     }
     h->active = 1;
     *out = h;
-    zuc_int_live_add(1);
     return ZUC_OK;
 }
 
@@ -441,7 +434,5 @@ void zuc_hmac_free(zuc_hmac *hmac)
     if (zuc_int_current(hmac->generation)) {
         psa_destroy_key(hmac->key);
     }
-    zuc_secure_zero(hmac, sizeof *hmac);
-    free(hmac);
-    zuc_int_live_add(-1);
+    zuc_int_handle_free(hmac, sizeof *hmac);
 }

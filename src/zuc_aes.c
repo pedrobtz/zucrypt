@@ -77,7 +77,7 @@ zuc_status zuc_aes_new(const uint8_t *key, size_t key_len, zuc_aes **out)
         return ZUC_ERR_BAD_LENGTH;
     }
 
-    aes = calloc(1, sizeof *aes);
+    aes = zuc_int_handle_new(sizeof *aes);
     if (aes == NULL) {
         return ZUC_ERR_MEMORY;
     }
@@ -85,12 +85,10 @@ zuc_status zuc_aes_new(const uint8_t *key, size_t key_len, zuc_aes **out)
     aes->generation = zuc_int_generation();
     st = import_aes_key(key, key_len, PSA_ALG_CBC_NO_PADDING, &aes->key);
     if (st != ZUC_OK) {
-        zuc_secure_zero(aes, sizeof *aes);
-        free(aes);
+        zuc_int_handle_free(aes, sizeof *aes);
         return st;
     }
     *out = aes;
-    zuc_int_live_add(1);
     return ZUC_OK;
 }
 
@@ -105,9 +103,7 @@ void zuc_aes_free(zuc_aes *aes)
     }
     /* The chaining state is not secret in the way a key is, but it is
      * derived from the data, so it goes too. */
-    zuc_secure_zero(aes, sizeof *aes);
-    free(aes);
-    zuc_int_live_add(-1);
+    zuc_int_handle_free(aes, sizeof *aes);
 }
 
 zuc_status zuc_aes_cbc_set_state(zuc_aes *aes, const uint8_t *state)
