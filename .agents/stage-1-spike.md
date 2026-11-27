@@ -12,8 +12,8 @@ beat is named too.
 
 | | |
 |---|---|
-| Source | TF-PSA-Crypto `tf-psa-crypto-1.1.1`, commit `a0632be9` |
-| Archive | `tf-psa-crypto-1.1.1.tar.bz2`, sha256 `3236f70e…a480e` |
+| Source | TF-PSA-Crypto `tf-psa-crypto-1.1.2`, commit `6315e155` (Stage 1 pinned `tf-psa-crypto-1.1.1`, `a0632be9`; bumped for #173) |
+| Archive | `tf-psa-crypto-1.1.2.tar.bz2`, sha256 `799764c1…8f8298` (1.1.1: `3236f70e…a480e`) |
 | Licence | Apache-2.0 (upstream is dual Apache-2.0 OR GPL-2.0-or-later) |
 | Support | 1.1 is an LTS branch, supported until at least March 2029 |
 
@@ -25,7 +25,8 @@ the tree are TF-PSA-Crypto's own compatibility headers, shipped in its
 archive.
 
 The design named "Mbed TLS 4.1 LTS" as the candidate; the matching crypto
-release is TF-PSA-Crypto 1.1, and 1.1.1 is its current patch release. The
+release is TF-PSA-Crypto 1.1, and 1.1.2 is its current patch release
+(1.1.1 when this spike ran). The
 version pairing is why `vendor-upstream.yaml` watches TF-PSA-Crypto only, not
 both repositories: a new Mbed TLS 4.1.x with no TF-PSA-Crypto change is not a
 reason to move.

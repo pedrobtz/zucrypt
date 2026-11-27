@@ -95,7 +95,7 @@ info$algorithms
 #> [1] "sha1"   "sha256" "sha384" "sha512"
 info$vendored
 #>          source version
-#> 1 TF-PSA-Crypto   1.1.1
+#> 1 TF-PSA-Crypto   1.1.2
 ```
 
 The AES-CBC functions exist too, and are deliberately not shown here: they add

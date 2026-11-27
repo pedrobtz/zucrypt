@@ -53,7 +53,7 @@ this package.
 ## Bundled third-party code and licensing
 
 The package's own code is MIT-licensed. It vendors a subset of
-TF-PSA-Crypto 1.1.1, the Mbed TLS project's cryptography library, which is
+TF-PSA-Crypto 1.1.2, the Mbed TLS project's cryptography library, which is
 dual-licensed Apache-2.0 OR GPL-2.0-or-later and used here under Apache-2.0.
 
 * The Mbed TLS Contributors are listed as copyright holders in `Authors@R`,

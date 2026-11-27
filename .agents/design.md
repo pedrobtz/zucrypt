@@ -363,7 +363,7 @@ exercised its target** (§12).
 
 ## 4. Backend and vendoring
 
-**The backend is TF-PSA-Crypto on its 1.1 LTS line, currently 1.1.1.** It is the crypto library
+**The backend is TF-PSA-Crypto on its 1.1 LTS line, currently 1.1.2.** It is the crypto library
 of Mbed TLS 4.1 LTS, which upstream supports until March 2029
 ([support policy](https://github.com/Mbed-TLS/mbedtls/blob/development/BRANCHES.md)).
 - In the 4.x architecture, TF-PSA-Crypto *is* the cryptography library. Mbed TLS supplies only
@@ -576,7 +576,7 @@ That is a contract, not a guard; the guard would be refusing the argument.
 **What stays out.** There is no `encrypt_file(password = ...)`, and there will not be one
 here. The tranches give a caller PBKDF2, randomness and GCM to compose, and a format is a
 separate specification owned by whoever needs it. Argon2 and bcrypt are not in the backend.
-Post-quantum signatures (ML-DSA is in the 1.1.1 tree under `drivers/pqcp/`) are recorded in
+Post-quantum signatures (ML-DSA was in the 1.1.1 tree under `drivers/pqcp/`; 1.1.2 drops it) are recorded in
 §14, not planned.
 
 ## 7. R interface
@@ -1222,7 +1222,7 @@ above, until the next five-repository change. The corrected cells:*
   shutdown are verified (§8.4). A long-lived `openssl` replacement in a server process is the
   likeliest asker.
 - **Ed25519**, when upstream ships EdDSA on the LTS line (§6, gaps).
-- **Post-quantum signatures.** ML-DSA is in the pinned tree; it enters, if at all, on the
+- **Post-quantum signatures.** ML-DSA was in the 1.1.1 tree and is not in 1.1.2; it enters, if at all, on the
   admission rule and with a named standard (FIPS 204), after tranche 4.
 - **Bignum arithmetic**, if an importer ever calls it (§6).
 - **Which `openssl` version the gate tracks** when the two packages' semantics diverge.

@@ -427,7 +427,7 @@ the msoffcrypto derivation vector.
 
 ## Vendored native code
 
-TF-PSA-Crypto 1.1.1 (an LTS branch), Apache-2.0, crypto subset only: no TLS,
+TF-PSA-Crypto 1.1.2 (an LTS branch), Apache-2.0, crypto subset only: no TLS,
 no X.509 (Stage 17 would need a second vendored library). No Mbed TLS file
 is vendored: in the 4.x architecture TF-PSA-Crypto is the whole
 cryptography library. Installation downloads nothing and needs no Python or
@@ -436,7 +436,9 @@ archive checksum, defines and patches are in `tools/vendor/manifest.tsv`;
 `tools/vendor/verify` fails if a vendored file names an author missing from
 `Authors@R` or `inst/COPYRIGHTS` (CRAN's 2026-10-13 return).
 
-Local patches, in `tools/patches/tf-psa-crypto/`:
+Local patches, in `tools/patches/tf-psa-crypto/`, all still needed on 1.1.2
+(re-check each on every bump; `fetch` leaves a `.orig` when one applies with
+fuzz, which `verify` then fails on):
 
 - `0001-avoid-zero-size-pubkey-array.patch`
 - `0002-drop-diagnostic-pragmas.patch`

@@ -206,6 +206,27 @@
 
 ## Backend
 
+* The vendored TF-PSA-Crypto is updated from 1.1.1 to 1.1.2 (#173), a
+  security release on the 1.1 LTS line. It fixes, in code zucrypt compiles:
+  - Spectre v1 side channels in hardware AES and GCM, which a powerful local
+    attacker could use to recover part of a key or plaintext through the
+    software fallback executed speculatively (CVE-2026-115493);
+  - in the cipher module (CVE-2026-93833), in ECDSA signing, which may leak
+    the private key (CVE-2026-93835), and in PSA ECC operations
+    (CVE-2026-93842);
+  - a shared secret left unwiped on the stack by `psa_key_agreement()`;
+  - the public half of an RSA key not being set when it was read from
+    PKCS#8;
+  - wrong SHA-1 and SHA-256 digests for a single update of 4 GiB or more on
+    64-bit platforms. The R functions feed the backend 1 MiB at a time, but a
+    C caller of `zuc_hash_compute()` with that much data was affected.
+
+  The release's other advisories do not apply to this build: the p256-m
+  driver (CVE-2026-93845) and PKCS#5 and PKCS#12 decryption (CVE-2026-50582)
+  are not compiled, and the ROM-table timing issue (CVE-2026-115492) needs
+  `MBEDTLS_AES_ROM_TABLES`, which is not set. The trim is unchanged at 153
+  files. The four local patches are all still needed, and `0002` was
+  refreshed for moved context.
 * `PSA_WANT_ALG_GCM` and `PSA_WANT_ALG_PBKDF2_HMAC` are enabled. Re-deriving
   the trim added two upstream sources, `gcm.c` and `psa_crypto_aead.c`, and
   no header: 115 vendored files. Measured on macOS x86-64, the source tarball
