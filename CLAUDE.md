@@ -360,11 +360,13 @@ worse than no job.
   `fail-on-findings: true`; answer the first false positive with a
   `baseline:` file, never by turning the gate off.
 - `coverage.yaml` (`native: true`).
-- `arch.yaml` (weekly): until Stage 8 its legs installed no testthat and ran
-  **no tests** while green. The Debian legs now install `r-cran-testthat`
-  and the `en_US.UTF-8` locale, Alpine builds testthat (with `libuv-dev` and
-  `linux-headers`), and the job sets `error-on: warning` and
-  `require-tests: true`.
+- `arch.yaml` (weekly): musl and aarch64. Until Stage 8 its legs installed
+  no testthat and ran **no tests** while green. The Debian leg now installs
+  `r-cran-testthat` and the `en_US.UTF-8` locale, Alpine builds testthat
+  (with `libuv-dev` and `linux-headers`), and the job sets
+  `error-on: warning` and `require-tests: true`. The i386 leg was dropped in
+  Stage R2 (its container's DNS failed on every run from 2026-11-19, and
+  r-actions dropped it too), so **no 32-bit build runs**: #177.
 - `alloc-failure.yaml` (weekly): sweeps the allocations of the `crypt_*`
   calls only, and compares every result that survives byte for byte with
   `tools/alloc-expected.tsv` (written from openssl and hashlib by
@@ -402,7 +404,9 @@ worse than no job.
   survivors are filed as issues (#126–#130).
 - `pkgdown.yaml` is this repository's own, deploying to `gh-pages` on push
   to `main`.
-- `assurance.yaml` runs r-actions' `assurance.yml`, which holds
+- `assurance.yaml` runs r-actions' `assurance.yml` with `ungated-jobs: fail`
+  (#146): every job of the package's own workflows needs `changes` with the
+  label `if:` of `ci.md`, or a `# ungated:` reason. It holds
   [.agents/assurance.md](.agents/assurance.md) to the portfolio standard: a
   `done` check must be backed by a workflow, and a gap must name an issue.
   Update the file's rows in the same pull request as a new boundary, object

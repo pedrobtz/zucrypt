@@ -39,7 +39,7 @@ this package.
     the main branch
 * Also on every push: link-time optimisation, `rchk`, `gctorture`,
   AddressSanitizer and UndefinedBehaviorSanitizer (gcc and clang), valgrind
-  with `--leak-check=full`, and GCC's `-fanalyzer`. Weekly: i386, musl and
+  with `--leak-check=full`, and GCC's `-fanalyzer`. Weekly: musl and
   aarch64 builds that run the test suite and fail on a WARNING, and a sweep
   that fails each native allocation the `crypt_*()` calls make, checking
   that every failure surfaces as an R error rather than a wrong answer.

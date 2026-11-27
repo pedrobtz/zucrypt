@@ -114,10 +114,15 @@ cannot apply.
 One row per limit the package enforces. "Straddled by" is the test of
 `limit - 1`, `limit` and `limit + 1` on every path that reaches it.
 
+Every limit below is straddled on 64-bit builds only. The i386 leg of
+`arch.yaml`, where `size_t` is 32 bits, was dropped on 2026-11-27 (its
+container's DNS failed on every run from 2026-11-19), and no 32-bit
+build runs now: gap #177.
+
 <!-- markdownlint-disable MD013 -->
 | Limit | Unit | Straddled by |
 | ----- | ---- | ------------ |
-| Interrupt chunk, `ZUCRYPT_CHUNK` = 1 MiB, in-memory `crypt_hash()`, `crypt_hmac()`, AES-CBC and `crypt_rand_bytes()` | input bytes | test-size.R (#100): hash and HMAC at 1 byte and 1 MiB - 1, 1 MiB and 1 MiB + 1, AES-CBC at a block and 1 MiB - 16, 1 MiB and 1 MiB + 16, against one adapter call and openssl; the random fill loop over a sentinel buffer at the same sizes. An off-by-one loop bound in each of the four loops fails only its 1-unit and 1 MiB + 1 cases |
+| Interrupt chunk, `ZUCRYPT_CHUNK` = 1 MiB, in-memory `crypt_hash()`, `crypt_hmac()`, AES-CBC and `crypt_rand_bytes()` | input bytes | test-size.R (#100): hash and HMAC at 1 byte and 1 MiB - 1, 1 MiB and 1 MiB + 1, AES-CBC at a block and 1 MiB - 16, 1 MiB and 1 MiB + 16, against one adapter call and openssl; the random fill loop over a sentinel buffer at the same sizes. An off-by-one loop bound in each of the four loops fails only its 1-unit and 1 MiB + 1 cases. The backend's own copies of the input (PSA's local input buffers, invisible to `Rprofmem()`) are counted by the adapter's allocator: for a 4 MiB hash, HMAC and CBC encryption the largest is exactly one chunk, and there are fewer than 32 (test-size.R, #118) |
 | Connection read chunk, 1 MiB (R/hash.R) | bytes read | test-connection.R: chunk - 1, chunk, chunk + 1 |
 | AES key length 16, 24 or 32 | bytes | test-validation.R (CBC: 0, 1, 8, 15, 17, 23, 25, 31, 33, 64); test-aead.R (GCM: 0, 15, 17, 31, 33) |
 | AES-CBC IV exactly 16 | bytes | test-validation.R: 0, 8, 15, 17, 32 |

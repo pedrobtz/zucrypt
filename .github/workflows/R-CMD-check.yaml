@@ -79,5 +79,6 @@ jobs:
       # parsing, formatting, comparison. This package's arithmetic is on
       # byte lengths and block counts (design §11: "Validate lengths and
       # arithmetic before allocation"), all integral. arch.yml's 32-bit leg
-      # is the job that tests *that* arithmetic; see .agents/roadmap.md.
+      # was the job that tested *that* arithmetic, until it was dropped on
+      # 2026-11-27; restoring one is #177. See .agents/roadmap.md.
       nold: false
