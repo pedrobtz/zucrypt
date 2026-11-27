@@ -18,10 +18,14 @@ test_that("unloading the DLL with live objects finalizes them first (#144)", {
     "if ('zucrypt' %in% names(getLoadedDLLs()))",
     "  library.dynam.unload('zucrypt', path)",
     "cat('DLL unloaded:', !'zucrypt' %in% names(getLoadedDLLs()), '\\n')",
+    # How this C library prints a NULL address: "0x0" on macOS,
+    # "(nil)" on glibc, "0" on musl (#174). A fresh external pointer is
+    # NULL, so it is the reference, whatever the libc.
+    "null <- capture.output(print.default(methods::new('externalptr')))[1]",
     "cleared <- vapply(c(keys, list(rsa)), function(k) {",
-    "  capture.output(print.default(k))[1] %in%",
-    "    c('<pointer: 0x0>', '<pointer: (nil)>')",
+    "  identical(capture.output(print.default(k))[1], null)",
     "}, logical(1))",
+    "cat('null prints as', null, '\\n')",
     "cat('cleared', sum(cleared), 'of', length(cleared), '\\n')",
     "rm(keys, rsa)",
     "invisible(gc())",
@@ -30,6 +34,8 @@ test_that("unloading the DLL with live objects finalizes them first (#144)", {
   out <- paste(res$output, collapse = "\n")
   expect_identical(res$status, 0L, info = out)
   expect_match(out, "DLL unloaded: TRUE", fixed = TRUE)
+  # The reference is a NULL pointer, or "cleared" would count nothing.
+  expect_match(out, "null prints as <pointer: (0x0|\\(nil\\)|0+)>")
   expect_match(out, "cleared 21 of 21", fixed = TRUE)
   expect_match(out, "survived", fixed = TRUE)
 })
