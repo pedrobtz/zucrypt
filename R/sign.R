@@ -88,13 +88,19 @@
 NULL
 
 digest_name <- function(md, call) {
-  name <- c("20" = "sha1", "32" = "sha256", "48" = "sha384",
-            "64" = "sha512")[as.character(length(md))]
+  name <- c(
+    "20" = "sha1",
+    "32" = "sha256",
+    "48" = "sha384",
+    "64" = "sha512"
+  )[as.character(length(md))]
   if (!is.raw(md) || is.na(name)) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      paste0("`hash` must give, or `data` be, a SHA-1 or SHA-2 digest ",
-             "(20, 32, 48 or 64 bytes)."),
+      paste0(
+        "`hash` must give, or `data` be, a SHA-1 or SHA-2 digest ",
+        "(20, 32, 48 or 64 bytes)."
+      ),
       call = call
     )
   }
@@ -128,9 +134,14 @@ check_flag <- function(x, arg, call) {
 
 #' @rdname crypt_rsa_crypto
 #' @export
-crypt_signature_create <- function(data, hash = crypt_sha1, key,
-                                   password = NULL, pss = FALSE,
-                                   deterministic = FALSE) {
+crypt_signature_create <- function(
+  data,
+  hash = crypt_sha1,
+  key,
+  password = NULL,
+  pss = FALSE,
+  deterministic = FALSE
+) {
   call <- sys.call()
   check_flag(pss, "pss", call)
   check_flag(deterministic, "deterministic", call)
@@ -151,15 +162,21 @@ crypt_signature_create <- function(data, hash = crypt_sha1, key,
 signature_scheme <- function(key, pss, deterministic, call) {
   if (inherits(key, "crypt_rsa")) {
     if (deterministic) {
-      zucrypt_abort("zucrypt_invalid_argument",
-                    "`deterministic` applies to EC keys only.", call = call)
+      zucrypt_abort(
+        "zucrypt_invalid_argument",
+        "`deterministic` applies to EC keys only.",
+        call = call
+      )
     }
     return(if (pss) "rsa-pss" else "rsa-pkcs1v15-sign")
   }
   if (inherits(key, "crypt_ecdsa")) {
     if (pss) {
-      zucrypt_abort("zucrypt_invalid_argument",
-                    "`pss` applies to RSA keys only.", call = call)
+      zucrypt_abort(
+        "zucrypt_invalid_argument",
+        "`pss` applies to RSA keys only.",
+        call = call
+      )
     }
     return(if (deterministic) "ecdsa-deterministic" else "ecdsa")
   }
@@ -172,8 +189,13 @@ signature_scheme <- function(key, pss, deterministic, call) {
 
 #' @rdname crypt_rsa_crypto
 #' @export
-crypt_signature_verify <- function(data, sig, hash = crypt_sha1, pubkey,
-                                   pss = FALSE) {
+crypt_signature_verify <- function(
+  data,
+  sig,
+  hash = crypt_sha1,
+  pubkey,
+  pss = FALSE
+) {
   call <- sys.call()
   check_flag(pss, "pss", call)
   md <- apply_hash(key_input(data, "data", call), hash, call)
@@ -203,8 +225,11 @@ crypt_signature_verify <- function(data, sig, hash = crypt_sha1, pubkey,
 
 check_rsa <- function(key, call) {
   if (!inherits(key, "crypt_rsa")) {
-    zucrypt_abort("zucrypt_invalid_argument",
-                  "RSA encryption needs an RSA key.", call = call)
+    zucrypt_abort(
+      "zucrypt_invalid_argument",
+      "RSA encryption needs an RSA key.",
+      call = call
+    )
   }
 }
 
@@ -213,8 +238,11 @@ rsa_scheme <- function(oaep, oaep_hash, call) {
   if (!oaep) {
     return(list(scheme = "rsa-pkcs1v15-crypt", hash = NULL))
   }
-  if (!is.character(oaep_hash) || length(oaep_hash) != 1L ||
-        !oaep_hash %in% c("sha1", "sha256", "sha384", "sha512")) {
+  if (
+    !is.character(oaep_hash) ||
+      length(oaep_hash) != 1L ||
+      !oaep_hash %in% c("sha1", "sha256", "sha384", "sha512")
+  ) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
       "`oaep_hash` must be \"sha1\", \"sha256\", \"sha384\" or \"sha512\".",
@@ -227,8 +255,7 @@ rsa_scheme <- function(oaep, oaep_hash, call) {
 
 #' @rdname crypt_rsa_crypto
 #' @export
-crypt_rsa_encrypt <- function(data, pubkey, oaep = FALSE,
-                              oaep_hash = "sha1") {
+crypt_rsa_encrypt <- function(data, pubkey, oaep = FALSE, oaep_hash = "sha1") {
   call <- sys.call()
   s <- rsa_scheme(oaep, oaep_hash, call)
   check_raw(data, "data", algorithm = s$scheme, call = call)
@@ -244,8 +271,13 @@ crypt_rsa_encrypt <- function(data, pubkey, oaep = FALSE,
 
 #' @rdname crypt_rsa_crypto
 #' @export
-crypt_rsa_decrypt <- function(data, key, password = NULL, oaep = FALSE,
-                              oaep_hash = "sha1") {
+crypt_rsa_decrypt <- function(
+  data,
+  key,
+  password = NULL,
+  oaep = FALSE,
+  oaep_hash = "sha1"
+) {
   call <- sys.call()
   s <- rsa_scheme(oaep, oaep_hash, call)
   check_raw(data, "data", algorithm = s$scheme, call = call)

@@ -26,18 +26,22 @@ redact_call <- function(call) {
   }
   fn <- call[[1L]]
   named <- is.symbol(fn) ||
-    (is.call(fn) && length(fn) == 3L &&
-       (identical(fn[[1L]], as.name("::")) ||
-          identical(fn[[1L]], as.name(":::"))) &&
-       is.symbol(fn[[2L]]) && is.symbol(fn[[3L]]))
+    (is.call(fn) &&
+      length(fn) == 3L &&
+      (identical(fn[[1L]], as.name("::")) ||
+        identical(fn[[1L]], as.name(":::"))) &&
+      is.symbol(fn[[2L]]) &&
+      is.symbol(fn[[3L]]))
   if (named) as.call(list(fn)) else NULL
 }
 
-zucrypt_abort <- function(class,
-                          message,
-                          algorithm = NA_character_,
-                          native_status = NA_integer_,
-                          call = sys.call(-1L)) {
+zucrypt_abort <- function(
+  class,
+  message,
+  algorithm = NA_character_,
+  native_status = NA_integer_,
+  call = sys.call(-1L)
+) {
   cond <- structure(
     class = c(class, "zucrypt_error", "error", "condition"),
     list(
@@ -57,7 +61,9 @@ zucrypt_abort <- function(class,
 zuc_status_codes <- local({
   cache <- NULL
   function() {
-    if (is.null(cache)) cache <<- .Call(zucrypt_status_codes)
+    if (is.null(cache)) {
+      cache <<- .Call(zucrypt_status_codes)
+    }
     cache
   }
 })
@@ -66,30 +72,33 @@ zuc_status_codes <- local({
 # ZUC_OK is deliberately absent: success must never reach zucrypt_abort().
 zuc_status_class <- c(
   ZUC_ERR_INVALID_ARGUMENT = "zucrypt_invalid_argument",
-  ZUC_ERR_UNSUPPORTED      = "zucrypt_unsupported_algorithm",
-  ZUC_ERR_BAD_LENGTH       = "zucrypt_bad_length",
-  ZUC_ERR_OVERLAP          = "zucrypt_invalid_argument",
-  ZUC_ERR_MEMORY           = "zucrypt_memory_error",
-  ZUC_ERR_BACKEND          = "zucrypt_backend_error",
-  ZUC_ERR_ABI              = "zucrypt_abi_mismatch",
-  ZUC_ERR_INTERNAL         = "zucrypt_internal_error",
+  ZUC_ERR_UNSUPPORTED = "zucrypt_unsupported_algorithm",
+  ZUC_ERR_BAD_LENGTH = "zucrypt_bad_length",
+  ZUC_ERR_OVERLAP = "zucrypt_invalid_argument",
+  ZUC_ERR_MEMORY = "zucrypt_memory_error",
+  ZUC_ERR_BACKEND = "zucrypt_backend_error",
+  ZUC_ERR_ABI = "zucrypt_abi_mismatch",
+  ZUC_ERR_INTERNAL = "zucrypt_internal_error",
   # R_init_zucrypt initialises the backend and never releases it, so from R
   # this can only be a bug -- hence internal, not a class of its own.
-  ZUC_ERR_NOT_READY        = "zucrypt_internal_error",
+  ZUC_ERR_NOT_READY = "zucrypt_internal_error",
   # The operating system's random source failed (#9). Its own class, not
   # zucrypt_backend_error: the cause is the machine, not this package, and a
   # caller may reasonably retry or report it differently.
-  ZUC_ERR_ENTROPY          = "zucrypt_entropy_error",
+  ZUC_ERR_ENTROPY = "zucrypt_entropy_error",
   # Authenticated decryption failed (Stage 14a). Its own class: it means the
   # message, its tag, nonce, associated data or the key is wrong, and no
   # plaintext was released.
-  ZUC_ERR_AUTH             = "zucrypt_auth_error"
+  ZUC_ERR_AUTH = "zucrypt_auth_error"
 )
 
 # Raise the condition a native status maps to. Called only with a failing
 # status; a success reaching here is itself an internal error.
-abort_native <- function(status, algorithm = NA_character_,
-                         call = sys.call(-1L)) {
+abort_native <- function(
+  status,
+  algorithm = NA_character_,
+  call = sys.call(-1L)
+) {
   codes <- zuc_status_codes()
   name <- names(codes)[match(status, codes)]
 
@@ -100,7 +109,9 @@ abort_native <- function(status, algorithm = NA_character_,
     zucrypt_abort(
       "zucrypt_internal_error",
       sprintf("The native layer returned an unmapped status (%d).", status),
-      algorithm = algorithm, native_status = status, call = call
+      algorithm = algorithm,
+      native_status = status,
+      call = call
     )
   }
 
@@ -111,7 +122,9 @@ abort_native <- function(status, algorithm = NA_character_,
   zucrypt_abort(
     class,
     sprintf("The cryptographic backend reported %s.", name),
-    algorithm = algorithm, native_status = status, call = call
+    algorithm = algorithm,
+    native_status = status,
+    call = call
   )
 }
 
@@ -132,19 +145,28 @@ aes_algorithm <- function(key) {
   if (bits %in% c(128L, 192L, 256L)) sprintf("aes-%d-cbc", bits) else "aes-cbc"
 }
 
-check_raw <- function(x, arg, algorithm = NA_character_,
-                      call = sys.call(-1L), connection_ok = FALSE) {
+check_raw <- function(
+  x,
+  arg,
+  algorithm = NA_character_,
+  call = sys.call(-1L),
+  connection_ok = FALSE
+) {
   if (!is.raw(x)) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      sprintf(paste0("`%s` must be a raw vector%s, not %s. ",
-                     "Use charToRaw() to convert a string deliberately; ",
-                     "this package never guesses an encoding, and never ",
-                     "treats a string as a file name%s."),
-              arg,
-              if (connection_ok) " or a connection" else "",
-              class(x)[1],
-              if (connection_ok) " (pass file(path) for a file)" else ""),
+      sprintf(
+        paste0(
+          "`%s` must be a raw vector%s, not %s. ",
+          "Use charToRaw() to convert a string deliberately; ",
+          "this package never guesses an encoding, and never ",
+          "treats a string as a file name%s."
+        ),
+        arg,
+        if (connection_ok) " or a connection" else "",
+        class(x)[1],
+        if (connection_ok) " (pass file(path) for a file)" else ""
+      ),
       algorithm = algorithm,
       call = call
     )
@@ -153,8 +175,7 @@ check_raw <- function(x, arg, algorithm = NA_character_,
 }
 
 check_algorithm <- function(algorithm, call = sys.call(-1L)) {
-  if (!is.character(algorithm) || length(algorithm) != 1L ||
-      is.na(algorithm)) {
+  if (!is.character(algorithm) || length(algorithm) != 1L || is.na(algorithm)) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
       "`algorithm` must be a single, non-missing algorithm name.",
@@ -168,9 +189,11 @@ check_algorithm <- function(algorithm, call = sys.call(-1L)) {
     # digest than the caller asked for.
     zucrypt_abort(
       "zucrypt_unsupported_algorithm",
-      sprintf("Unknown algorithm %s. Available: %s.",
-              encodeString(algorithm, quote = '"'),
-              paste(known, collapse = ", ")),
+      sprintf(
+        "Unknown algorithm %s. Available: %s.",
+        encodeString(algorithm, quote = '"'),
+        paste(known, collapse = ", ")
+      ),
       algorithm = algorithm,
       call = call
     )
@@ -183,10 +206,14 @@ check_aes_key <- function(key, call = sys.call(-1L)) {
   if (!length(key) %in% c(16L, 24L, 32L)) {
     zucrypt_abort(
       "zucrypt_bad_length",
-      sprintf(paste0("`key` must be 16, 24 or 32 bytes (AES-128, AES-192 or ",
-                     "AES-256), not %d. This function takes a key, never a ",
-                     "password: deriving one is the caller's responsibility."),
-              length(key)),
+      sprintf(
+        paste0(
+          "`key` must be 16, 24 or 32 bytes (AES-128, AES-192 or ",
+          "AES-256), not %d. This function takes a key, never a ",
+          "password: deriving one is the caller's responsibility."
+        ),
+        length(key)
+      ),
       algorithm = "aes-cbc",
       call = call
     )
@@ -207,16 +234,23 @@ check_aes_iv <- function(iv, algorithm = "aes-cbc", call = sys.call(-1L)) {
   invisible(iv)
 }
 
-check_block_multiple <- function(data, algorithm = "aes-cbc",
-                                 call = sys.call(-1L)) {
+check_block_multiple <- function(
+  data,
+  algorithm = "aes-cbc",
+  call = sys.call(-1L)
+) {
   check_raw(data, "data", algorithm = algorithm, call = call)
   if (length(data) %% 16L != 0L) {
     zucrypt_abort(
       "zucrypt_bad_length",
-      sprintf(paste0("`data` must be a multiple of 16 bytes, not %d. ",
-                     "No padding is added or removed; if your format uses ",
-                     "PKCS#7, apply it yourself."),
-              length(data)),
+      sprintf(
+        paste0(
+          "`data` must be a multiple of 16 bytes, not %d. ",
+          "No padding is added or removed; if your format uses ",
+          "PKCS#7, apply it yourself."
+        ),
+        length(data)
+      ),
       algorithm = algorithm,
       call = call
     )

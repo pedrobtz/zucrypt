@@ -46,8 +46,15 @@
 #'
 #' @export
 crypt_rand_bytes <- function(n = 1) {
-  if (!is.numeric(n) || length(n) != 1L || is.na(n) || !is.finite(n) ||
-        n < 0 || n != trunc(n) || n > 2^52) {
+  if (
+    !is.numeric(n) ||
+      length(n) != 1L ||
+      is.na(n) ||
+      !is.finite(n) ||
+      n < 0 ||
+      n != trunc(n) ||
+      n > 2^52
+  ) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
       "`n` must be a single non-negative whole number of bytes."

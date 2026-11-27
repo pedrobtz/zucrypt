@@ -36,9 +36,11 @@ mirror_digest <- function(x, key, algorithm) {
   if (!is.raw(x)) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      paste0("`x` must be a raw vector. Character and connection input to ",
-             "the openssl-style digests is not supported yet; use ",
-             "charToRaw() or crypt_hash(file(path))."),
+      paste0(
+        "`x` must be a raw vector. Character and connection input to ",
+        "the openssl-style digests is not supported yet; use ",
+        "charToRaw() or crypt_hash(file(path))."
+      ),
       algorithm = algorithm,
       call = call
     )

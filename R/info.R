@@ -16,7 +16,9 @@
 available_algorithms <- local({
   cache <- NULL
   function() {
-    if (is.null(cache)) cache <<- .Call(zucrypt_algorithms)
+    if (is.null(cache)) {
+      cache <<- .Call(zucrypt_algorithms)
+    }
     cache
   }
 })

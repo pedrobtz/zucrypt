@@ -82,8 +82,12 @@ NULL
 
 #' @rdname crypt_aes_gcm
 #' @export
-crypt_aes_gcm_encrypt <- function(data, key, iv = crypt_rand_bytes(12),
-                                  aad = NULL) {
+crypt_aes_gcm_encrypt <- function(
+  data,
+  key,
+  iv = crypt_rand_bytes(12),
+  aad = NULL
+) {
   algorithm <- check_gcm_args(data, key, iv, aad)
   res <- .Call(zucrypt_aes_gcm, data, key, iv, aad, NULL, TRUE)
   if (res$status != 0L) {
@@ -97,8 +101,13 @@ crypt_aes_gcm_encrypt <- function(data, key, iv = crypt_rand_bytes(12),
 
 #' @rdname crypt_aes_gcm
 #' @export
-crypt_aes_gcm_decrypt <- function(data, key, iv = attr(data, "iv"),
-                                  tag = attr(data, "tag"), aad = NULL) {
+crypt_aes_gcm_decrypt <- function(
+  data,
+  key,
+  iv = attr(data, "iv"),
+  tag = attr(data, "tag"),
+  aad = NULL
+) {
   algorithm <- check_gcm_args(data, key, iv, aad)
   check_raw(tag, "tag", algorithm = algorithm)
   res <- .Call(zucrypt_aes_gcm, data, key, iv, aad, tag, FALSE)
@@ -122,10 +131,14 @@ check_gcm_args <- function(data, key, iv, aad, call = sys.call(-1L)) {
   if (!length(key) %in% c(16L, 24L, 32L)) {
     zucrypt_abort(
       "zucrypt_bad_length",
-      sprintf(paste0("`key` must be 16, 24 or 32 bytes (AES-128, AES-192 or ",
-                     "AES-256), not %d. This function takes a key, never a ",
-                     "password: crypt_pbkdf2() derives one."),
-              length(key)),
+      sprintf(
+        paste0(
+          "`key` must be 16, 24 or 32 bytes (AES-128, AES-192 or ",
+          "AES-256), not %d. This function takes a key, never a ",
+          "password: crypt_pbkdf2() derives one."
+        ),
+        length(key)
+      ),
       algorithm = algorithm,
       call = call
     )

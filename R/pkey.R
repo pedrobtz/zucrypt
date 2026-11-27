@@ -120,8 +120,13 @@ key_input <- function(file, arg = "file", call = sys.call(-1L)) {
   }
   zucrypt_abort(
     "zucrypt_invalid_argument",
-    sprintf(paste0("`%s` must be a raw vector, PEM text, the path of an ",
-                   "existing file, or a connection."), arg),
+    sprintf(
+      paste0(
+        "`%s` must be a raw vector, PEM text, the path of an ",
+        "existing file, or a connection."
+      ),
+      arg
+    ),
     call = call
   )
 }
@@ -129,14 +134,21 @@ key_input <- function(file, arg = "file", call = sys.call(-1L)) {
 # A connection's bytes, through read_connection()'s guards (#145).
 read_all <- function(con, call) {
   chunks <- list(raw())
-  read_connection(con, function(chunk) {
-    chunks[[length(chunks) + 1L]] <<- chunk
-  }, call = call)
+  read_connection(
+    con,
+    function(chunk) {
+      chunks[[length(chunks) + 1L]] <<- chunk
+    },
+    call = call
+  )
   do.call(c, chunks)
 }
 
-no_password <- function(password, call = sys.call(-1L),
-                        algorithm = NA_character_) {
+no_password <- function(
+  password,
+  call = sys.call(-1L),
+  algorithm = NA_character_
+) {
   if (!is.null(password)) {
     zucrypt_abort(
       "zucrypt_unsupported_algorithm",
@@ -188,22 +200,33 @@ public_key_arg <- function(x, arg, call) {
 }
 
 # The zuc_alg names of key types, and the class and curve name each gets.
-key_families <- c(rsa = "crypt_rsa", p256 = "crypt_ecdsa",
-                  p384 = "crypt_ecdsa", p521 = "crypt_ecdsa",
-                  x25519 = "crypt_x25519")
+key_families <- c(
+  rsa = "crypt_rsa",
+  p256 = "crypt_ecdsa",
+  p384 = "crypt_ecdsa",
+  p521 = "crypt_ecdsa",
+  x25519 = "crypt_x25519"
+)
 curve_names <- c(p256 = "P-256", p384 = "P-384", p521 = "P-521")
 
 new_key <- function(ptr) {
   info <- pkey_info(ptr)
-  class(ptr) <- c(if (info$private) "crypt_key" else "crypt_pubkey",
-                  unname(key_families[info$type]))
+  class(ptr) <- c(
+    if (info$private) "crypt_key" else "crypt_pubkey",
+    unname(key_families[info$type])
+  )
   ptr
 }
 
 # openssl's type names, for as.list() and print().
 key_type_name <- function(type) {
-  c(rsa = "rsa", p256 = "ecdsa", p384 = "ecdsa", p521 = "ecdsa",
-    x25519 = "x25519")[[type]]
+  c(
+    rsa = "rsa",
+    p256 = "ecdsa",
+    p384 = "ecdsa",
+    p521 = "ecdsa",
+    x25519 = "x25519"
+  )[[type]]
 }
 
 pkey_info <- function(x, call = sys.call(-1L)) {
@@ -211,8 +234,10 @@ pkey_info <- function(x, call = sys.call(-1L)) {
   if (res$status != 0L) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      paste0("This key object is no longer valid. Key objects do not ",
-             "survive saveRDS(); save crypt_write_pem() output instead."),
+      paste0(
+        "This key object is no longer valid. Key objects do not ",
+        "survive saveRDS(); save crypt_write_pem() output instead."
+      ),
       call = call
     )
   }
@@ -228,17 +253,23 @@ parse_key <- function(bytes, private, call) {
     if (identical(name, "ZUC_ERR_INVALID_ARGUMENT")) {
       zucrypt_abort(
         "zucrypt_invalid_argument",
-        sprintf(paste0("The input is not %s key in PEM or DER that this ",
-                       "version can read."),
-                if (private) "an unencrypted private" else "a"),
+        sprintf(
+          paste0(
+            "The input is not %s key in PEM or DER that this ",
+            "version can read."
+          ),
+          if (private) "an unencrypted private" else "a"
+        ),
         call = call
       )
     }
     if (identical(name, "ZUC_ERR_UNSUPPORTED")) {
       zucrypt_abort(
         "zucrypt_unsupported_algorithm",
-        paste0("Only RSA keys of 1024 to 4096 bits, in whole bytes, and ",
-               "P-256, P-384, P-521 and X25519 keys, are supported."),
+        paste0(
+          "Only RSA keys of 1024 to 4096 bits, in whole bytes, and ",
+          "P-256, P-384, P-521 and X25519 keys, are supported."
+        ),
         call = call
       )
     }
@@ -292,15 +323,16 @@ crypt_rsa_keygen <- function(bits = 2048) {
 # --- output -------------------------------------------------------------
 
 # zuc_pkey_format values in zucrypt.h.
-pkey_formats <- c(pkcs1_der = 1L, pkcs1_pem = 2L, info_der = 3L,
-                  info_pem = 4L)
+pkey_formats <- c(pkcs1_der = 1L, pkcs1_pem = 2L, info_der = 3L, info_pem = 4L)
 
 check_key_object <- function(x, call) {
   if (!inherits(x, c("crypt_key", "crypt_pubkey"))) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      paste0("`x` must be a key object, from crypt_read_key(), ",
-             "crypt_read_pubkey() or one of the key constructors."),
+      paste0(
+        "`x` must be a key object, from crypt_read_key(), ",
+        "crypt_read_pubkey() or one of the key constructors."
+      ),
       call = call
     )
   }
@@ -309,8 +341,7 @@ check_key_object <- function(x, call) {
 
 write_key <- function(x, format, call, public_only = FALSE) {
   info <- check_key_object(x, call)
-  res <- .Call(zucrypt_pkey_write, x, pkey_formats[[format]],
-               public_only)
+  res <- .Call(zucrypt_pkey_write, x, pkey_formats[[format]], public_only)
   if (res$status != 0L) {
     abort_native(res$status, algorithm = info$type, call = call)
   }
@@ -321,8 +352,11 @@ write_out <- function(value, path) {
   if (is.null(path)) {
     return(value)
   }
-  if (is.character(value)) writeLines(value, path, sep = "") else
+  if (is.character(value)) {
+    writeLines(value, path, sep = "")
+  } else {
     writeBin(value, path)
+  }
   invisible(path)
 }
 
@@ -376,8 +410,12 @@ der_length <- function(n) {
 
 der_integer <- function(x) {
   x <- x[cumsum(x != as.raw(0)) > 0]
-  if (!length(x)) x <- as.raw(0)
-  if (as.integer(x[[1]]) >= 128L) x <- c(as.raw(0), x)
+  if (!length(x)) {
+    x <- as.raw(0)
+  }
+  if (as.integer(x[[1]]) >= 128L) {
+    x <- c(as.raw(0), x)
+  }
   c(as.raw(0x02), der_length(length(x)), x)
 }
 
@@ -399,37 +437,63 @@ der_integers <- function(der) {
   bad <- function() stop("not a DER SEQUENCE of INTEGERs", call. = FALSE)
   n <- length(der)
   read_len <- function(pos) {
-    if (pos > n) bad()
+    if (pos > n) {
+      bad()
+    }
     b <- as.integer(der[[pos]])
-    if (b < 128L) return(c(b, 1L))
+    if (b < 128L) {
+      return(c(b, 1L))
+    }
     k <- b - 128L
-    if (k < 1L || k > 4L || pos + k > n) bad()
+    if (k < 1L || k > 4L || pos + k > n) {
+      bad()
+    }
     c(sum(as.integer(der[pos + seq_len(k)]) * 256^((k - 1):0)), 1L + k)
   }
-  if (n < 2L || der[[1]] != as.raw(0x30)) bad()
+  if (n < 2L || der[[1]] != as.raw(0x30)) {
+    bad()
+  }
   seq_len_at <- read_len(2L)
   pos <- 2L + seq_len_at[[2]]
-  if (pos - 1L + seq_len_at[[1]] != n) bad()
+  if (pos - 1L + seq_len_at[[1]] != n) {
+    bad()
+  }
   out <- list()
   while (pos <= n) {
-    if (der[[pos]] != as.raw(0x02)) bad()
+    if (der[[pos]] != as.raw(0x02)) {
+      bad()
+    }
     l <- read_len(pos + 1L)
     start <- pos + 1L + l[[2]]
-    if (l[[1]] < 1 || start + l[[1]] - 1L > n) bad()
+    if (l[[1]] < 1 || start + l[[1]] - 1L > n) {
+      bad()
+    }
     value <- der[start + seq_len(l[[1]]) - 1L]
-    if (as.integer(value[[1]]) >= 128L) bad()
+    if (as.integer(value[[1]]) >= 128L) {
+      bad()
+    }
     value <- value[cumsum(value != as.raw(0)) > 0]
     out[[length(out) + 1L]] <- if (length(value)) value else as.raw(0)
     pos <- start + l[[1]]
   }
-  if (!identical(der_sequence(lapply(out, der_integer)), der)) bad()
+  if (!identical(der_sequence(lapply(out, der_integer)), der)) {
+    bad()
+  }
   out
 }
 
 #' @rdname crypt_rsa_keys
 #' @export
-crypt_rsa_key <- function(n, e, d = NULL, p = NULL, q = NULL, dp = NULL,
-                          dq = NULL, qi = NULL) {
+crypt_rsa_key <- function(
+  n,
+  e,
+  d = NULL,
+  p = NULL,
+  q = NULL,
+  dp = NULL,
+  dq = NULL,
+  qi = NULL
+) {
   call <- sys.call()
   check_raw(n, "n", algorithm = "rsa", call = call)
   check_raw(e, "e", algorithm = "rsa", call = call)
@@ -438,8 +502,10 @@ crypt_rsa_key <- function(n, e, d = NULL, p = NULL, q = NULL, dp = NULL,
   if (any(given) && !all(given)) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      paste0("A private key needs all of `d`, `p`, `q`, `dp`, `dq` and ",
-             "`qi`; a public key needs none of them."),
+      paste0(
+        "A private key needs all of `d`, `p`, `q`, `dp`, `dq` and ",
+        "`qi`; a public key needs none of them."
+      ),
       algorithm = "rsa",
       call = call
     )
@@ -496,15 +562,21 @@ as.list.crypt_pubkey <- function(x, ...) {
 #' @export
 print.crypt_key <- function(x, ...) {
   info <- pkey_info(x)
-  cat(sprintf("[%d-bit %s private key]\n", as.integer(info$bits),
-              key_type_name(info$type)))
+  cat(sprintf(
+    "[%d-bit %s private key]\n",
+    as.integer(info$bits),
+    key_type_name(info$type)
+  ))
   invisible(x)
 }
 
 #' @export
 print.crypt_pubkey <- function(x, ...) {
   info <- pkey_info(x)
-  cat(sprintf("[%d-bit %s public key]\n", as.integer(info$bits),
-              key_type_name(info$type)))
+  cat(sprintf(
+    "[%d-bit %s public key]\n",
+    as.integer(info$bits),
+    key_type_name(info$type)
+  ))
   invisible(x)
 }
