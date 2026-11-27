@@ -79,4 +79,11 @@ long zuc_int_residue_disarm(void);
  * the sum, 1 when the scan works. */
 long zuc_int_residue_control(void);
 
+/* What the backend has allocated through zuc_int_calloc() since the last
+ * call (#118): out[0] the number of blocks, out[1] their total bytes,
+ * out[2] the largest. Reading resets all three. R's own memory profiler
+ * sees none of this, so this is how a test sees the backend's copies of
+ * its input. Test harness only. */
+void zuc_int_alloc_stats(double out[3]);
+
 #endif /* ZUC_LIVE_H */

@@ -97,11 +97,12 @@ test_that("a last chunk of one byte is processed on every in-memory path (#100)"
   }
 })
 
-test_that("processing a large input does not allocate per block", {
+test_that("a large input makes no per-chunk R heap allocation (#118)", {
   # The native entry points write into one preallocated output vector and
   # loop in the C layer. If a future change moved the loop into R, or
-  # reallocated per chunk, this is where it would show -- and nowhere else,
-  # because the answers would still be correct.
+  # reallocated an R vector per chunk, this is where it would show -- and
+  # nowhere else, because the answers would still be correct. Rprofmem()
+  # sees R's heap only; the backend's own allocations are the next test's.
   skip_if(!capabilities("profmem"),
           "this R was not built with memory profiling")
 
@@ -128,4 +129,39 @@ test_that("processing a large input does not allocate per block", {
   # One allocation for the ciphertext, and room for a couple of incidentals.
   # Four 1 MiB chunks allocating each would be at least four more.
   expect_lt(length(large), 4L)
+})
+
+test_that("the backend's copies of a large input are bounded by the chunk (#118)", {
+  # PSA copies each update's input (and a cipher's output) into a buffer of
+  # its own, through psa_crypto_local_input_alloc(), against callers that
+  # share buffers with an attacker. Those copies are native, so Rprofmem()
+  # cannot see them; the adapter's allocator counts them instead
+  # (zuc_int_alloc_stats(), zuc_live.h). The loop hands the backend 1 MiB
+  # at a time, so no copy is larger than that whatever the input, and the
+  # copies number a few per chunk, not one per block.
+  alloc_stats <- function() .Call(zucrypt:::zucrypt_test_alloc_stats)
+  chunk <- 1048576
+  n <- 4L * 1024L * 1024L
+  data <- as.raw(rep(seq.int(0L, 255L), length.out = n))
+  key <- as.raw(rep(0x2b, 32))
+  iv <- as.raw(seq.int(0L, 15L))
+
+  calls <- list(
+    hash = function() crypt_hash(data),
+    hmac = function() crypt_hmac(data, key),
+    cbc = function() crypt_aes_cbc_encrypt_nopad(data, key, iv)
+  )
+  for (name in names(calls)) {
+    calls[[name]]() # first use initialises the backend
+    alloc_stats()
+    calls[[name]]()
+    stats <- alloc_stats()
+    # The largest copy is one chunk: the counter sees the backend at all,
+    # and the input is never copied whole.
+    expect_equal(stats[[3]], chunk, label = paste(name, "largest block"))
+    # 4 chunks at a few blocks each; per-block copies would be 2^16 or more.
+    expect_lt(stats[[1]], 32, label = paste(name, "blocks"))
+    # Input (and, for a cipher, output) once each, plus small change.
+    expect_lt(stats[[2]], 2 * n + 65536, label = paste(name, "bytes"))
+  }
 })

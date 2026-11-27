@@ -211,6 +211,19 @@ long zuc_int_residue_control(void)
     return kept + 10 * wiped;
 }
 
+/* See zuc_live.h: the backend's allocations since the last read. */
+static double alloc_blocks = 0;
+static double alloc_bytes = 0;
+static double alloc_largest = 0;
+
+void zuc_int_alloc_stats(double out[3])
+{
+    out[0] = alloc_blocks;
+    out[1] = alloc_bytes;
+    out[2] = alloc_largest;
+    alloc_blocks = alloc_bytes = alloc_largest = 0;
+}
+
 void *zuc_int_calloc(size_t n, size_t size)
 {
     void *p;
@@ -222,6 +235,14 @@ void *zuc_int_calloc(size_t n, size_t size)
     }
     if (p == NULL && n != 0 && size != 0) {
         alloc_failed = 1;
+    }
+    if (p != NULL) {
+        double bytes = (double) n * (double) size;   /* calloc checked it */
+        alloc_blocks += 1;
+        alloc_bytes += bytes;
+        if (bytes > alloc_largest) {
+            alloc_largest = bytes;
+        }
     }
     if (residue_armed && p != NULL) {
         if (residue_used < ZUC_RESIDUE_SLOTS) {
