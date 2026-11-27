@@ -269,18 +269,146 @@ static zuc_status pkey_import(const zuc_pkey *key, psa_algorithm_t alg,
  * Reading, generating, deriving
  * ------------------------------------------------------------------ */
 
-static int looks_like_pem(const uint8_t *in, size_t len)
+/* Does a line begin at `in + i`, after spaces, tabs or a stray carriage
+ * return, with "-----BEGIN "?
+ * Then `*label`/`*label_len` are the label up to its closing dashes. */
+static int pem_begin_at(const uint8_t *in, size_t len, size_t i,
+                        size_t *at, const uint8_t **label, size_t *label_len)
 {
-    static const char begin[] = "-----BEGIN";
-    size_t i = 0;
+    static const char begin[] = "-----BEGIN ";
+    const size_t bn = sizeof begin - 1;
+    size_t j;
 
-    /* Leading whitespace is tolerated, as files often have it. */
-    while (i < len && (in[i] == ' ' || in[i] == '\t' || in[i] == '\r' ||
-                       in[i] == '\n')) {
+    while (i < len && (in[i] == ' ' || in[i] == '\t' || in[i] == '\r')) {
         i++;
     }
-    return len - i >= sizeof begin - 1 &&
-           memcmp(in + i, begin, sizeof begin - 1) == 0;
+    if (len - i < bn || memcmp(in + i, begin, bn) != 0) {
+        return 0;
+    }
+    *at = i;
+    for (j = i + bn; j < len && in[j] != '-' && in[j] != '\n' &&
+                     in[j] != '\r'; j++) {
+    }
+    *label = in + i + bn;
+    *label_len = j - (i + bn);
+    return 1;
+}
+
+static int label_is(const uint8_t *label, size_t n, const char *name)
+{
+    return n == strlen(name) && memcmp(label, name, n) == 0;
+}
+
+/* The PEM block a reader takes (#180): of the blocks whose BEGIN line
+ * starts a line, the first with a key label, private or public, through
+ * its END line; the private reader then refuses a public key, as
+ * OpenSSL's does. RFC 7468 section 5.2 allows text
+ * before and between the blocks, which is passed over, and so are blocks
+ * of other labels (EC PARAMETERS, CERTIFICATE), as OpenSSL's readers do.
+ * The backend's reader searches the whole text for each label in a fixed
+ * order, so it is handed only this block. Without a key block, the first
+ * block is taken, for the reader to refuse. 0 if the input is not PEM. */
+static int pem_key_block(const uint8_t *in, size_t len, size_t *start,
+                         size_t *block_len)
+{
+    static const char *const key_labels[] = {
+        "PRIVATE KEY", "RSA PRIVATE KEY", "EC PRIVATE KEY",
+        "ENCRYPTED PRIVATE KEY", "PUBLIC KEY", "RSA PUBLIC KEY"
+    };
+    size_t i, first = 0, at = 0, n = 0, k, end;
+    const uint8_t *label = NULL;
+    int found = 0, pick = 0;
+
+    for (i = 0; i < len && !pick; i++) {
+        size_t c;
+        if (i != 0 && in[i - 1] != '\n') {
+            continue;
+        }
+        if (!pem_begin_at(in, len, i, &at, &label, &n)) {
+            continue;
+        }
+        if (!found) {
+            found = 1;
+            first = at;
+        }
+        for (c = 0; c < sizeof key_labels / sizeof key_labels[0]; c++) {
+            pick |= label_is(label, n, key_labels[c]);
+        }
+    }
+    if (!found) {
+        return 0;
+    }
+    if (!pick) {
+        (void) pem_begin_at(in, len, first, &at, &label, &n);
+    }
+    *start = at;
+    *block_len = len - at;
+    /* Through "-----END <label>-----", or to the end of the input. */
+    for (k = at + 11 + n; k < len; k++) {
+        if (len - k >= 9 + n + 5 && memcmp(in + k, "-----END ", 9) == 0 &&
+            memcmp(in + k + 9, label, n) == 0 &&
+            memcmp(in + k + 9 + n, "-----", 5) == 0) {
+            end = k + 9 + n + 5;
+            *block_len = end - at;
+            break;
+        }
+    }
+    return 1;
+}
+
+/* RFC 7748 section 5: the backend clamps an X25519 scalar when it imports
+ * one, and exports what it holds. A key read or imported from the caller's
+ * 32 bytes keeps those bytes (#175), as OpenSSL does, so that what is
+ * written is what was read; `given` replaces the backend's copy only if it
+ * clamps to it. Every operation imports the key again, and clamps again. */
+static void x25519_keep_given(zuc_pkey *key, const uint8_t *given)
+{
+    uint8_t c[32];
+    unsigned diff = 0;
+    size_t i;
+
+    if (key == NULL || given == NULL || key->type != ZUC_ALG_X25519 ||
+        !key->is_private || key->der_len != sizeof c) {
+        return;
+    }
+    memcpy(c, given, sizeof c);
+    c[0] &= 248;
+    c[31] = (uint8_t) ((c[31] & 127) | 64);
+    for (i = 0; i < sizeof c; i++) {
+        diff |= (unsigned) (c[i] ^ key->der[i]);
+    }
+    if (diff == 0) {
+        memcpy(key->der, given, sizeof c);
+    }
+    zuc_secure_zero(c, sizeof c);
+}
+
+/* The 32-byte CurvePrivateKey of an RFC 8410 OneAsymmetricKey for X25519,
+ * or NULL if `der` is not one. */
+static const uint8_t *x25519_pkcs8_scalar(const uint8_t *der, size_t len)
+{
+    static const uint8_t oid_x25519[] = { 0x2b, 0x65, 0x6e };
+    const int seq = MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE;
+    unsigned char *p = (unsigned char *) der, *end = p + len;
+    mbedtls_asn1_buf oid, params;
+    size_t n;
+    int version;
+
+    if (mbedtls_asn1_get_tag(&p, end, &n, seq) != 0) {
+        return NULL;
+    }
+    end = p + n;
+    if (mbedtls_asn1_get_int(&p, end, &version) != 0 ||
+        (version != 0 && version != 1) ||
+        mbedtls_asn1_get_alg(&p, end, &oid, &params) != 0 ||
+        oid.len != sizeof oid_x25519 ||
+        memcmp(oid.p, oid_x25519, sizeof oid_x25519) != 0 ||
+        mbedtls_asn1_get_tag(&p, end, &n, MBEDTLS_ASN1_OCTET_STRING) != 0 ||
+        mbedtls_asn1_get_tag(&p, p + n, &n, MBEDTLS_ASN1_OCTET_STRING) != 0 ||
+        n != 32) {
+        return NULL;
+    }
+    return p;
 }
 
 /* What a failed read means. Allocation failure is itself; a key of a type
@@ -432,9 +560,10 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
     psa_key_id_t id = 0;
     uint8_t *copy = NULL;
     const uint8_t *src = in;
-    size_t src_len = len;
+    size_t src_len = len, pem_at = 0, pem_len = 0;
+    uint8_t given[32];
     zuc_status st;
-    int ret, is_pair = 0;
+    int ret, is_pair = 0, have_given = 0;
 
     if (out == NULL) {
         return ZUC_ERR_INVALID_ARGUMENT;
@@ -448,20 +577,20 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
     }
     /* The PK reader takes PEM as a NUL-terminated string whose length
      * includes the NUL, and refuses an embedded one. */
-    if (looks_like_pem(in, len)) {
-        if (memchr(in, 0, len) != NULL) {
+    if (pem_key_block(in, len, &pem_at, &pem_len)) {
+        if (memchr(in + pem_at, 0, pem_len) != NULL) {
             return ZUC_ERR_INVALID_ARGUMENT;
         }
         /* Through the backend's allocator, so that the residue scan sees
          * the copy freed (zuc_live.h): it holds the key's base64. */
-        copy = zuc_int_calloc(1, len + 1);
+        copy = zuc_int_calloc(1, pem_len + 1);
         if (copy == NULL) {
             return ZUC_ERR_MEMORY;
         }
-        memcpy(copy, in, len);
-        copy[len] = 0;
+        memcpy(copy, in + pem_at, pem_len);
+        copy[pem_len] = 0;
         src = copy;
-        src_len = len + 1;
+        src_len = pem_len + 1;
     }
 
     mbedtls_pk_init(&pk);
@@ -486,8 +615,30 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
         rsa_outside_rule(in, len, copy, private_key)) {
         ret = MBEDTLS_ERR_PK_FEATURE_UNAVAILABLE;
     }
+    /* An X25519 private key keeps the caller's scalar (#175), which the
+     * backend is about to clamp: read it from the PKCS#8 it came in. */
+    if (ret == 0 && is_pair && mbedtls_pk_get_bitlen(&pk) == 255) {
+        const uint8_t *scalar = NULL;
+        mbedtls_pem_context ctx;
+        size_t der_len = 0, used = 0;
+
+        mbedtls_pem_init(&ctx);
+        if (copy == NULL) {
+            scalar = x25519_pkcs8_scalar(in, len);
+        } else if (mbedtls_pem_read_buffer(&ctx, "-----BEGIN PRIVATE KEY-----",
+                                           "-----END PRIVATE KEY-----", copy,
+                                           NULL, 0, &used) == 0) {
+            const unsigned char *der = mbedtls_pem_get_buffer(&ctx, &der_len);
+            scalar = x25519_pkcs8_scalar(der, der_len);
+        }
+        if (scalar != NULL) {
+            memcpy(given, scalar, sizeof given);
+            have_given = 1;
+        }
+        mbedtls_pem_free(&ctx);
+    }
     /* Both accept NULL, which `copy` is for DER input. */
-    zuc_secure_zero(copy, len + 1);
+    zuc_secure_zero(copy, pem_len + 1);
     zuc_int_free(copy);
     if (ret != 0) {
         mbedtls_pk_free(&pk);
@@ -524,6 +675,7 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
     if (ret != 0) {
         mbedtls_pk_free(&pk);
         psa_reset_key_attributes(&attr);
+        zuc_secure_zero(given, sizeof given);
         /* A well-formed key the PK layer knows, of a type or curve this
          * build does not handle. */
         return ZUC_ERR_UNSUPPORTED;
@@ -534,6 +686,7 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
     mbedtls_pk_free(&pk);
     psa_reset_key_attributes(&attr);
     if (ret != 0) {
+        zuc_secure_zero(given, sizeof given);
         return ret == PSA_ERROR_INSUFFICIENT_MEMORY ? ZUC_ERR_MEMORY
                                                     : ZUC_ERR_INVALID_ARGUMENT;
     }
@@ -541,6 +694,10 @@ static zuc_status pkey_parse_impl(const uint8_t *in, size_t len, int private_key
      * backend exports just the public half of whatever was read. */
     st = pkey_from_psa(id, private_key && is_pair, out);
     psa_destroy_key(id);
+    if (st == ZUC_OK && have_given) {
+        x25519_keep_given(*out, given);
+    }
+    zuc_secure_zero(given, sizeof given);
     if (st == ZUC_OK && private_key && !(*out)->is_private) {
         zuc_pkey_free(*out);
         *out = NULL;
@@ -1347,6 +1504,9 @@ static zuc_status pkey_import_impl(zuc_alg type, int private_key,
     }
     st = pkey_from_psa(id, private_key, out);
     psa_destroy_key(id);
+    if (st == ZUC_OK && private_key && len == 32) {
+        x25519_keep_given(*out, data);
+    }
     return st;
 }
 
