@@ -80,7 +80,7 @@ not patched when the system is.</strong></p>
 <div class="section level2">
 <h2 id="what-is-in-the-package">What is in the package<a class="anchor" aria-label="anchor" href="#what-is-in-the-package"></a>
 </h2>
-<p>The backend is <strong>TF-PSA-Crypto 1.1.1</strong>, the Mbed TLS
+<p>The backend is <strong>TF-PSA-Crypto 1.1.2</strong>, the Mbed TLS
 project’s cryptography library. The 1.1 line is a long-term support
 branch, maintained with Mbed TLS 4.1 LTS until March 2029. No Mbed TLS
 file is vendored. In the 4.x architecture TF-PSA-Crypto <em>is</em> the
@@ -88,32 +88,32 @@ cryptography library; Mbed TLS adds only X.509 and TLS, and this package
 builds neither.</p>
 <p>It is not the whole library. Of upstream’s 77 buildable C sources,
 zucrypt compiles the <strong>43</strong> that contain code under its
-configuration, plus the headers those include: 153 files and about 3.9
+configuration, plus the headers those include: 153 files and about 3.8
 MB of source, including upstream’s <code>LICENSE</code>. The upstream
-archive is 55 MB unpacked, most of it tests.</p>
+archive is 46 MB unpacked, most of it tests.</p>
 <table class="table">
 <thead><tr class="header">
 <th></th>
-<th>Measured on macOS x86-64, R release, 2026-11-03</th>
+<th>Measured on macOS x86-64, R release, 2026-11-27</th>
 </tr></thead>
 <tbody>
 <tr class="odd">
 <td>Vendored tree</td>
-<td>153 files, 3.9 MB</td>
+<td>153 files, 3.8 MB</td>
 </tr>
 <tr class="even">
 <td>Source tarball</td>
-<td>854 KB</td>
+<td>1.1 MB</td>
 </tr>
 <tr class="odd">
 <td>Installed <code>zucrypt.so</code>
 </td>
-<td>656 KB</td>
+<td>445 KB</td>
 </tr>
 <tr class="even">
 <td>Installed <code>libzucrypt.a</code>
 </td>
-<td>1.6 MB</td>
+<td>1.5 MB</td>
 </tr>
 </tbody>
 </table>
@@ -278,6 +278,12 @@ mechanism. When the configuration was settled, a probe confirmed that
 MD5 and SHA-224 report “not supported” in the backend rather than
 working by accident, and the package’s tests confirm that any algorithm
 name it does not list is refused.</p>
+<p>Two upstream settings are left at their defaults on purpose.
+Upstream’s Spectre v1 countermeasures, new in 1.1.2, are on unless a
+build turns them off, and this one does not.
+<code>MBEDTLS_PK_DECRYPT_MAX_ITERATIONS</code>, also new, caps the
+PBKDF2 count when a password-encrypted key is read; it has no effect
+here, because reading such keys is not enabled.</p>
 <p><strong>Randomness.</strong> CBC and GCM take their IV or nonce from
 the caller, and <code><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes()</a></code> and the default GCM
 nonce read the operating system’s source directly. Key generation, PSS
@@ -311,7 +317,7 @@ compiled library, not from a file shipped beside it:</p>
 <span><span class="va">info</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_info.html">crypt_info</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">info</span><span class="op">$</span><span class="va">vendored</span></span>
 <span><span class="co">#&gt;          source version</span></span>
-<span><span class="co">#&gt; 1 TF-PSA-Crypto   1.1.1</span></span>
+<span><span class="co">#&gt; 1 TF-PSA-Crypto   1.1.2</span></span>
 <span><span class="va">info</span><span class="op">$</span><span class="va">build_flags</span></span>
 <span><span class="co">#&gt; $random_backend</span></span>
 <span><span class="co">#&gt; [1] "getrandom"</span></span>
@@ -357,7 +363,9 @@ keep list and the build’s object list disagree.</p>
 </h2>
 <p><code>src/vendor/</code> is never edited in place. Four changes are
 applied as patches from <code>tools/patches/tf-psa-crypto/</code>, each
-with its reason in its header:</p>
+with its reason in its header. All four were re-checked against 1.1.2:
+upstream has fixed none of them, and only <code>0002</code> needed
+refreshing, because a hunk’s context moved.</p>
 <ul>
 <li>
 <strong><code>0001-avoid-zero-size-pubkey-array.patch</code>.</strong>

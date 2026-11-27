@@ -237,7 +237,7 @@ draws them from the operating system’s cryptographic source:
 ``` r
 
 crypt_rand_bytes(16)
-#>  [1] 71 f6 7b b9 76 b6 15 44 5a 67 8e 5a 77 c5 80 dc
+#>  [1] f6 84 bc 16 23 16 48 79 97 c2 e2 2b 98 37 9f b7
 ```
 
 R’s own random number generator is not involved, so
@@ -268,11 +268,11 @@ nonce is drawn fresh for each message unless you supply one:
 key <- crypt_rand_bytes(32)
 sealed <- crypt_aes_gcm_encrypt(charToRaw("meet at noon"), key)
 sealed
-#>  [1] 49 7e 95 cf ab 5c 1a 5a 79 ea 19 86
+#>  [1] 38 cb ef 7b 33 06 e1 aa 13 4d d0 40
 #> attr(,"iv")
-#>  [1] c0 ac 83 23 88 a7 4a c3 e8 5e 5e 4a
+#>  [1] b9 56 ec 40 72 29 5b 6a 4f f9 6e 1f
 #> attr(,"tag")
-#>  [1] ed 22 f4 83 f0 dc 38 b3 70 bc 87 75 ce 5b b4 79
+#>  [1] 7e 05 19 09 59 cf b1 8e 10 0d 73 bd 1b c4 1e b5
 ```
 
 [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
@@ -351,7 +351,7 @@ str(crypt_info())
 #>  $ algorithms : chr [1:4] "sha1" "sha256" "sha384" "sha512"
 #>  $ vendored   :'data.frame': 1 obs. of  2 variables:
 #>   ..$ source : chr "TF-PSA-Crypto"
-#>   ..$ version: chr "1.1.1"
+#>   ..$ version: chr "1.1.2"
 #>  $ build_flags:List of 3
 #>   ..$ random_backend       : chr "getrandom"
 #>   ..$ aes_implementation   : chr "aesni"
@@ -377,13 +377,13 @@ key
 #> [2048-bit rsa private key]
 cat(crypt_write_pem(key$pubkey))
 #> -----BEGIN PUBLIC KEY-----
-#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsez2cQoTCwxgRcMAJ6Xo
-#> JUevzW8HZQR2QNybLVRWONDdHXI0FOcGVSweY3PTaU3CyUX64aYdQUMiAcqnfm7v
-#> mdnD3MbA7y4uKlR3n2MC1t9LRQNWzHUMUqVcYuwCHvNwZJ6f5sgjMBcomT05xa4n
-#> wB+60SCW6GU/pEZgeeE3/+1RByGmOYjKUW3tGWJE5EuG7a3Rj7w2s9aPtQ4AuA6u
-#> T1q+hG5NPbNO8lGDSqLWrvNlMZB6Y1qgE0sHP+j+dO/PMPxqxf9EEn/9aSqZQRXg
-#> qoBNIMeXZvhJGN4wkGZtizTGuXiehVNnYGWbtj4rfUHzN8MyCw7+Sd0vKenNPoFc
-#> HQIDAQAB
+#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxXuyrWLw91dIqwwRMloy
+#> yB5Yd7WgbBRKk/BYLQYaZ2k4a/1HhzjjEy2mlwaYy5ZiCXndimEsrItFt/yduqSH
+#> jBbiETzf/Qz649Mh+zXu08jz1kQ+Pjc+pVpYSc9gsxTE5y1o5YO0bdNfPomC7A5O
+#> 6FdI7eWGsFSo7roreqzojStLAuC/KNC0sNbTmQ1Ao1v8MXoFk/Mqxj9PHHXOWCOi
+#> GRgR3MFgAfOsMn5YfuwxR9+6Ou11k3g0DMjFeST7tZpJuBOCnWQFvDiyMHgg8dDY
+#> ehJ4IWWA1yLVi775rG1LixTf0Diqm3A6/L9maE4b6GVHEkFK+KAsHoaDp9ilRUjz
+#> hQIDAQAB
 #> -----END PUBLIC KEY-----
 ```
 

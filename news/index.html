@@ -89,7 +89,15 @@
 </ul></div>
 <div class="section level3">
 <h3 id="backend-development-version">Backend<a class="anchor" aria-label="anchor" href="#backend-development-version"></a></h3>
-<ul><li>
+<ul><li>The vendored TF-PSA-Crypto is updated from 1.1.1 to 1.1.2 (<a href="https://github.com/pedrobtz/zucrypt/issues/173" class="external-link">#173</a>), a security release on the 1.1 LTS line. It fixes, in code zucrypt compiles:
+<ul><li>Spectre v1 side channels in hardware AES and GCM, which a powerful local attacker could use to recover part of a key or plaintext through the software fallback executed speculatively (CVE-2026-115493);</li>
+<li>in the cipher module (CVE-2026-93833), in ECDSA signing, which may leak the private key (CVE-2026-93835), and in PSA ECC operations (CVE-2026-93842);</li>
+<li>a shared secret left unwiped on the stack by <code>psa_key_agreement()</code>;</li>
+<li>the public half of an RSA key not being set when it was read from PKCS#8;</li>
+<li>wrong SHA-1 and SHA-256 digests for a single update of 4 GiB or more on 64-bit platforms. The R functions feed the backend 1 MiB at a time, but a C caller of <code>zuc_hash_compute()</code> with that much data was affected.</li>
+</ul>
+The release’s other advisories do not apply to this build: the p256-m driver (CVE-2026-93845) and PKCS#5 and PKCS#12 decryption (CVE-2026-50582) are not compiled, and the ROM-table timing issue (CVE-2026-115492) needs <code>MBEDTLS_AES_ROM_TABLES</code>, which is not set. The trim is unchanged at 153 files. The four local patches are all still needed, and <code>0002</code> was refreshed for moved context.</li>
+<li>
 <code>PSA_WANT_ALG_GCM</code> and <code>PSA_WANT_ALG_PBKDF2_HMAC</code> are enabled. Re-deriving the trim added two upstream sources, <code>gcm.c</code> and <code>psa_crypto_aead.c</code>, and no header: 115 vendored files. Measured on macOS x86-64, the source tarball grew from 548 KB to 580 KB, <code>zucrypt.so</code> from 162 KB to 188 KB, and <code>libzucrypt.a</code> from 518 KB to 632 KB.</li>
 <li>RSA and the PK, PEM, ASN.1 and Base64 modules are enabled. The trim adds 15 upstream sources and 14 headers: 144 vendored files, 37 compiled. Measured on macOS x86-64, the source tarball grew to 730 KB, <code>zucrypt.so</code> to 536 KB and <code>libzucrypt.a</code> to 1.3 MB.</li>
 <li>The NIST curves, Curve25519, ECDSA (with RFC 6979) and ECDH are enabled: 6 more upstream sources and 3 headers, 153 vendored files, 43 compiled. The source tarball is 854 KB, <code>zucrypt.so</code> 656 KB and <code>libzucrypt.a</code> 1.6 MB on macOS x86-64. <code>tools/make-ec-kat.py</code> extracts the RFC 6979, RFC 7748, RFC 5903 and RFC 7515 vectors and checks them against Python’s <code>cryptography</code>. The allocation sweep’s window holds deterministic ECDSA and X25519, about 10,000 of its 13,000 positions.</li>
