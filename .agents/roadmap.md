@@ -127,7 +127,7 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 15a — RSA and key I/O | v0.1.1 | #80 | Stage 14a | **done**, 2026-11-03 |
 | 15b — Tranche 3: the rest | v0.4.0 | new | Stage 15a | |
 | 16a — EC keys, ECDSA, ECDH, X25519 | v0.1.1 | #81 | Stage 15a | **done**, 2026-11-03 |
-| R1 — Test gaps in the new key code (#166) | v0.1.1 | #126, #127, #128, #129, #116, #174 | Stage 16a | **done**, 2026-11-27, PR_PLACEHOLDER |
+| R1 — Test gaps in the new key code (#166) | v0.1.1 | #126, #127, #128, #129, #116, #174 | Stage 16a | **done**, 2026-11-27, [#176](https://github.com/pedrobtz/zucrypt/pull/176) |
 | R2 — Documentation and CI fixes (#167) | v0.1.1 | #112, #118, #146 | — | |
 | R3 — v0.1.1 review and CRAN (#168) | v0.1.1 | — | Stages R1 and R2; CRAN cadence (#79) | |
 | 17 — Tranche 5: certificates | v0.6.0 | new | Stage 16 | |
