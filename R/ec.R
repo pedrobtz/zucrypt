@@ -101,9 +101,14 @@ import_key <- function(type, private, data, call) {
     if (identical(name, "ZUC_ERR_INVALID_ARGUMENT")) {
       zucrypt_abort(
         "zucrypt_invalid_argument",
-        sprintf(paste0("The %s key material is not valid: a point not on ",
-                       "the curve, a scalar out of range, or the wrong ",
-                       "length."), type),
+        sprintf(
+          paste0(
+            "The %s key material is not valid: a point not on ",
+            "the curve, a scalar out of range, or the wrong ",
+            "length."
+          ),
+          type
+        ),
         algorithm = type,
         call = call
       )
@@ -140,7 +145,9 @@ fixed_width <- function(x, n, arg, type, call) {
 #' @export
 crypt_ec_keygen <- function(curve = c("P-256", "P-384", "P-521")) {
   call <- sys.call()
-  if (missing(curve)) curve <- "P-256"
+  if (missing(curve)) {
+    curve <- "P-256"
+  }
   generate_key(curve_type(curve, call), call)
 }
 
@@ -177,13 +184,17 @@ ec_as_list <- function(x, info, call) {
   } else {
     n <- curve_bytes[[info$type]]
     point <- export_key(x, TRUE, call)
-    data <- list(curve = curve_names[[info$type]],
-                 x = point[1L + seq_len(n)],
-                 y = point[1L + n + seq_len(n)])
+    data <- list(
+      curve = curve_names[[info$type]],
+      x = point[1L + seq_len(n)],
+      y = point[1L + n + seq_len(n)]
+    )
     if (priv) data$secret <- export_key(x, FALSE, call)
   }
   out <- list(type = key_type_name(info$type), size = info$bits)
-  if (priv) out$pubkey <- public_of(x, call)
+  if (priv) {
+    out$pubkey <- public_of(x, call)
+  }
   out$data <- data
   out
 }
@@ -195,8 +206,10 @@ agree <- function(key, peer, call) {
     if (identical(name, "ZUC_ERR_INVALID_ARGUMENT")) {
       zucrypt_abort(
         "zucrypt_invalid_argument",
-        paste0("Key agreement needs a private key and a peer on the same ",
-               "curve, and a peer point that yields a usable secret."),
+        paste0(
+          "Key agreement needs a private key and a peer on the same ",
+          "curve, and a peer point that yields a usable secret."
+        ),
         call = call
       )
     }
@@ -293,8 +306,13 @@ crypt_ecdsa_write <- function(r, s) {
 # that does not verify.
 ecdsa_raw <- function(sig, n) {
   v <- tryCatch(der_integers(sig), error = function(e) NULL)
-  if (is.null(v) || length(v) != 2L || !length(sig) ||
-        sig[[1]] != as.raw(0x30) || any(lengths(v) > n)) {
+  if (
+    is.null(v) ||
+      length(v) != 2L ||
+      !length(sig) ||
+      sig[[1]] != as.raw(0x30) ||
+      any(lengths(v) > n)
+  ) {
     return(NULL)
   }
   if (!identical(crypt_ecdsa_write(v[[1]], v[[2]]), sig)) {

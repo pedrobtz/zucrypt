@@ -75,6 +75,11 @@ rsa.tsv	rsa-limit-oaep-sha384-157	Python cryptography 50.0.2, generated: a 157-b
 rsa.tsv	rsa-limit-oaep-sha384-158	Python cryptography 50.0.2, generated: a 158-byte message, at the oaep-sha384 limit (#102)	tools/make-rsa-kat.py
 rsa.tsv	rsa-limit-oaep-sha512-125	Python cryptography 50.0.2, generated: a 125-byte message, one byte under the oaep-sha512 limit (#102)	tools/make-rsa-kat.py
 rsa.tsv	rsa-limit-oaep-sha512-126	Python cryptography 50.0.2, generated: a 126-byte message, at the oaep-sha512 limit (#102)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-pss-sha256-salt-0	Python cryptography 50.0.2, generated: a PSS signature with a 0-byte salt, which zucrypt refuses (#181)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-pss-sha256-salt-31	Python cryptography 50.0.2, generated: a PSS signature with a 31-byte salt, which zucrypt refuses (#181)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-pss-sha256-salt-32	Python cryptography 50.0.2, generated: a PSS signature with a 32-byte salt, which zucrypt verifies (#181)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-pss-sha256-salt-33	Python cryptography 50.0.2, generated: a PSS signature with a 33-byte salt, which zucrypt refuses (#181)	tools/make-rsa-kat.py
+rsa.tsv	rsa-limit-pss-sha256-salt-222	Python cryptography 50.0.2, generated: a PSS signature with a 222-byte salt, which zucrypt refuses (#181)	tools/make-rsa-kat.py
 ec-keys.tsv	rfc6979-p256	RFC 6979 A.2.5, SHA-1, message sample	tools/make-ec-kat.py
 ec-keys.tsv	rfc6979-p384	RFC 6979 A.2.6, SHA-1, message sample	tools/make-ec-kat.py
 ec-keys.tsv	rfc6979-p521	RFC 6979 A.2.7, SHA-1, message sample	tools/make-ec-kat.py

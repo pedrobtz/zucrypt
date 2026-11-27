@@ -95,6 +95,23 @@ native_random_enosys <- function(on) {
 native_random_fail <- function(on) {
   invisible(.Call(zucrypt:::zucrypt_test_random_fail, isTRUE(on)))
 }
+# Must this build draw from getrandom()? src/zuc_random.c selects it on
+# glibc 2.25 and later, which every glibc Linux R runs on; a regression in
+# that chain would otherwise make the getrandom tests skip and stay green
+# (#187). ZUCRYPT_EXPECT_RANDOM names the backend a CI leg must report,
+# overriding the guess; CRAN's machines are left to the guess's skip.
+expected_random_backend <- function() {
+  set <- Sys.getenv("ZUCRYPT_EXPECT_RANDOM", "")
+  if (nzchar(set)) {
+    return(set)
+  }
+  if (identical(R.version$os, "linux-gnu") &&
+      !identical(Sys.getenv("NOT_CRAN"), "") &&
+      !identical(tolower(Sys.getenv("NOT_CRAN")), "false")) {
+    return("getrandom")
+  }
+  ""
+}
 native_random_script <- function(steps, len = 64L) {
   .Call(zucrypt:::zucrypt_test_random_script, as.character(steps),
         as.integer(len))

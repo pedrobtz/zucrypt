@@ -37,6 +37,24 @@ case "$(uname -m)" in
   *)             expect_aes=aesni ;;
 esac
 
+# The random source src/zuc_random.c must select on this OS (#187): the
+# suite's getrandom tests cannot then skip where getrandom() is the source.
+case "$os" in
+  macos)   expect_random=arc4random_buf ;;
+  windows) expect_random=rand_s ;;
+  ubuntu)  expect_random=getrandom ;;
+esac
+export ZUCRYPT_EXPECT_RANDOM=$expect_random
+
+# The adapter's C driver (#183), every allocation-failure sweep complete;
+# its Linux leg is fuzz.yaml's replay job. Not on Windows: ctest/Makefile is
+# GNU make over a POSIX toolchain, and the Windows leg builds the adapter
+# through R CMD INSTALL and the suite instead.
+if [ "$os" != windows ]; then
+  step "ctest: the C driver"
+  ZUC_CTEST_FULL=1 make -C ctest run
+fi
+
 # abi.yaml: the public headers compile standalone (it ran on macOS and
 # Linux; Linux stays there).
 if [ "$os" = macos ]; then

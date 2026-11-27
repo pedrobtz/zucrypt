@@ -91,7 +91,6 @@ carries them, and \code{as.list()} takes one apart again.
 
 A key object is an external pointer to key material held in C, and the
 material of a private key is wiped when the object is garbage collected.
-Key objects do not survive \code{\link[=saveRDS]{saveRDS()}}; save the PEM instead.
 }
 \section{Errors}{
 

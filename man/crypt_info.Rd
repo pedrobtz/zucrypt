@@ -22,7 +22,8 @@ operating-system random source compiled in; \code{aes_implementation},
 which AES this machine runs -- \code{"aesni"} or \code{"aesce"} on a CPU with
 AES instructions, \code{"software"} otherwise, decided at run time; and
 \code{hardware_acceleration}, \code{TRUE} when that is a hardware path. See
-the "Side channels" section of \link{crypt_aes_cbc_nopad} for why it matters.}
+the "Side channels" section of \link{crypt_aes_cbc_nopad} for why it
+matters.}
 }
 }
 \description{

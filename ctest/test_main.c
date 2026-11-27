@@ -982,6 +982,15 @@ static void test_rsa(void)
                                       sizeof out, &len),
                    ZUC_ERR_INVALID_ARGUMENT);
             }
+            if (strcmp(op, "refuse") == 0) {
+                /* A valid PSS signature whose salt is not the digest's
+                 * length: refused, by either half (#181). */
+                ST(zuc_pkey_verify_hash(pub, sch, hash, digest, dlen, want,
+                                        want_len), ZUC_ERR_AUTH);
+                ST(zuc_pkey_verify_hash(key, sch, hash, digest, dlen, want,
+                                        want_len), ZUC_ERR_AUTH);
+                goto next;
+            }
             ST(zuc_pkey_verify_hash(pub, sch, hash, digest, dlen, want,
                                     want_len), ZUC_OK);
             ST(zuc_pkey_verify_hash(key, sch, hash, digest, dlen, want,
@@ -1510,42 +1519,15 @@ static void test_ec_encodings(void)
         uint8_t *want = unhex(get(&t, r, "encoding"), &want_len);
         zuc_pkey *priv = ec_key(&keys, kid, 1), *pub = ec_key(&keys, kid, 0);
         zuc_pkey *read = NULL, *half = NULL;
-        uint8_t *x_der = NULL;
         const uint8_t *exp;
-        size_t x_n = 0, exp_len;
+        size_t exp_len;
 
         context = get(&t, r, "id");
         if (priv == NULL || pub == NULL) goto next;
-        /* X25519 private keys are written with the scalar clamped (RFC 7748
-         * section 5), OpenSSL's as given: #175. Until that is fixed the
-         * comparison is with OpenSSL's encoding of the clamped scalar,
-         * which is the same DER structure; for PEM, the DER row put in PEM
-         * here, after checking that doing so gives OpenSSL's PEM. */
-        x_der = NULL;
-        if (is_private && zuc_pkey_type(priv) == ZUC_ALG_X25519) {
-            char id[64];
-            size_t dn, pn;
-            uint8_t *d;
-            char *p;
-            snprintf(id, sizeof id, "%s-pkcs8-der", kid);
-            d = unhex(get(&t, find_row(&t, id), "encoding"), &dn);
-            if (f == ZUC_PKEY_INFO_PEM) {
-                p = pem_wrap("PRIVATE KEY", d, dn, &pn);
-                CHECK(pn == want_len && memcmp(p, want, pn) == 0,
-                      "pem_wrap() is not OpenSSL's PEM");
-                free(p);
-            }
-            d[dn - 32] &= 248;
-            d[dn - 1] = (uint8_t) ((d[dn - 1] & 127) | 64);
-            x_der = d;
-            x_n = dn;
-            if (f == ZUC_PKEY_INFO_PEM) {
-                x_der = (uint8_t *) pem_wrap("PRIVATE KEY", d, dn, &x_n);
-                free(d);
-            }
-        }
-        exp = x_der != NULL ? x_der : want;
-        exp_len = x_der != NULL ? x_n : want_len;
+        /* X25519 private keys too: the caller's scalar as given, not
+         * clamped (#175). */
+        exp = want;
+        exp_len = want_len;
         /* Written as OpenSSL writes it: each private encoding from the
          * private key, SubjectPublicKeyInfo from either half. */
         if (is_private) {
@@ -1605,7 +1587,6 @@ static void test_ec_encodings(void)
         zuc_pkey_free(priv);
         zuc_pkey_free(pub);
         free(want);
-        free(x_der);
     }
 
     /* X25519 has no SEC1 form; and a format outside the enumeration is a
@@ -1807,6 +1788,53 @@ static void test_pkey_reader(void)
         memcpy(buf, pem, pem_n);
         buf[40] = 0;
         ST(zuc_pkey_parse(buf, pem_n, 1, &key), ZUC_ERR_INVALID_ARGUMENT);
+    }
+    /* The first key block is read, after any text, whatever the labels of
+     * later blocks (#180): a PRIVATE KEY block before an RSA PRIVATE KEY
+     * one, which the backend's reader ranks first. */
+    context = "pem first block";
+    {
+        static uint8_t p8[ZUC_PKEY_MAX_WRITE_SIZE];
+        static const char text[] = "Bag Attributes\n  localKeyID: 01\n";
+        size_t p8_n = 0, b_der_n, b_pem_n, p8_pem_n, n = 0;
+        uint8_t *b_der = rsa_der(&rk, "rfc7516-a1", &b_der_n);
+        char *b_pem = pem_wrap("RSA PRIVATE KEY", b_der, b_der_n, &b_pem_n);
+        char *p8_pem;
+        uint8_t *bundle;
+        zuc_pkey *a = NULL;
+
+        ST(zuc_pkey_parse(der, der_n, 1, &a), ZUC_OK);
+        ST(zuc_pkey_write(a, ZUC_PKEY_INFO_DER, 0, p8, sizeof p8, &p8_n),
+           ZUC_OK);
+        p8_pem = pem_wrap("PRIVATE KEY", p8, p8_n, &p8_pem_n);
+        bundle = malloc(sizeof text + p8_pem_n + b_pem_n);
+        if (bundle != NULL && p8_pem != NULL && b_pem != NULL) {
+            memcpy(bundle, text, sizeof text - 1);
+            n = sizeof text - 1;
+            memcpy(bundle + n, p8_pem, p8_pem_n);
+            n += p8_pem_n;
+            memcpy(bundle + n, b_pem, b_pem_n);
+            n += b_pem_n;
+            for (i = 0; i < 2; i++) {
+                key = NULL;
+                ST(zuc_pkey_parse(bundle, n, (int) i, &key), ZUC_OK);
+                if (key != NULL) {
+                    ST(zuc_pkey_write(key, ZUC_PKEY_PKCS1_DER, 1, buf,
+                                      sizeof buf, &len), ZUC_OK);
+                }
+                zuc_pkey_free(key);
+                key = NULL;
+                ST(zuc_pkey_write(a, ZUC_PKEY_PKCS1_DER, 1, p8, sizeof p8,
+                                  &p8_n), ZUC_OK);
+                CHECK(len == p8_n && memcmp(buf, p8, len) == 0,
+                      "reader %zu read the first block's key", i);
+            }
+        }
+        free(bundle);
+        free(p8_pem);
+        free(b_pem);
+        free(b_der);
+        zuc_pkey_free(a);
     }
     /* The reader's NUL-terminated copy of PEM input holds the key's base64:
      * it is wiped before it is freed (zuc_live.h's residue scan). */

@@ -1,4 +1,10 @@
-# zucrypt (development version)
+# zucrypt 0.1.1
+
+Additions only, for `zujwt`: randomness, AES-GCM, PBKDF2, RSA and key I/O,
+EC keys, ECDSA, ECDH and X25519, in an `openssl`-shaped layer. Each C
+function is appended to the archive and the registered table: ABI 1 is
+unchanged, so a package linking `libzucrypt.a`, such as `zuxlsx`, needs no
+change. The bundled TF-PSA-Crypto is updated to 1.1.2, a security release.
 
 ## R interface
 
@@ -41,7 +47,8 @@
   on P-256, P-384 and P-521, in DER, with `deterministic = TRUE` for RFC
   6979. `crypt_ec_key()` and `as.list()` build an EC key from its
   coordinates and take it apart. EC and X25519 keys are read and written in
-  every encoding `openssl` uses, byte for byte. Points off the curve, peers
+  every encoding `openssl` uses, byte for byte, an X25519 private key with
+  the bytes it was read from. Points off the curve, peers
   on another curve and all-zero X25519 secrets are refused. There is no
   Ed25519.
 
@@ -97,17 +104,56 @@
   unloaded library (#144). `.onUnload()` now finalizes every live object
   first; one that outlives the unload is refused as no longer valid.
 
-* `crypt_rand_bytes()`, key generation and randomised signing failed with
-  `zucrypt_entropy_error` on Linux when the kernel refuses `getrandom()`: a
-  kernel before 3.17 under a recent glibc, as in a current container on an
-  old host, or a seccomp filter (#144). They now read `/dev/urandom` instead,
-  and `crypt_info()$build_flags$random_backend` says so.
-
 * On 64-bit Arm under systems other than Linux and macOS (FreeBSD, Windows),
   AES is built with the software implementation (#144). The hardware path
   is detected at run time only on Linux upstream, and assumed elsewhere, so
   a CPU without the Cryptography Extension would have failed on its first
   AES operation.
+
+* `crypt_equal()` and the AES-CBC functions read past the end of a buffer
+  when given a classed raw vector whose `length()` method misreports its
+  length: `crypt_equal()` could answer `TRUE` wrongly or crash R, and a
+  1-byte IV was read as 16 (#106). The native code now checks every length,
+  number, name and flag it relies on, rather than trusting R's checks; a
+  logical `NA` reaching it is an error rather than `FALSE` (#107).
+
+* `crypt_signature_create()` and `crypt_signature_verify()` given a
+  non-blocking connection whose data had not all arrived signed or verified
+  the part received so far, as if it were the whole (#145). Every function
+  that reads a connection (`crypt_hash()`, `crypt_hmac()`,
+  `crypt_read_key()`, `crypt_read_pubkey()`, and the signature functions'
+  `data` and `sig`) now goes through one reader, which refuses such a
+  connection with `zucrypt_connection_error`, refuses a text-mode one with
+  `zucrypt_invalid_argument`, and reports a connection or file that cannot
+  be opened, or a directory given as a key path, as a zucrypt condition
+  rather than R's own error. A key file is read to its end rather than to
+  the size it had when the read began.
+
+* C interface: a `zuc_hash`, `zuc_hmac` or `zuc_aes` handle kept across the
+  last `zuc_shutdown()` returns `ZUC_ERR_NOT_READY` after a later
+  `zuc_init()`, and its free leaves the key store alone (#92). Before, the
+  new backend could give its key id to a new handle, and the old handle
+  then encrypted under the new handle's key, returning `ZUC_OK`, and its
+  free destroyed that key.
+
+* C interface: `zuc_aes_cbc_set_state()` and `zuc_aes_cbc_get_state()` on a
+  handle kept across the last `zuc_shutdown()` returned `ZUC_OK` rather
+  than `ZUC_ERR_NOT_READY` (#142).
+
+* C interface: a digest or HMAC update that fails in the backend ends the
+  operation until reset, as a finish does (#108). The handle had stayed
+  "active", and an empty update on it reported success.
+
+## Fixed before release, in the functions new here
+
+Found by the reviews, fuzzing and tests of the additions above, before any
+of them was on CRAN.
+
+* `crypt_rand_bytes()`, key generation and randomised signing failed with
+  `zucrypt_entropy_error` on Linux when the kernel refuses `getrandom()`: a
+  kernel before 3.17 under a recent glibc, as in a current container on an
+  old host, or a seccomp filter (#144). They now read `/dev/urandom` instead,
+  and `crypt_info()$build_flags$random_backend` says so.
 
 * A condition about a key now carries that key's type in its `algorithm`
   field (`"rsa"`, `"p256"`, `"p384"`, `"p521"` or `"x25519"`), and `NA` when
@@ -117,13 +163,11 @@
   argument and the function called, rather than as a bad `file` to
   `crypt_read_key()`.
 
-* C interface: three places where the adapter broke a promise of
+* C interface: two places where the adapter broke a promise of
   `zucrypt.h` (#142). `zuc_pkey_write()` refused a PEM encoding written
   into a buffer of exactly its length, and wrote a NUL past it into a
   larger one; it now needs exactly the length it reports and writes
-  nothing more. `zuc_aes_cbc_set_state()` and `zuc_aes_cbc_get_state()`
-  on a handle kept across the last `zuc_shutdown()` returned `ZUC_OK`
-  rather than `ZUC_ERR_NOT_READY`. `zuc_pkey_decrypt()` and
+  nothing more. `zuc_pkey_decrypt()` and
   `zuc_pkey_agree()` left the output buffer as it was when they refused an
   argument (a public key, an unsupported scheme, a peer on another curve),
   rather than zeroing it. The R functions were not affected.
@@ -162,47 +206,40 @@
   output zeroed part of the caller's ciphertext. The R functions were not
   affected: they never share buffers.
 
-* `crypt_signature_create()` and `crypt_signature_verify()` given a
-  non-blocking connection whose data had not all arrived signed or verified
-  the part received so far, as if it were the whole (#145). Every function
-  that reads a connection (`crypt_hash()`, `crypt_hmac()`,
-  `crypt_read_key()`, `crypt_read_pubkey()`, and the signature functions'
-  `data` and `sig`) now goes through one reader, which refuses such a
-  connection with `zucrypt_connection_error`, refuses a text-mode one with
-  `zucrypt_invalid_argument`, and reports a connection or file that cannot
-  be opened, or a directory given as a key path, as a zucrypt condition
-  rather than R's own error. A key file is read to its end rather than to
-  the size it had when the read began.
-
-* `crypt_equal()` and the AES-CBC functions read past the end of a buffer
-  when given a classed raw vector whose `length()` method misreports its
-  length: `crypt_equal()` could answer `TRUE` wrongly or crash R, and a
-  1-byte IV was read as 16 (#106). The native code now checks every length,
-  number, name and flag it relies on, rather than trusting R's checks; a
-  logical `NA` reaching it is an error rather than `FALSE` (#107).
 * `crypt_ecdsa_parse()` reads strict DER (#91). It accepted a SEQUENCE or
   INTEGER whose length ran past the input, padding a truncated INTEGER with
   invented zero bytes, and negative and non-minimal INTEGERs. It now refuses
   them, and bytes after the signature too, which `openssl::ecdsa_parse()`
   ignores. Signature verification was not affected.
+
 * An RSA key over 4096 bits, the bundled library's limit, is
   `zucrypt_unsupported_algorithm` from both `crypt_read_key()` and
   `crypt_read_pubkey()`, in every encoding, and the message names the limit
   (#93). A public key was reported as "not a key", and a private key in DER
   depended on its encoding.
-* C interface: a `zuc_hash`, `zuc_hmac` or `zuc_aes` handle kept across the
-  last `zuc_shutdown()` returns `ZUC_ERR_NOT_READY` after a later
-  `zuc_init()`, and its free leaves the key store alone (#92). Before, the
-  new backend could give its key id to a new handle, and the old handle
-  then encrypted under the new handle's key, returning `ZUC_OK`, and its
-  free destroyed that key.
-* C interface: a digest or HMAC update that fails in the backend ends the
-  operation until reset, as a finish does (#108). The handle had stayed
-  "active", and an empty update on it reported success.
+
 * C interface: `zuc_aead_decrypt()` zeroes the output on every
   `ZUC_ERR_AUTH`, including a tag of the wrong length, which is refused
   before the backend runs and used to leave the buffer as it was. Found by
   the new GCM fuzz target's oracle.
+
+* PEM input gives its first key block, as `openssl` reads it (#180). A file
+  holding several keys gave whichever block the bundled library's search
+  ranked first -- a later `RSA PRIVATE KEY` or `EC PRIVATE KEY` block over a
+  first `PRIVATE KEY` -- so a signature could be checked against a key other
+  than the one `openssl` would use. Text before the block, as `openssl
+  pkcs12 -nodes` writes ("Bag Attributes"), was refused; it is now passed
+  over, as are blocks with other labels (`EC PARAMETERS`).
+
+* An X25519 private key is written with the 32 bytes it was read from
+  (#175). They were written clamped (RFC 7748 section 5), so a key did not
+  round-trip, `as.list(key)$data$d` and the encodings differed from
+  `openssl`'s for any key not already clamped, though every shared secret
+  was right. Keys from `crypt_x25519_keygen()` were not affected.
+
+* `?crypt_rsa_crypto` stated the PSS salt rule loosely (#181): the salt is
+  the digest's length, or the most that fits in a key too small for that,
+  and verification requires exactly that length.
 
 ## Backend
 
@@ -227,32 +264,27 @@
   `MBEDTLS_AES_ROM_TABLES`, which is not set. The trim is unchanged at 153
   files. The four local patches are all still needed, and `0002` was
   refreshed for moved context.
-* `PSA_WANT_ALG_GCM` and `PSA_WANT_ALG_PBKDF2_HMAC` are enabled. Re-deriving
-  the trim added two upstream sources, `gcm.c` and `psa_crypto_aead.c`, and
-  no header: 115 vendored files. Measured on macOS x86-64, the source tarball
-  grew from 548 KB to 580 KB, `zucrypt.so` from 162 KB to 188 KB, and
-  `libzucrypt.a` from 518 KB to 632 KB.
-* RSA and the PK, PEM, ASN.1 and Base64 modules are enabled. The trim adds
-  15 upstream sources and 14 headers: 144 vendored files, 37 compiled.
-  Measured on macOS x86-64, the source tarball grew to 730 KB, `zucrypt.so`
-  to 536 KB and `libzucrypt.a` to 1.3 MB.
-* The NIST curves, Curve25519, ECDSA (with RFC 6979) and ECDH are enabled:
-  6 more upstream sources and 3 headers, 153 vendored files, 43 compiled.
-  The source tarball is 854 KB, `zucrypt.so` 656 KB and `libzucrypt.a`
-  1.6 MB on macOS x86-64. `tools/make-ec-kat.py` extracts the RFC 6979, RFC
-  7748, RFC 5903 and RFC 7515 vectors and checks them against Python's
-  `cryptography`. The allocation sweep's window holds deterministic ECDSA
-  and X25519, about 10,000 of its 13,000 positions.
+
+* Enabled for the new functions: GCM, PBKDF2-HMAC, RSA, the PK, PEM, ASN.1
+  and Base64 modules, the NIST curves P-256, P-384 and P-521, Curve25519,
+  ECDSA (with RFC 6979) and ECDH. The trim grew from 113 vendored files to
+  153, 43 of them compiled. Measured on macOS x86-64 from the 0.1.1 tarball,
+  the tarball is 1.1 MB, and the installed `zucrypt.so` 448 KB and
+  `libzucrypt.a` 1.5 MB.
+
 * The backend allocates through `zuc_int_calloc()`, which records a failed
   allocation. The RSA functions report any failure that followed one as
   `ZUC_ERR_MEMORY`: inside bignum and ASN.1 code an allocation failure
   otherwise surfaced as an invalid key, a bad argument or an RNG failure.
+
 * `tools/make-rsa-kat.py` extracts the RFC 7515 A.2 and RFC 7516 A.1 and A.2
   vectors and generates PSS and OAEP ones, and checks them all against
   Python's `cryptography`; the tests cross-verify with `openssl` 2.4.2.
+
 * The AEAD and KDF vectors are checked outside the package by
   `tools/check-kat.py`, against Python's `cryptography` and `hashlib`, and
   `tools/make-kat.R --check` compares the GCM ciphertexts with `openssl`.
+
 * On glibc, a `getrandom()` call interrupted by a signal is retried instead
   of being reported as an entropy failure.
 

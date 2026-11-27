@@ -11,8 +11,12 @@
 #' signed, so `hash = crypt_sha256` gives an RSA-SHA256 signature. With
 #' `hash = NULL`, `data` must already be a SHA-1 or SHA-2 digest. PKCS#1
 #' v1.5 signatures are deterministic. PSS signatures (`pss = TRUE`, RFC 8017
-#' section 8.1) are randomised, use MGF1 with the same digest, and a salt as
-#' long as the digest; verification requires that salt length.
+#' section 8.1) are randomised and use MGF1 with the same digest. The salt is
+#' as long as the digest, or as long as fits when the key is too small for
+#' that (a 1024-bit key with SHA-512 takes 62 bytes). Verification requires
+#' that same length: a PSS signature with any other salt, such as the
+#' longest that fits (`PSS.MAX_LENGTH` in Python's `cryptography`), is
+#' refused.
 #'
 #' With a key on P-256, P-384 or P-521 the signature is ECDSA, encoded in DER
 #' as openssl encodes it; [crypt_ecdsa_parse()] gives its `r` and `s`.
@@ -48,8 +52,9 @@
 #' @param oaep_hash The OAEP digest: `"sha1"` (the default), `"sha256"`,
 #'   `"sha384"` or `"sha512"`. Ignored unless `oaep = TRUE`.
 #'
-#' @return `crypt_signature_create()` returns the signature, a raw vector as
-#'   long as the modulus. `crypt_signature_verify()` returns `TRUE`, or
+#' @return `crypt_signature_create()` returns the signature, a raw vector:
+#'   as long as the modulus for RSA, and DER of varying length for ECDSA.
+#'   `crypt_signature_verify()` returns `TRUE`, or
 #'   signals `zucrypt_auth_error`. `crypt_rsa_encrypt()` returns the
 #'   ciphertext and `crypt_rsa_decrypt()` the plaintext, as raw vectors.
 #'
@@ -59,9 +64,10 @@
 #' key is `zucrypt_bad_length`.
 #'
 #' @section Compared with openssl:
-#' `pss`, `deterministic` and `oaep_hash` are additions. There is no default key: openssl
-#' reads `~/.ssh`. PKCS#1 v1.5 decryption of an invalid ciphertext is an
-#' error here; OpenSSL 3 returns random bytes instead (implicit rejection).
+#' `pss`, `deterministic` and `oaep_hash` are additions. There is no default
+#' key: openssl reads `~/.ssh`. PKCS#1 v1.5 decryption of an invalid
+#' ciphertext is an error here; OpenSSL 3 returns random bytes instead
+#' (implicit rejection).
 #'
 #' @examples
 #' key <- crypt_rsa_keygen(2048)
@@ -83,13 +89,19 @@
 NULL
 
 digest_name <- function(md, call) {
-  name <- c("20" = "sha1", "32" = "sha256", "48" = "sha384",
-            "64" = "sha512")[as.character(length(md))]
+  name <- c(
+    "20" = "sha1",
+    "32" = "sha256",
+    "48" = "sha384",
+    "64" = "sha512"
+  )[as.character(length(md))]
   if (!is.raw(md) || is.na(name)) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      paste0("`hash` must give, or `data` be, a SHA-1 or SHA-2 digest ",
-             "(20, 32, 48 or 64 bytes)."),
+      paste0(
+        "`hash` must give, or `data` be, a SHA-1 or SHA-2 digest ",
+        "(20, 32, 48 or 64 bytes)."
+      ),
       call = call
     )
   }
@@ -123,9 +135,14 @@ check_flag <- function(x, arg, call) {
 
 #' @rdname crypt_rsa_crypto
 #' @export
-crypt_signature_create <- function(data, hash = crypt_sha1, key,
-                                   password = NULL, pss = FALSE,
-                                   deterministic = FALSE) {
+crypt_signature_create <- function(
+  data,
+  hash = crypt_sha1,
+  key,
+  password = NULL,
+  pss = FALSE,
+  deterministic = FALSE
+) {
   call <- sys.call()
   check_flag(pss, "pss", call)
   check_flag(deterministic, "deterministic", call)
@@ -146,15 +163,21 @@ crypt_signature_create <- function(data, hash = crypt_sha1, key,
 signature_scheme <- function(key, pss, deterministic, call) {
   if (inherits(key, "crypt_rsa")) {
     if (deterministic) {
-      zucrypt_abort("zucrypt_invalid_argument",
-                    "`deterministic` applies to EC keys only.", call = call)
+      zucrypt_abort(
+        "zucrypt_invalid_argument",
+        "`deterministic` applies to EC keys only.",
+        call = call
+      )
     }
     return(if (pss) "rsa-pss" else "rsa-pkcs1v15-sign")
   }
   if (inherits(key, "crypt_ecdsa")) {
     if (pss) {
-      zucrypt_abort("zucrypt_invalid_argument",
-                    "`pss` applies to RSA keys only.", call = call)
+      zucrypt_abort(
+        "zucrypt_invalid_argument",
+        "`pss` applies to RSA keys only.",
+        call = call
+      )
     }
     return(if (deterministic) "ecdsa-deterministic" else "ecdsa")
   }
@@ -167,8 +190,13 @@ signature_scheme <- function(key, pss, deterministic, call) {
 
 #' @rdname crypt_rsa_crypto
 #' @export
-crypt_signature_verify <- function(data, sig, hash = crypt_sha1, pubkey,
-                                   pss = FALSE) {
+crypt_signature_verify <- function(
+  data,
+  sig,
+  hash = crypt_sha1,
+  pubkey,
+  pss = FALSE
+) {
   call <- sys.call()
   check_flag(pss, "pss", call)
   md <- apply_hash(key_input(data, "data", call), hash, call)
@@ -198,8 +226,11 @@ crypt_signature_verify <- function(data, sig, hash = crypt_sha1, pubkey,
 
 check_rsa <- function(key, call) {
   if (!inherits(key, "crypt_rsa")) {
-    zucrypt_abort("zucrypt_invalid_argument",
-                  "RSA encryption needs an RSA key.", call = call)
+    zucrypt_abort(
+      "zucrypt_invalid_argument",
+      "RSA encryption needs an RSA key.",
+      call = call
+    )
   }
 }
 
@@ -208,8 +239,11 @@ rsa_scheme <- function(oaep, oaep_hash, call) {
   if (!oaep) {
     return(list(scheme = "rsa-pkcs1v15-crypt", hash = NULL))
   }
-  if (!is.character(oaep_hash) || length(oaep_hash) != 1L ||
-        !oaep_hash %in% c("sha1", "sha256", "sha384", "sha512")) {
+  if (
+    !is.character(oaep_hash) ||
+      length(oaep_hash) != 1L ||
+      !oaep_hash %in% c("sha1", "sha256", "sha384", "sha512")
+  ) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
       "`oaep_hash` must be \"sha1\", \"sha256\", \"sha384\" or \"sha512\".",
@@ -222,8 +256,7 @@ rsa_scheme <- function(oaep, oaep_hash, call) {
 
 #' @rdname crypt_rsa_crypto
 #' @export
-crypt_rsa_encrypt <- function(data, pubkey, oaep = FALSE,
-                              oaep_hash = "sha1") {
+crypt_rsa_encrypt <- function(data, pubkey, oaep = FALSE, oaep_hash = "sha1") {
   call <- sys.call()
   s <- rsa_scheme(oaep, oaep_hash, call)
   check_raw(data, "data", algorithm = s$scheme, call = call)
@@ -239,8 +272,13 @@ crypt_rsa_encrypt <- function(data, pubkey, oaep = FALSE,
 
 #' @rdname crypt_rsa_crypto
 #' @export
-crypt_rsa_decrypt <- function(data, key, password = NULL, oaep = FALSE,
-                              oaep_hash = "sha1") {
+crypt_rsa_decrypt <- function(
+  data,
+  key,
+  password = NULL,
+  oaep = FALSE,
+  oaep_hash = "sha1"
+) {
   call <- sys.call()
   s <- rsa_scheme(oaep, oaep_hash, call)
   check_raw(data, "data", algorithm = s$scheme, call = call)

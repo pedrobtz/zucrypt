@@ -25,6 +25,13 @@ test_that("every RSA vector reproduces from the key's integers", {
                                          key$pubkey, pss = pss),
                   info = row$id)
     }
+    if (row$operation == "refuse") {
+      # A valid PSS signature with a salt other than the digest's length,
+      # made by Python's cryptography (#181).
+      expect_error(crypt_signature_verify(input, output, hash_fun(row$hash),
+                                          key$pubkey, pss = pss),
+                   class = "zucrypt_auth_error")
+    }
     if (row$operation == "decrypt") {
       got <- crypt_rsa_decrypt(output, key, oaep = oaep,
                                oaep_hash = if (oaep) row$hash else "sha1")
@@ -106,6 +113,75 @@ test_that("keys are read from a file, a connection and PEM text", {
   expect_identical(crypt_write_der(crypt_read_key(file(path))), ref)
   expect_identical(crypt_write_der(crypt_read_key(crypt_write_pem(key))), ref)
   expect_identical(crypt_write_der(crypt_read_key(key)), ref)
+})
+
+test_that("PEM gives its first key, after any text, as openssl reads it (#180)", {
+  a <- rsa_fixture_key("rfc7515-a2")
+  b <- rsa_fixture_key("rfc7516-a1")
+  ec <- ec_fixture_key("rfc6979-p256")
+  spki <- function(k) crypt_write_der(k$pubkey %||% k)
+  # Each case: the bundle, the reader, and the key it must give. Before
+  # #180 the backend searched the whole text for each label in turn, so a
+  # later RSA PRIVATE KEY or EC PRIVATE KEY block outranked a first PRIVATE
+  # KEY, and the private reader outranked a first PUBLIC KEY.
+  cases <- list(
+    list(c(crypt_write_pem(a), crypt_write_pkcs1(b)), crypt_read_key, a),
+    list(c(crypt_write_pem(a$pubkey), crypt_write_pem(b)), crypt_read_pubkey,
+         a),
+    list(c(crypt_write_pem(ec), crypt_write_pkcs1(b)), crypt_read_key, ec),
+    list(c(crypt_write_pem(a), crypt_write_pkcs1(ec)), crypt_read_key, a),
+    # Blocks of other labels are passed over, as openssl does.
+    list(c("-----BEGIN EC PARAMETERS-----\nBggqhkjOPQMBBw==\n",
+           "-----END EC PARAMETERS-----\n", crypt_write_pkcs1(ec)),
+         crypt_read_key, ec),
+    # RFC 7468 section 5.2: explanatory text before the block, as
+    # `openssl pkcs12 -nodes` writes it.
+    list(c("Bag Attributes\n    localKeyID: 01 02 03\n", crypt_write_pem(a)),
+         crypt_read_key, a),
+    list(c("subject=CN = x\r\n", crypt_write_pem(ec$pubkey)),
+         crypt_read_pubkey, ec)
+  )
+  for (case in cases) {
+    text <- paste(case[[1]], collapse = "")
+    got <- case[[2]](text)
+    expect_identical(spki(got), spki(case[[3]]))
+    expect_identical(spki(case[[2]](charToRaw(text))), spki(case[[3]]))
+    if (requireNamespace("openssl", quietly = TRUE)) {
+      theirs <- if (identical(case[[2]], crypt_read_key)) {
+        openssl::read_key(text)$pubkey
+      } else {
+        openssl::read_pubkey(text)
+      }
+      expect_identical(spki(got), openssl::write_der(theirs))
+    }
+  }
+  # The first key block is public: the private reader refuses it, as
+  # openssl's does, rather than reading the private key after it.
+  text <- paste0(crypt_write_pem(b$pubkey), crypt_write_pem(a))
+  expect_error(crypt_read_key(text), class = "zucrypt_invalid_argument")
+  expect_identical(spki(crypt_read_pubkey(text)), spki(b))
+})
+
+test_that("a non-function hash and deterministic RSA are refused (#185)", {
+  key <- rsa_fixture_key("rfc7515-a2")
+  ec <- ec_fixture_key("rfc6979-p256")
+  msg <- charToRaw("m")
+  sig <- crypt_signature_create(msg, crypt_sha256, key)
+  for (hash in list("sha256", 1, list(crypt_sha256))) {
+    expect_error(crypt_signature_create(msg, hash, key),
+                 class = "zucrypt_invalid_argument")
+    expect_error(crypt_signature_verify(msg, sig, hash, key$pubkey),
+                 class = "zucrypt_invalid_argument")
+    expect_error(crypt_signature_create(msg, hash, ec),
+                 class = "zucrypt_invalid_argument")
+  }
+  # RFC 6979 is ECDSA's; an RSA key has nothing to make deterministic.
+  expect_error(crypt_signature_create(msg, crypt_sha256, key,
+                                      deterministic = TRUE),
+               class = "zucrypt_invalid_argument")
+  expect_error(crypt_signature_create(msg, crypt_sha256, key, pss = TRUE,
+                                      deterministic = TRUE),
+               class = "zucrypt_invalid_argument")
 })
 
 test_that("signatures cross-verify with openssl", {

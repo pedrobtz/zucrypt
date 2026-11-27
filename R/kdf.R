@@ -49,8 +49,13 @@
 #'                        iterations = 2, length = 20, algorithm = "sha1"))
 #'
 #' @export
-crypt_pbkdf2 <- function(password, salt, iterations, length = 32,
-                         algorithm = "sha256") {
+crypt_pbkdf2 <- function(
+  password,
+  salt,
+  iterations,
+  length = 32,
+  algorithm = "sha256"
+) {
   check_raw(password, "password", algorithm = "pbkdf2")
   check_raw(salt, "salt", algorithm = "pbkdf2")
   check_algorithm(algorithm)
@@ -68,8 +73,14 @@ crypt_pbkdf2 <- function(password, salt, iterations, length = 32,
       algorithm = "pbkdf2"
     )
   }
-  res <- .Call(zucrypt_pbkdf2, password, salt, as.double(iterations),
-               as.double(length), algorithm)
+  res <- .Call(
+    zucrypt_pbkdf2,
+    password,
+    salt,
+    as.double(iterations),
+    as.double(length),
+    algorithm
+  )
   if (res$status != 0L) {
     abort_native(res$status, algorithm = "pbkdf2")
   }
@@ -78,6 +89,11 @@ crypt_pbkdf2 <- function(password, salt, iterations, length = 32,
 
 # A single whole number in [lo, hi].
 is_count <- function(x, lo, hi) {
-  is.numeric(x) && length(x) == 1L && !is.na(x) && is.finite(x) &&
-    x == trunc(x) && x >= lo && x <= hi
+  is.numeric(x) &&
+    length(x) == 1L &&
+    !is.na(x) &&
+    is.finite(x) &&
+    x == trunc(x) &&
+    x >= lo &&
+    x <= hi
 }

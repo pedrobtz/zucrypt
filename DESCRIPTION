@@ -1,6 +1,6 @@
 Package: zucrypt
 Title: Cryptography Without System Dependencies
-Version: 0.1.0.9000
+Version: 0.1.1
 Authors@R: c(
     person("Pedro", "Baltazar", , "pedrobtz@gmail.com",
            role = c("aut", "cre", "cph")),
@@ -16,10 +16,12 @@ Description: Cryptographic functions over raw vectors, including message
     digests of in-memory data, files and connections, keyed-hash message
     authentication codes (HMAC), Advanced Encryption Standard (AES)
     encryption, including authenticated encryption in Galois/Counter Mode
-    (GCM), password-based key derivation (PBKDF2), 'RSA' keys, signatures
-    and encryption, elliptic-curve signatures and key agreement on the NIST
-    curves and 'X25519', with keys read and written as 'PEM' and 'DER',
-    constant-time comparison, random bytes from the operating system and
+    (GCM), password-based key derivation (PBKDF2), RSA keys, signatures
+    and encryption, elliptic-curve signatures and key agreement on the
+    curves of the US National Institute of Standards and Technology (NIST)
+    and on X25519, with keys read and written in the Privacy-Enhanced Mail
+    (PEM) and Distinguished Encoding Rules (DER) encodings, constant-time
+    comparison, random bytes from the operating system and
     hexadecimal encoding, backed by a bundled and pinned copy of
     the 'Mbed TLS' project's cryptography library, 'TF-PSA-Crypto'
     (<https://github.com/Mbed-TLS/TF-PSA-Crypto>). No system cryptographic

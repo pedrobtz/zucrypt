@@ -41,21 +41,21 @@ test_that("a draw spanning chunks is filled to the end", {
 })
 
 test_that("R's RNG is neither used nor disturbed", {
-  set.seed(42)
-  a <- crypt_rand_bytes(16)
-  set.seed(42)
-  b <- crypt_rand_bytes(16)
+  # The caller's RNG state is put back afterwards (#198).
+  a <- with_diff_seed(42, crypt_rand_bytes(16))
+  b <- with_diff_seed(42, crypt_rand_bytes(16))
   expect_false(identical(a, b))
 
-  set.seed(42)
-  before <- get(".Random.seed", envir = globalenv())
-  invisible(crypt_rand_bytes(64))
-  expect_identical(get(".Random.seed", envir = globalenv()), before)
+  with_diff_seed(42, {
+    before <- get(".Random.seed", envir = globalenv())
+    invisible(crypt_rand_bytes(64))
+    expect_identical(get(".Random.seed", envir = globalenv()), before)
+  })
 })
 
 test_that("an invalid n is refused before any native call", {
   for (bad in list(-1, 1.5, NA, NA_integer_, Inf, NaN, c(1, 2), numeric(0),
-                   "16", TRUE, 2^53, list(16))) {
+                   "16", TRUE, 2^53, 2^52 + 1, list(16))) {
     expect_error(crypt_rand_bytes(bad), class = "zucrypt_invalid_argument")
   }
 })
@@ -100,6 +100,7 @@ test_that("getrandom() refused by the kernel falls back to /dev/urandom (#144)",
   # harness makes getrandom() report ENOSYS; it is a no-op, and says so, on
   # a build that does not use getrandom().
   if (!native_random_enosys(TRUE)) {
+    expect_false(identical(expected_random_backend(), "getrandom"))
     skip("this build does not draw from getrandom()")
   }
   got <- tryCatch(
@@ -160,8 +161,10 @@ test_that("getrandom()'s short reads, EINTR and errors are each handled (#119)",
   # 64-byte buffer keeps a few such bytes by chance (a quarter on average,
   # eight or more about once in 10^9), a buffer the loop failed to finish
   # keeps every byte it did not write.
-  skip_if(is.null(native_random_script(character(0))),
-          "this build does not draw from getrandom()")
+  if (is.null(native_random_script(character(0)))) {
+    expect_false(identical(expected_random_backend(), "getrandom"))
+    skip("this build does not draw from getrandom()")
+  }
   left <- function(r) sum(r[[2]] == as.raw(0xAA))
 
   # Short reads: the loop asks again until every byte has arrived.

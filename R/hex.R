@@ -33,8 +33,10 @@ crypt_hex <- function(x) {
   if (length(x) > 1073741823) {
     zucrypt_abort(
       "zucrypt_invalid_argument",
-      paste0("`x` is too long to encode as a single hex string ",
-             "(the limit is 2^30 - 1 bytes).")
+      paste0(
+        "`x` is too long to encode as a single hex string ",
+        "(the limit is 2^30 - 1 bytes)."
+      )
     )
   }
   .Call(zucrypt_hex, x)

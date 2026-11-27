@@ -74,6 +74,50 @@ test_that("each package reads the EC keys the other writes", {
   )
 })
 
+test_that("an unclamped X25519 private key keeps its bytes, as openssl does (#175)", {
+  # RFC 7748's keys are not clamped (section 5): Alice's first byte is 0x77
+  # and her last 0x2a. Read from any encoding, it is written back as given,
+  # which is OpenSSL's encoding in ec-encodings.tsv.
+  enc <- utils::read.delim(test_path("fixtures", "ec-encodings.tsv"),
+                           colClasses = "character")
+  row <- function(id) unhex(enc$encoding[enc$id == id])
+  alice <- unhex(paste0(
+    "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a"
+  ))
+  der <- row("rfc7748-alice-pkcs8-der")
+  pem <- rawToChar(row("rfc7748-alice-pkcs8-pem"))
+  for (k in list(crypt_read_x25519_key(alice), crypt_read_key(der),
+                 crypt_read_key(pem))) {
+    expect_identical(crypt_write_der(k), der)
+    expect_identical(crypt_write_pem(k), pem)
+    expect_identical(as.list(k)$data$d, alice)
+    expect_identical(crypt_write_der(k$pubkey),
+                     row("rfc7748-alice-spki-der"))
+  }
+  # The secret is RFC 7748's, clamping or not.
+  bob <- ec_fixture_key("rfc7748-bob")$pubkey
+  expect_identical(
+    crypt_x25519_diffie_hellman(crypt_read_x25519_key(alice), bob),
+    unhex(paste0(
+      "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742"
+    ))
+  )
+
+  skip_if_not_installed("openssl")
+  with_diff_seed(175, for (i in 1:8) {
+    d <- as.raw(sample(0:255, 32, replace = TRUE))
+    d[1] <- d[1] | as.raw(7)
+    d[32] <- d[32] | as.raw(0x80)
+    theirs <- openssl::read_x25519_key(d)
+    ours <- crypt_read_x25519_key(d)
+    expect_identical(crypt_write_der(ours), openssl::write_der(theirs))
+    expect_identical(crypt_write_pem(crypt_read_key(openssl::write_pem(theirs))),
+                     openssl::write_pem(theirs))
+    expect_identical(crypt_write_der(ours$pubkey),
+                     openssl::write_der(theirs$pubkey))
+  })
+})
+
 test_that("ECDSA and ECDH cross-verify with openssl on every curve", {
   skip_if_not_installed("openssl")
   msg <- charToRaw("cross")
@@ -288,9 +332,8 @@ test_that("crypt_ecdsa_parse() agrees with a strict DER model on mutations", {
   sigs <- lapply(1:8, function(i) {
     crypt_signature_create(as.raw(i), crypt_sha256, key)
   })
-  set.seed(91)
   checked <- 0L
-  for (sig in sigs) {
+  with_diff_seed(91, for (sig in sigs) {
     expect_identical(parse_or_null(sig), der_model(sig))
     for (i in seq_len(60)) {
       m <- sig
@@ -304,7 +347,7 @@ test_that("crypt_ecdsa_parse() agrees with a strict DER model on mutations", {
                        info = paste(format(m), collapse = ""))
       checked <- checked + 1L
     }
-  }
+  })
   expect_identical(checked, 480L)
 })
 

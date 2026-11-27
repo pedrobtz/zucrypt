@@ -16,7 +16,9 @@
 available_algorithms <- local({
   cache <- NULL
   function() {
-    if (is.null(cache)) cache <<- .Call(zucrypt_algorithms)
+    if (is.null(cache)) {
+      cache <<- .Call(zucrypt_algorithms)
+    }
     cache
   }
 })
@@ -47,7 +49,8 @@ available_algorithms <- local({
 #'       which AES this machine runs -- `"aesni"` or `"aesce"` on a CPU with
 #'       AES instructions, `"software"` otherwise, decided at run time; and
 #'       `hardware_acceleration`, `TRUE` when that is a hardware path. See
-#'       the "Side channels" section of [crypt_aes_cbc_nopad] for why it matters.}
+#'       the "Side channels" section of [crypt_aes_cbc_nopad] for why it
+#'       matters.}
 #'   }
 #'
 #' @examples

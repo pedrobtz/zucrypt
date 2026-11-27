@@ -42,8 +42,9 @@ test_that("invalid arguments are refused before anything runs", {
   for (bad in list(0, -1, 1.5, NA, NaN, Inf, 2^32, c(1, 2), "1000", NULL)) {
     expect_error(crypt_pbkdf2(pw, salt, bad), class = "zucrypt_invalid_argument")
   }
-  expect_error(crypt_pbkdf2(pw, salt), "iterations")
-  for (bad in list(0, -1, 2.5, NA, c(16, 32), "32")) {
+  # `iterations` has no default.
+  expect_error(crypt_pbkdf2(pw, salt))
+  for (bad in list(0, -1, 2.5, NA, c(16, 32), "32", 2^31)) {
     expect_error(crypt_pbkdf2(pw, salt, 1, length = bad),
                  class = "zucrypt_invalid_argument")
   }
@@ -53,6 +54,20 @@ test_that("invalid arguments are refused before anything runs", {
                class = "zucrypt_unsupported_algorithm")
   expect_error(crypt_pbkdf2(pw, salt, 1, algorithm = "sha"),
                class = "zucrypt_unsupported_algorithm")
+})
+
+test_that("length straddles its lower bound (#184)", {
+  # RFC 6070's first vector: one iteration of PBKDF2-HMAC-SHA1 over
+  # "password" and "salt" gives 0c60c80f961f0e71f3a9b524af6012062fe037a6.
+  pw <- charToRaw("password")
+  salt <- charToRaw("salt")
+  want <- unhex("0c60c80f961f0e71f3a9b524af6012062fe037a6")
+  expect_error(crypt_pbkdf2(pw, salt, 1, length = 0, algorithm = "sha1"),
+               class = "zucrypt_invalid_argument")
+  expect_identical(crypt_pbkdf2(pw, salt, 1, length = 1, algorithm = "sha1"),
+                   want[1])
+  expect_identical(crypt_pbkdf2(pw, salt, 1, length = 2, algorithm = "sha1"),
+                   want[1:2])
 })
 
 test_that("conditions never carry the password", {

@@ -185,8 +185,8 @@ typedef enum {
 
     /* RSA signature schemes (RFC 8017 section 8), for zuc_pkey_sign_hash()
      * and zuc_pkey_verify_hash(). PSS uses MGF1 with the message digest and
-     * a salt as long as the digest, and verification requires that salt
-     * length. Appended after ABI 1. */
+     * a salt as long as the digest, or as long as fits in a smaller key, and
+     * verification requires that salt length. Appended after ABI 1. */
     ZUC_ALG_RSA_PKCS1V15_SIGN = 224,
     ZUC_ALG_RSA_PSS           = 225,
 
@@ -563,12 +563,15 @@ typedef enum {
 #define ZUC_PKEY_MAX_WRITE_SIZE 8192
 
 /* Read a key from DER or PEM, in any of the encodings above: PKCS#1,
- * PKCS#8 (unencrypted) or SubjectPublicKeyInfo. PEM is recognised by its
- * "-----BEGIN" line. With `private_key` non-zero the input must hold a
- * private key; with 0 it may hold either, and only the public half is kept.
- * Input that is not such a key is ZUC_ERR_INVALID_ARGUMENT; a well-formed
- * key of another type (an EC key, say) is ZUC_ERR_UNSUPPORTED. The input is
- * not retained. On failure *out is NULL. */
+ * PKCS#8 (unencrypted) or SubjectPublicKeyInfo. PEM is recognised by a
+ * line beginning "-----BEGIN ", after any text; the first block with a key
+ * label is read, and other blocks are ignored. With `private_key` non-zero
+ * the input must hold a private key; with 0 it may hold either, and only
+ * the public half is kept. Input that is not such a key is
+ * ZUC_ERR_INVALID_ARGUMENT; a well-formed key of a type or curve this build
+ * does not include (Ed25519 or secp256k1, say) is ZUC_ERR_UNSUPPORTED. An
+ * X25519 private key keeps the 32 bytes it was read from. The input is not
+ * retained. On failure *out is NULL. */
 zuc_status zuc_pkey_parse(const uint8_t *in, size_t len, int private_key,
                           zuc_pkey **out);
 
@@ -584,7 +587,8 @@ zuc_status zuc_pkey_generate(zuc_alg type, size_t bits, zuc_pkey **out);
  *   ZUC_ALG_EC_P*       the private scalar d, big-endian and exactly as
  *                       long as the curve's order; or the public point,
  *                       uncompressed: 0x04 || x || y;
- *   ZUC_ALG_X25519      the 32-byte private or public key (RFC 7748).
+ *   ZUC_ALG_X25519      the 32-byte private or public key (RFC 7748), kept
+ *                       as given, not clamped.
  *
  * zuc_pkey_import() reads `data` as a private key when `private_key` is
  * non-zero and as a public key otherwise, and validates it: a point not on
