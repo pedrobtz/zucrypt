@@ -163,6 +163,11 @@ test_that("crypt_info() reports the build, from the compiled library", {
   # produce bytes.
   expect_true(info$build_flags$random_backend %in%
                 c("rand_s", "arc4random_buf", "getrandom", "/dev/urandom"))
+  # And on glibc Linux it is getrandom(), or what the CI leg says (#187).
+  expected <- expected_random_backend()
+  if (nzchar(expected)) {
+    expect_identical(info$build_flags$random_backend, expected)
+  }
 
   # Whatever it advertises must actually work.
   for (alg in info$algorithms) {

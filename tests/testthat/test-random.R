@@ -100,6 +100,7 @@ test_that("getrandom() refused by the kernel falls back to /dev/urandom (#144)",
   # harness makes getrandom() report ENOSYS; it is a no-op, and says so, on
   # a build that does not use getrandom().
   if (!native_random_enosys(TRUE)) {
+    expect_false(identical(expected_random_backend(), "getrandom"))
     skip("this build does not draw from getrandom()")
   }
   got <- tryCatch(
@@ -160,8 +161,10 @@ test_that("getrandom()'s short reads, EINTR and errors are each handled (#119)",
   # 64-byte buffer keeps a few such bytes by chance (a quarter on average,
   # eight or more about once in 10^9), a buffer the loop failed to finish
   # keeps every byte it did not write.
-  skip_if(is.null(native_random_script(character(0))),
-          "this build does not draw from getrandom()")
+  if (is.null(native_random_script(character(0)))) {
+    expect_false(identical(expected_random_backend(), "getrandom"))
+    skip("this build does not draw from getrandom()")
+  }
   left <- function(r) sum(r[[2]] == as.raw(0xAA))
 
   # Short reads: the loop asks again until every byte has arrived.
