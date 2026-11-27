@@ -279,9 +279,13 @@ for variant in control duplicate; do
     echo 'int zucrypt_dup_probe(void) { return (int) zuc_init(); }'
   } >"$DUP/$variant.c"
 done
+# Success is the shared object existing: on Windows R CMD SHLIB exits 0 even
+# when the link fails (seen on the first CI run of this step).
 shlib() {
+  rm -f "$DUP/$1$SHLIB_EXT"
   (cd "$DUP" && PKG_CPPFLAGS="-I$ROOT/inst/include" PKG_LIBS="libzucrypt.a" \
-    R CMD SHLIB -o "$1$SHLIB_EXT" "$1.c") >"$DUP/$1.log" 2>&1
+    R CMD SHLIB -o "$1$SHLIB_EXT" "$1.c") >"$DUP/$1.log" 2>&1 || true
+  [ -f "$DUP/$1$SHLIB_EXT" ]
 }
 SHLIB_EXT=$(Rscript --vanilla -e 'cat(.Platform$dynlib.ext)')
 shlib control || { echo "FAIL: the control probe does not link with libzucrypt.a" >&2;
@@ -290,11 +294,6 @@ if shlib duplicate; then
   echo "FAIL: a second psa_crypto_init() linked beside libzucrypt.a;" >&2
   echo "  the duplicate-symbol limit documented in ?zucrypt_c_api no longer holds" >&2
   cat "$DUP/duplicate.log" >&2
-  echo "--- archive members defining or using psa_crypto_init / mbedtls_psa_crypto_free:" >&2
-  nm -A "$DUP/libzucrypt.a" 2>/dev/null | grep -E 'psa_crypto_init|mbedtls_psa_crypto_free' >&2 || true
-  echo "--- in the linked probe:" >&2
-  nm -A "$DUP/duplicate$SHLIB_EXT" 2>/dev/null | grep -E 'psa_crypto_init|mbedtls_psa_crypto_free|zuc_init' >&2 || true
-  echo "--- R CMD config LDFLAGS: $(R CMD config LDFLAGS 2>/dev/null)" >&2
   exit 1
 fi
 grep -qiE '(multiple definition|duplicate symbol).*psa_crypto_init' "$DUP/duplicate.log" \
