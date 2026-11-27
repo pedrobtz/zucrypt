@@ -128,7 +128,7 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 15b — Tranche 3: the rest | v0.4.0 | new | Stage 15a | |
 | 16a — EC keys, ECDSA, ECDH, X25519 | v0.1.1 | #81 | Stage 15a | **done**, 2026-11-03 |
 | R1 — Test gaps in the new key code (#166) | v0.1.1 | #126, #127, #128, #129, #116, #174 | Stage 16a | **done**, 2026-11-27, [#176](https://github.com/pedrobtz/zucrypt/pull/176) |
-| R2 — Documentation and CI fixes (#167) | v0.1.1 | #112, #118, #146 | — | |
+| R2 — Documentation and CI fixes (#167) | v0.1.1 | #112, #118, #146 | — | **done**, 2026-11-27 |
 | R3 — v0.1.1 review and CRAN (#168) | v0.1.1 | — | Stages R1 and R2; CRAN cadence (#79) | |
 | 17 — Tranche 5: certificates | v0.6.0 | new | Stage 16 | |
 | 18 — The TLS engine for zuhttp | next minor | new | Stage 17, and `zuhttp`'s trigger | |
@@ -502,6 +502,15 @@ written clamped, unlike OpenSSL (#175, not fixed here; the C driver compares up 
 state that the archive cannot share a shared object with another PSA or Mbed TLS (#112);
 `test-size.R` either sees the backend's allocations or records that it cannot (#118); and the
 jobs that run on documentation-only pull requests are gated (#146).
+
+R2 done 2026-11-27. `tools/check-linking.sh` step 11 links a probe defining its own
+`psa_crypto_init()` beside the archive and requires the duplicate-symbol failure, with a control
+that links without it. `test-size.R` counts the backend's allocations through `zuc_int_calloc()`:
+PSA copies each 1 MiB chunk once, so the copies are bounded by the chunk, not the input. Every
+job in the package's own workflows is now gated through `changes` with the label `if:`, and the
+assurance caller fails on an ungated one. Added to the stage: `arch.yaml`'s i386 leg is dropped
+(its container's DNS failed on every run from 2026-11-19; pedrobtz/packages#236), which leaves no
+32-bit build in CI, tracked as #177.
 
 **R3 — v0.1.1 review and CRAN.** CI tier `full`: it is the release commit. `pkg-critical-review`
 over the surface added since 0.1.0, then `pkg-cran-review`, and every finding fixed or filed.
