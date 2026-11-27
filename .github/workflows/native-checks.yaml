@@ -94,8 +94,8 @@ jobs:
   # it finds use-after-free and double-free on exactly the cleanup paths
   # design.md section 11 legislates about, while the length arithmetic the
   # integer checks would cover is simple, validated in R before any native
-  # call, and separately exercised by arch.yml's 32-bit leg where size_t is
-  # half as wide.
+  # call. arch.yml's 32-bit leg, where size_t is half as wide, exercised it
+  # too until it was dropped on 2026-11-27; no 32-bit build runs now (#177).
   #
   # tools/ubsan.supp holds both entries, ready. Restoring this is two lines --
   # the input here and the one there -- once r-actions resolves the path
@@ -136,6 +136,20 @@ jobs:
       exclude: src/vendor
       fail-on-findings: true
 
+  # The r-actions jobs above gate themselves; this one goes through the same
+  # `changes` gate (#146), as `skip-ci:layering`.
+  changes:
+    # Labels are in the event, so this skips without a runner (ci.md).
+    if: >-
+      github.event_name != 'pull_request'
+      || contains(github.event.pull_request.labels.*.name, 'full-ci')
+      || !(contains(github.event.pull_request.labels.*.name, 'ci:docs')
+        || contains(github.event.pull_request.labels.*.name, 'ci:minimal')
+        || contains(github.event.pull_request.labels.*.name, 'skip-ci:layering'))
+    uses: pedrobtz/r-actions/.github/workflows/changes.yml@v1
+    with:
+      name: layering
+
   # Bespoke, like abi.yaml and consumer.yaml at Stage 4: r-actions has
   # no layering job, because what counts as a layer is specific to what a
   # package publishes. This one enforces design.md sections 8.1 and 8.3 -- the
@@ -144,6 +158,8 @@ jobs:
   # and fails much later in a consumer's build, with an error that does not
   # name this cause.
   layering:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.result != 'skipped' && needs.changes.outputs.docs-only != 'true' }}
     runs-on: ubuntu-latest
     name: src/ layering holds
     steps:

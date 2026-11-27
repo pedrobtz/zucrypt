@@ -18,3 +18,6 @@ permissions:
 jobs:
   assurance:
     uses: pedrobtz/r-actions/.github/workflows/assurance.yml@v1
+    with:
+      # Every job of the package's own workflows is gated (#146); keep it so.
+      ungated-jobs: fail

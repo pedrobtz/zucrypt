@@ -1,11 +1,15 @@
 # Architectures R-CMD-check.yaml does not reach.
 #
 # That workflow covers CRAN's compilers well and its architectures not at all:
-# every leg there is x86-64 glibc. The 32-bit leg is the one that matters for
-# this package. size_t narrows to 32 bits there, and every length check, block
-# count and "is this a multiple of 16" becomes different arithmetic -- a bound
-# computed as a product can overflow while being nowhere near the limit on
-# 64-bit. The musl leg costs little alongside it, and neither needs QEMU.
+# every leg there is x86-64 glibc. A 32-bit leg is the one that would matter
+# most for this package. size_t narrows to 32 bits there, and every length
+# check, block count and "is this a multiple of 16" becomes different
+# arithmetic -- a bound computed as a product can overflow while being nowhere
+# near the limit on 64-bit. There is none now: the i386 leg
+# (i386/debian:bookworm) was dropped on 2026-11-27 (#167), because DNS failed
+# inside that container on every run from 2026-11-19, and r-actions dropped
+# it from its defaults for the same reason (pedrobtz/r-actions#133). Getting
+# 32-bit coverage back is #177. The musl leg needs no QEMU.
 #
 # Weekly rather than per-push: these are container builds from source, they
 # are slow, and the arithmetic they exercise changes rarely. A break here is
@@ -34,10 +38,7 @@ jobs:
       # -- which is what the first run of this job showed on i386 and aarch64
       # (#31), green, because nothing failed on a WARNING yet.
       targets: >-
-        [{"name": "i386", "platform": "linux/386",
-          "image": "i386/debian:bookworm",
-          "setup": "apt-get update && apt-get install -y --no-install-recommends r-base-dev r-cran-testthat locales && sed -i 's/^# *en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen && locale-gen"},
-         {"name": "musl", "platform": "linux/amd64",
+        [{"name": "musl", "platform": "linux/amd64",
           "image": "alpine:3.21",
           "setup": "apk add --no-cache R R-dev R-doc build-base libuv-dev linux-headers"},
          {"name": "aarch64", "platform": "linux/arm64",
@@ -47,7 +48,7 @@ jobs:
       # testthat, and nothing else. With no Suggests installed,
       # tests/testthat.R's requireNamespace() guard skips the whole suite and
       # R CMD check reports that as a pass: the first run of this job
-      # executed zero tests on all three legs (#31). Debian ships testthat as
+      # executed zero tests on all three legs it then had (#31). Debian ships testthat as
       # a binary (see setup); Alpine has none, so it is built from source
       # here, which needs two system packages in its tree: libuv-dev for fs,
       # and linux-headers for ps. Without either the musl leg built no

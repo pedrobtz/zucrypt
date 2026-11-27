@@ -86,6 +86,14 @@
 #' a security fix -- so report the version you actually linked, by calling
 #' `zuc_get_info()` rather than reading a macro.
 #'
+#' Hidden visibility keeps the backend private to your shared object, not
+#' inside it. The archive defines `psa_*()` and `mbedtls_*()` as ordinary
+#' symbols, so do not link another PSA Crypto or Mbed TLS (a second vendored
+#' copy, or a system `libmbedcrypto`) into the same shared object as
+#' `libzucrypt.a`. It is not supported, and a static link fails with a
+#' duplicate symbol. In separate shared objects, `zucrypt.so` included, the
+#' copies do not interfere (#112).
+#'
 #' The archive is built from the objects zucrypt was compiled into, with
 #' zucrypt's flags. If zucrypt was installed with link-time optimisation
 #' (`LTO = -flto` in `~/.R/Makevars`), those objects hold compiler

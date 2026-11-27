@@ -918,6 +918,16 @@ SEXP zucrypt_test_chunk_error(SEXP n)
     return Rf_ScalarReal((double) live);
 }
 
+/* The backend's allocations since the last call, as c(blocks, bytes,
+ * largest), and reset (#118; zuc_live.h). */
+SEXP zucrypt_test_alloc_stats(void)
+{
+    SEXP out = PROTECT(Rf_allocVector(REALSXP, 3));
+    zuc_int_alloc_stats(REAL(out));
+    UNPROTECT(1);
+    return out;
+}
+
 /* Turn the simulated ENOSYS from getrandom() on or off (#144). TRUE when
  * this build draws from getrandom(), FALSE (and nothing done) otherwise. */
 SEXP zucrypt_test_random_enosys(SEXP on)
@@ -1950,6 +1960,7 @@ const R_CallMethodDef zucrypt_test_call_methods[] = {
     {"zucrypt_test_random_contract", (DL_FUNC) &zucrypt_test_random_contract, 0},
     {"zucrypt_test_random_fail",    (DL_FUNC) &zucrypt_test_random_fail,    1},
     {"zucrypt_test_fail_at",        (DL_FUNC) &zucrypt_test_fail_at,        1},
+    {"zucrypt_test_alloc_stats",    (DL_FUNC) &zucrypt_test_alloc_stats,    0},
     {"zucrypt_test_chunk_error",    (DL_FUNC) &zucrypt_test_chunk_error,    1},
     {"zucrypt_test_random_script",  (DL_FUNC) &zucrypt_test_random_script,  2},
     {"zucrypt_test_rand_fill",      (DL_FUNC) &zucrypt_test_rand_fill,      1},
