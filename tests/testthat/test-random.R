@@ -41,16 +41,16 @@ test_that("a draw spanning chunks is filled to the end", {
 })
 
 test_that("R's RNG is neither used nor disturbed", {
-  set.seed(42)
-  a <- crypt_rand_bytes(16)
-  set.seed(42)
-  b <- crypt_rand_bytes(16)
+  # The caller's RNG state is put back afterwards (#198).
+  a <- with_diff_seed(42, crypt_rand_bytes(16))
+  b <- with_diff_seed(42, crypt_rand_bytes(16))
   expect_false(identical(a, b))
 
-  set.seed(42)
-  before <- get(".Random.seed", envir = globalenv())
-  invisible(crypt_rand_bytes(64))
-  expect_identical(get(".Random.seed", envir = globalenv()), before)
+  with_diff_seed(42, {
+    before <- get(".Random.seed", envir = globalenv())
+    invisible(crypt_rand_bytes(64))
+    expect_identical(get(".Random.seed", envir = globalenv()), before)
+  })
 })
 
 test_that("an invalid n is refused before any native call", {

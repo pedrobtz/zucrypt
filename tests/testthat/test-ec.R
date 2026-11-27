@@ -104,8 +104,7 @@ test_that("an unclamped X25519 private key keeps its bytes, as openssl does (#17
   )
 
   skip_if_not_installed("openssl")
-  withr::local_seed(175)
-  for (i in 1:8) {
+  with_diff_seed(175, for (i in 1:8) {
     d <- as.raw(sample(0:255, 32, replace = TRUE))
     d[1] <- d[1] | as.raw(7)
     d[32] <- d[32] | as.raw(0x80)
@@ -116,7 +115,7 @@ test_that("an unclamped X25519 private key keeps its bytes, as openssl does (#17
                      openssl::write_pem(theirs))
     expect_identical(crypt_write_der(ours$pubkey),
                      openssl::write_der(theirs$pubkey))
-  }
+  })
 })
 
 test_that("ECDSA and ECDH cross-verify with openssl on every curve", {
@@ -333,9 +332,8 @@ test_that("crypt_ecdsa_parse() agrees with a strict DER model on mutations", {
   sigs <- lapply(1:8, function(i) {
     crypt_signature_create(as.raw(i), crypt_sha256, key)
   })
-  set.seed(91)
   checked <- 0L
-  for (sig in sigs) {
+  with_diff_seed(91, for (sig in sigs) {
     expect_identical(parse_or_null(sig), der_model(sig))
     for (i in seq_len(60)) {
       m <- sig
@@ -349,7 +347,7 @@ test_that("crypt_ecdsa_parse() agrees with a strict DER model on mutations", {
                        info = paste(format(m), collapse = ""))
       checked <- checked + 1L
     }
-  }
+  })
   expect_identical(checked, 480L)
 })
 
