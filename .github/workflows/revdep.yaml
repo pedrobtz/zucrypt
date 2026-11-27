@@ -51,13 +51,20 @@ env:
 
 jobs:
   changes:
+    # Labels are in the event, so this skips without a runner (ci.md).
+    if: >-
+      github.event_name != 'pull_request'
+      || contains(github.event.pull_request.labels.*.name, 'full-ci')
+      || !(contains(github.event.pull_request.labels.*.name, 'ci:docs')
+        || contains(github.event.pull_request.labels.*.name, 'ci:minimal')
+        || contains(github.event.pull_request.labels.*.name, 'skip-ci:revdep'))
     uses: pedrobtz/r-actions/.github/workflows/changes.yml@v1
     with:
       name: revdep
 
   zuxlsx:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs-only != 'true' }}
+    if: ${{ !cancelled() && needs.changes.result != 'skipped' && needs.changes.outputs.docs-only != 'true' }}
     runs-on: ${{ matrix.os }}
     name: zuxlsx (${{ matrix.os }})
     strategy:

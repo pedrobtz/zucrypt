@@ -14,9 +14,9 @@
 #     ZUCRYPT_TEST_CPPFLAGS in src/Makevars), asserting "software" and
 #     running the suite on the fallback.
 #
-# The i386 and aarch64 legs of arch.yaml cover the other two ways the
-# hardware path is compiled: AES-NI through intrinsics on 32-bit x86, and
-# AESCE on Linux arm64.
+# The aarch64 leg of arch.yaml covers AESCE on Linux arm64. AES-NI through
+# intrinsics on 32-bit x86 was arch.yaml's i386 leg until 2026-11-27 and is
+# built nowhere now (#177).
 #
 # Bespoke because r-actions has no job that installs with a define or checks
 # a runtime property of the build.
@@ -44,13 +44,20 @@ permissions:
 
 jobs:
   changes:
+    # Labels are in the event, so this skips without a runner (ci.md).
+    if: >-
+      github.event_name != 'pull_request'
+      || contains(github.event.pull_request.labels.*.name, 'full-ci')
+      || !(contains(github.event.pull_request.labels.*.name, 'ci:docs')
+        || contains(github.event.pull_request.labels.*.name, 'ci:minimal')
+        || contains(github.event.pull_request.labels.*.name, 'skip-ci:aes-paths'))
     uses: pedrobtz/r-actions/.github/workflows/changes.yml@v1
     with:
       name: aes-paths
 
   aes:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.docs-only != 'true' }}
+    if: ${{ !cancelled() && needs.changes.result != 'skipped' && needs.changes.outputs.docs-only != 'true' }}
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.expect }} (${{ matrix.os }})
     strategy:
