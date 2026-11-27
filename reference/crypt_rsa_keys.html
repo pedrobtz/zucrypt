@@ -18,8 +18,7 @@ carries them, and as.list() takes one apart again.
 
 
 A key object is an external pointer to key material held in C, and the
-material of a private key is wiped when the object is garbage collected.
-Key objects do not survive saveRDS(); save the PEM instead."><meta property="og:description" content="Read, write, generate and take apart RSA keys. The names, arguments and
+material of a private key is wiped when the object is garbage collected."><meta property="og:description" content="Read, write, generate and take apart RSA keys. The names, arguments and
 defaults follow the openssl package with a crypt_ prefix, and the
 encodings interoperate: a key one package writes, the other reads.
 crypt_read_key() reads a private key and crypt_read_pubkey() a
@@ -38,8 +37,7 @@ carries them, and as.list() takes one apart again.
 
 
 A key object is an external pointer to key material held in C, and the
-material of a private key is wiped when the object is garbage collected.
-Key objects do not survive saveRDS(); save the PEM instead."></head><body>
+material of a private key is wiped when the object is garbage collected."></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -47,7 +45,7 @@ Key objects do not survive saveRDS(); save the PEM instead."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">zucrypt</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -96,8 +94,7 @@ random source.</p></li>
 <li><p><code>crypt_rsa_key()</code> builds a key from its integers, as a JSON Web Key
 carries them, and <code><a href="https://rdrr.io/r/base/list.html" class="external-link">as.list()</a></code> takes one apart again.</p></li>
 </ul><p>A key object is an external pointer to key material held in C, and the
-material of a private key is wiped when the object is garbage collected.
-Key objects do not survive <code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code>; save the PEM instead.</p>
+material of a private key is wiped when the object is garbage collected.</p>
     </div>
 
     <div class="section level2">
@@ -224,13 +221,13 @@ unless you name them.</p>
 <span class="r-in"><span><span class="va">pem</span> <span class="op">&lt;-</span> <span class="fu">crypt_write_pem</span><span class="op">(</span><span class="va">key</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="va">pem</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> -----BEGIN PUBLIC KEY-----</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz1ZRH5NXj8VyiHyK4sfj</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> QO2cHLBVaBu6pwo1E6m7g3uMP+y7DhQ1PIuZrFFYRiEhKVcoCtQl6krJqAxuNwJr</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> jceIAsgr7r4QTP8Risg4PrCpkwSD/36eXDhU7GtEm1TJI2PeoEM62Q+FquQjYPR3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> jKE6dWp1ykub8CNvous8YpNqLO55U4MkWlPdNXYAsAa9UtX8cQpHIS7jxi6p5jR3</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> HzsGWmcGgJBF4ih85UNcUDcdnxFyM8OT6p8RlLruL5Tx6PHALaBMA+oLUOIjpK2N</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> OQQa0sewGKp3WUZMy/ksnUjhXpAN6IeszPXDKW8mtNfqLvJnuPcwPr4E+qSc9cfT</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3wIDAQAB</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqiYRJzSyLbJFtGyI+fxc</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 6fwwihjUFZkOGm3ajw1GxcsFfHex22cuV5HgVlGyRYuu1kfFz/uyxMjo7nQ84OwE</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 7UsodOw59uDgctXvhjWf7sNXfRseMnISP3D+WJc+9fe4pHdf0JuYqSwtdufupeZs</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> WmlpvDZRMYsgSaR9prpKtBgrscM3FHXJCBv3CdeJF2tNDHTaBH9DjhSHcfUxLgJj</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> nmihDAcCe5H1K6ALa+DHWFVxW4i72tsGkdrJrdvFjlC4UHzkvw7dkyIoWBnjt6bA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> Q2wUaNdDyYCs9LFDkP0qYDN/4F0PoaWaQMGa2iu2rd92psXBv6NAknCt2mLTQH5j</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> bwIDAQAB</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> -----END PUBLIC KEY-----</span>
 <span class="r-in"><span><span class="va">pub</span> <span class="op">&lt;-</span> <span class="fu">crypt_read_pubkey</span><span class="op">(</span><span class="va">pem</span><span class="op">)</span></span></span>
 <span class="r-in"><span></span></span>

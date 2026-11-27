@@ -21,7 +21,7 @@ or associated data, a truncated tag and a wrong key all fail the same way."></he
 
     <a class="navbar-brand me-2" href="../index.html">zucrypt</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -167,11 +167,11 @@ derive a key from a password.</p></div>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="va">key</span> <span class="op">&lt;-</span> <span class="fu"><a href="crypt_rand_bytes.html">crypt_rand_bytes</a></span><span class="op">(</span><span class="fl">32</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">sealed</span> <span class="op">&lt;-</span> <span class="fu">crypt_aes_gcm_encrypt</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"attack at dawn"</span><span class="op">)</span>, <span class="va">key</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">sealed</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 79 6e bf 99 ef 8a c4 67 12 dc a2 91 2c 84</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 8d d5 fb d7 29 a0 37 25 15 bd 9c 2a 2e c0</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> attr(,"iv")</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 48 5a 52 98 26 d0 b1 38 ae e8 3e 96</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 9c e3 bf 34 5e d6 41 1f 97 9e fa fc</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> attr(,"tag")</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] a2 40 44 af be 84 f6 31 6b 52 94 40 dd 40 3a f9</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>  [1] 3b 52 1b e1 d6 56 67 3e bb 13 97 4d 0d 71 57 ce</span>
 <span class="r-in"><span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">rawToChar</a></span><span class="op">(</span><span class="fu">crypt_aes_gcm_decrypt</span><span class="op">(</span><span class="va">sealed</span>, <span class="va">key</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "attack at dawn"</span>

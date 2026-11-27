@@ -8,8 +8,12 @@ A signature covers a digest: hash is applied to data and the digest is
 signed, so hash = crypt_sha256 gives an RSA-SHA256 signature. With
 hash = NULL, data must already be a SHA-1 or SHA-2 digest. PKCS#1
 v1.5 signatures are deterministic. PSS signatures (pss = TRUE, RFC 8017
-section 8.1) are randomised, use MGF1 with the same digest, and a salt as
-long as the digest; verification requires that salt length.
+section 8.1) are randomised and use MGF1 with the same digest. The salt is
+as long as the digest, or as long as fits when the key is too small for
+that (a 1024-bit key with SHA-512 takes 62 bytes). Verification requires
+that same length: a PSS signature with any other salt, such as the
+longest that fits (PSS.MAX_LENGTH in Python's cryptography), is
+refused.
 With a key on P-256, P-384 or P-521 the signature is ECDSA, encoded in DER
 as openssl encodes it; crypt_ecdsa_parse() gives its r and s.
 ECDSA signatures are randomised unless deterministic = TRUE, which
@@ -31,8 +35,12 @@ A signature covers a digest: hash is applied to data and the digest is
 signed, so hash = crypt_sha256 gives an RSA-SHA256 signature. With
 hash = NULL, data must already be a SHA-1 or SHA-2 digest. PKCS#1
 v1.5 signatures are deterministic. PSS signatures (pss = TRUE, RFC 8017
-section 8.1) are randomised, use MGF1 with the same digest, and a salt as
-long as the digest; verification requires that salt length.
+section 8.1) are randomised and use MGF1 with the same digest. The salt is
+as long as the digest, or as long as fits when the key is too small for
+that (a 1024-bit key with SHA-512 takes 62 bytes). Verification requires
+that same length: a PSS signature with any other salt, such as the
+longest that fits (PSS.MAX_LENGTH in Python's cryptography), is
+refused.
 With a key on P-256, P-384 or P-521 the signature is ECDSA, encoded in DER
 as openssl encodes it; crypt_ecdsa_parse() gives its r and s.
 ECDSA signatures are randomised unless deterministic = TRUE, which
@@ -53,7 +61,7 @@ here for formats that specify it."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">zucrypt</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -95,8 +103,12 @@ arguments and defaults follow <code>openssl</code>, with <code>pss</code> and <c
 signed, so <code>hash = crypt_sha256</code> gives an RSA-SHA256 signature. With
 <code>hash = NULL</code>, <code>data</code> must already be a SHA-1 or SHA-2 digest. PKCS#1
 v1.5 signatures are deterministic. PSS signatures (<code>pss = TRUE</code>, RFC 8017
-section 8.1) are randomised, use MGF1 with the same digest, and a salt as
-long as the digest; verification requires that salt length.</p>
+section 8.1) are randomised and use MGF1 with the same digest. The salt is
+as long as the digest, or as long as fits when the key is too small for
+that (a 1024-bit key with SHA-512 takes 62 bytes). Verification requires
+that same length: a PSS signature with any other salt, such as the
+longest that fits (<code>PSS.MAX_LENGTH</code> in Python's <code>cryptography</code>), is
+refused.</p>
 <p>With a key on P-256, P-384 or P-521 the signature is ECDSA, encoded in DER
 as openssl encodes it; <code><a href="crypt_ec_keys.html">crypt_ecdsa_parse()</a></code> gives its <code>r</code> and <code>s</code>.
 ECDSA signatures are randomised unless <code>deterministic = TRUE</code>, which
@@ -184,8 +196,9 @@ only.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p><code>crypt_signature_create()</code> returns the signature, a raw vector as
-long as the modulus. <code>crypt_signature_verify()</code> returns <code>TRUE</code>, or
+    <p><code>crypt_signature_create()</code> returns the signature, a raw vector:
+as long as the modulus for RSA, and DER of varying length for ECDSA.
+<code>crypt_signature_verify()</code> returns <code>TRUE</code>, or
 signals <code>zucrypt_auth_error</code>. <code>crypt_rsa_encrypt()</code> returns the
 ciphertext and <code>crypt_rsa_decrypt()</code> the plaintext, as raw vectors.</p>
     </div>
@@ -201,9 +214,10 @@ key is <code>zucrypt_bad_length</code>.</p>
     <h2 id="compared-with-openssl">Compared with openssl<a class="anchor" aria-label="anchor" href="#compared-with-openssl"></a></h2>
 
 
-<p><code>pss</code>, <code>deterministic</code> and <code>oaep_hash</code> are additions. There is no default key: openssl
-reads <code>~/.ssh</code>. PKCS#1 v1.5 decryption of an invalid ciphertext is an
-error here; OpenSSL 3 returns random bytes instead (implicit rejection).</p>
+<p><code>pss</code>, <code>deterministic</code> and <code>oaep_hash</code> are additions. There is no default
+key: openssl reads <code>~/.ssh</code>. PKCS#1 v1.5 decryption of an invalid
+ciphertext is an error here; OpenSSL 3 returns random bytes instead
+(implicit rejection).</p>
     </div>
 
     <div class="section level2">

@@ -32,7 +32,7 @@ most of it tests.
 |--------------------------|-------------------------------------------------|
 | Vendored tree            | 153 files, 3.8 MB                               |
 | Source tarball           | 1.1 MB                                          |
-| Installed `zucrypt.so`   | 445 KB                                          |
+| Installed `zucrypt.so`   | 448 KB                                          |
 | Installed `libzucrypt.a` | 1.5 MB                                          |
 
 The tree lives in `src/vendor/tf-psa-crypto/`, flattened to `inc/` and

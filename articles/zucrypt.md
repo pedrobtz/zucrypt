@@ -237,7 +237,7 @@ draws them from the operating system’s cryptographic source:
 ``` r
 
 crypt_rand_bytes(16)
-#>  [1] f6 84 bc 16 23 16 48 79 97 c2 e2 2b 98 37 9f b7
+#>  [1] 6f 45 9e 93 27 2b 86 c6 78 33 1f 7e c0 fb b4 e4
 ```
 
 R’s own random number generator is not involved, so
@@ -268,11 +268,11 @@ nonce is drawn fresh for each message unless you supply one:
 key <- crypt_rand_bytes(32)
 sealed <- crypt_aes_gcm_encrypt(charToRaw("meet at noon"), key)
 sealed
-#>  [1] 38 cb ef 7b 33 06 e1 aa 13 4d d0 40
+#>  [1] ce fb 76 6c b5 14 f8 05 62 c3 58 91
 #> attr(,"iv")
-#>  [1] b9 56 ec 40 72 29 5b 6a 4f f9 6e 1f
+#>  [1] 2c 99 3c 9a b1 95 2e fe ee fc 19 66
 #> attr(,"tag")
-#>  [1] 7e 05 19 09 59 cf b1 8e 10 0d 73 bd 1b c4 1e b5
+#>  [1] a0 d0 56 18 5e d9 df 83 f9 5e 61 f4 ee 73 2c 7d
 ```
 
 [`crypt_aes_gcm_decrypt()`](https://pedrobtz.github.io/zucrypt/reference/crypt_aes_gcm.md)
@@ -346,7 +346,7 @@ file that says what was meant to be compiled:
 str(crypt_info())
 #> List of 5
 #>  $ version    :Classes 'package_version', 'numeric_version'  hidden list of 1
-#>   ..$ : int [1:4] 0 1 0 9000
+#>   ..$ : int [1:3] 0 1 1
 #>  $ abi_version: int 1
 #>  $ algorithms : chr [1:4] "sha1" "sha256" "sha384" "sha512"
 #>  $ vendored   :'data.frame': 1 obs. of  2 variables:
@@ -377,13 +377,13 @@ key
 #> [2048-bit rsa private key]
 cat(crypt_write_pem(key$pubkey))
 #> -----BEGIN PUBLIC KEY-----
-#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxXuyrWLw91dIqwwRMloy
-#> yB5Yd7WgbBRKk/BYLQYaZ2k4a/1HhzjjEy2mlwaYy5ZiCXndimEsrItFt/yduqSH
-#> jBbiETzf/Qz649Mh+zXu08jz1kQ+Pjc+pVpYSc9gsxTE5y1o5YO0bdNfPomC7A5O
-#> 6FdI7eWGsFSo7roreqzojStLAuC/KNC0sNbTmQ1Ao1v8MXoFk/Mqxj9PHHXOWCOi
-#> GRgR3MFgAfOsMn5YfuwxR9+6Ou11k3g0DMjFeST7tZpJuBOCnWQFvDiyMHgg8dDY
-#> ehJ4IWWA1yLVi775rG1LixTf0Diqm3A6/L9maE4b6GVHEkFK+KAsHoaDp9ilRUjz
-#> hQIDAQAB
+#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuE4n5tiWmehC1Mvp3/Ez
+#> DnZDOv66QqBVvAxviejuKiGAgduEdby5oC58x6qAkwl7L6k6UKqgVWqetzAUsTYd
+#> aD88nmajuYRTsF8G6OxAaviAdw6IqVLWKDzDE7D4iBzkKDQIj1BVahvmIr7ud+V6
+#> A2BRvW0TqKIriOn0xNN9Ehby99bqOLt4ZCW8OZqMdbHn3vMwDKuoBOMM9X/HJw6x
+#> OvjmZ71c8biqa+GLazOxa+PMC0UD1tg5JaZpZeaiWFMDChAOL4sfsfW6SApvg/Qk
+#> kSJanxTWxGXJrE+SaA5pj1GPpPUQ68sLJydeGPly86INNQiNb/3L0xYR6ZgjBofr
+#> rQIDAQAB
 #> -----END PUBLIC KEY-----
 ```
 

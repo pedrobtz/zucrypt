@@ -26,9 +26,6 @@ encodings interoperate: a key one package writes, the other reads.
 
 A key object is an external pointer to key material held in C, and the
 material of a private key is wiped when the object is garbage collected.
-Key objects do not survive
-[`saveRDS()`](https://rdrr.io/r/base/readRDS.html); save the PEM
-instead.
 
 ## Usage
 
@@ -149,13 +146,13 @@ key
 pem <- crypt_write_pem(key$pubkey)
 cat(pem)
 #> -----BEGIN PUBLIC KEY-----
-#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAz1ZRH5NXj8VyiHyK4sfj
-#> QO2cHLBVaBu6pwo1E6m7g3uMP+y7DhQ1PIuZrFFYRiEhKVcoCtQl6krJqAxuNwJr
-#> jceIAsgr7r4QTP8Risg4PrCpkwSD/36eXDhU7GtEm1TJI2PeoEM62Q+FquQjYPR3
-#> jKE6dWp1ykub8CNvous8YpNqLO55U4MkWlPdNXYAsAa9UtX8cQpHIS7jxi6p5jR3
-#> HzsGWmcGgJBF4ih85UNcUDcdnxFyM8OT6p8RlLruL5Tx6PHALaBMA+oLUOIjpK2N
-#> OQQa0sewGKp3WUZMy/ksnUjhXpAN6IeszPXDKW8mtNfqLvJnuPcwPr4E+qSc9cfT
-#> 3wIDAQAB
+#> MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqiYRJzSyLbJFtGyI+fxc
+#> 6fwwihjUFZkOGm3ajw1GxcsFfHex22cuV5HgVlGyRYuu1kfFz/uyxMjo7nQ84OwE
+#> 7UsodOw59uDgctXvhjWf7sNXfRseMnISP3D+WJc+9fe4pHdf0JuYqSwtdufupeZs
+#> WmlpvDZRMYsgSaR9prpKtBgrscM3FHXJCBv3CdeJF2tNDHTaBH9DjhSHcfUxLgJj
+#> nmihDAcCe5H1K6ALa+DHWFVxW4i72tsGkdrJrdvFjlC4UHzkvw7dkyIoWBnjt6bA
+#> Q2wUaNdDyYCs9LFDkP0qYDN/4F0PoaWaQMGa2iu2rd92psXBv6NAknCt2mLTQH5j
+#> bwIDAQAB
 #> -----END PUBLIC KEY-----
 pub <- crypt_read_pubkey(pem)
 

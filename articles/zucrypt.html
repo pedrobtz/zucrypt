@@ -19,7 +19,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">zucrypt</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -288,7 +288,7 @@ simply not equal.</p>
 cryptographic source:</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes</a></span><span class="op">(</span><span class="fl">16</span><span class="op">)</span></span>
-<span><span class="co">#&gt;  [1] f6 84 bc 16 23 16 48 79 97 c2 e2 2b 98 37 9f b7</span></span></code></pre></div>
+<span><span class="co">#&gt;  [1] 6f 45 9e 93 27 2b 86 c6 78 33 1f 7e c0 fb b4 e4</span></span></code></pre></div>
 <p>R’s own random number generator is not involved, so
 <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code> does not make it repeat, and drawing bytes does
 not disturb a simulation that relies on <code><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed()</a></code>:</p>
@@ -312,11 +312,11 @@ message unless you supply one:</p>
 <code class="sourceCode R"><span><span class="va">key</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_rand_bytes.html">crypt_rand_bytes</a></span><span class="op">(</span><span class="fl">32</span><span class="op">)</span></span>
 <span><span class="va">sealed</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_encrypt</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rawConversion.html" class="external-link">charToRaw</a></span><span class="op">(</span><span class="st">"meet at noon"</span><span class="op">)</span>, <span class="va">key</span><span class="op">)</span></span>
 <span><span class="va">sealed</span></span>
-<span><span class="co">#&gt;  [1] 38 cb ef 7b 33 06 e1 aa 13 4d d0 40</span></span>
+<span><span class="co">#&gt;  [1] ce fb 76 6c b5 14 f8 05 62 c3 58 91</span></span>
 <span><span class="co">#&gt; attr(,"iv")</span></span>
-<span><span class="co">#&gt;  [1] b9 56 ec 40 72 29 5b 6a 4f f9 6e 1f</span></span>
+<span><span class="co">#&gt;  [1] 2c 99 3c 9a b1 95 2e fe ee fc 19 66</span></span>
 <span><span class="co">#&gt; attr(,"tag")</span></span>
-<span><span class="co">#&gt;  [1] 7e 05 19 09 59 cf b1 8e 10 0d 73 bd 1b c4 1e b5</span></span></code></pre></div>
+<span><span class="co">#&gt;  [1] a0 d0 56 18 5e d9 df 83 f9 5e 61 f4 ee 73 2c 7d</span></span></code></pre></div>
 <p><code><a href="../reference/crypt_aes_gcm.html">crypt_aes_gcm_decrypt()</a></code> reads the nonce and tag back
 from those attributes, checks the tag, and only then returns the
 plaintext:</p>
@@ -375,7 +375,7 @@ compiled:</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/str.html" class="external-link">str</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_info.html">crypt_info</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; List of 5</span></span>
 <span><span class="co">#&gt;  $ version    :Classes 'package_version', 'numeric_version'  hidden list of 1</span></span>
-<span><span class="co">#&gt;   ..$ : int [1:4] 0 1 0 9000</span></span>
+<span><span class="co">#&gt;   ..$ : int [1:3] 0 1 1</span></span>
 <span><span class="co">#&gt;  $ abi_version: int 1</span></span>
 <span><span class="co">#&gt;  $ algorithms : chr [1:4] "sha1" "sha256" "sha384" "sha512"</span></span>
 <span><span class="co">#&gt;  $ vendored   :'data.frame': 1 obs. of  2 variables:</span></span>
@@ -404,13 +404,13 @@ them:</p>
 <span><span class="co">#&gt; [2048-bit rsa private key]</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="../reference/crypt_rsa_keys.html">crypt_write_pem</a></span><span class="op">(</span><span class="va">key</span><span class="op">$</span><span class="va">pubkey</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; -----BEGIN PUBLIC KEY-----</span></span>
-<span><span class="co">#&gt; MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxXuyrWLw91dIqwwRMloy</span></span>
-<span><span class="co">#&gt; yB5Yd7WgbBRKk/BYLQYaZ2k4a/1HhzjjEy2mlwaYy5ZiCXndimEsrItFt/yduqSH</span></span>
-<span><span class="co">#&gt; jBbiETzf/Qz649Mh+zXu08jz1kQ+Pjc+pVpYSc9gsxTE5y1o5YO0bdNfPomC7A5O</span></span>
-<span><span class="co">#&gt; 6FdI7eWGsFSo7roreqzojStLAuC/KNC0sNbTmQ1Ao1v8MXoFk/Mqxj9PHHXOWCOi</span></span>
-<span><span class="co">#&gt; GRgR3MFgAfOsMn5YfuwxR9+6Ou11k3g0DMjFeST7tZpJuBOCnWQFvDiyMHgg8dDY</span></span>
-<span><span class="co">#&gt; ehJ4IWWA1yLVi775rG1LixTf0Diqm3A6/L9maE4b6GVHEkFK+KAsHoaDp9ilRUjz</span></span>
-<span><span class="co">#&gt; hQIDAQAB</span></span>
+<span><span class="co">#&gt; MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuE4n5tiWmehC1Mvp3/Ez</span></span>
+<span><span class="co">#&gt; DnZDOv66QqBVvAxviejuKiGAgduEdby5oC58x6qAkwl7L6k6UKqgVWqetzAUsTYd</span></span>
+<span><span class="co">#&gt; aD88nmajuYRTsF8G6OxAaviAdw6IqVLWKDzDE7D4iBzkKDQIj1BVahvmIr7ud+V6</span></span>
+<span><span class="co">#&gt; A2BRvW0TqKIriOn0xNN9Ehby99bqOLt4ZCW8OZqMdbHn3vMwDKuoBOMM9X/HJw6x</span></span>
+<span><span class="co">#&gt; OvjmZ71c8biqa+GLazOxa+PMC0UD1tg5JaZpZeaiWFMDChAOL4sfsfW6SApvg/Qk</span></span>
+<span><span class="co">#&gt; kSJanxTWxGXJrE+SaA5pj1GPpPUQ68sLJydeGPly86INNQiNb/3L0xYR6ZgjBofr</span></span>
+<span><span class="co">#&gt; rQIDAQAB</span></span>
 <span><span class="co">#&gt; -----END PUBLIC KEY-----</span></span></code></pre></div>
 <p>A signature covers a digest of the data. <code>hash</code> names the
 digest function, as in <code>openssl</code>:</p>
