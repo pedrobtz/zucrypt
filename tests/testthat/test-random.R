@@ -55,7 +55,7 @@ test_that("R's RNG is neither used nor disturbed", {
 
 test_that("an invalid n is refused before any native call", {
   for (bad in list(-1, 1.5, NA, NA_integer_, Inf, NaN, c(1, 2), numeric(0),
-                   "16", TRUE, 2^53, list(16))) {
+                   "16", TRUE, 2^53, 2^52 + 1, list(16))) {
     expect_error(crypt_rand_bytes(bad), class = "zucrypt_invalid_argument")
   }
 })

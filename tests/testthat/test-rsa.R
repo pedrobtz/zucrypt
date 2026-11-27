@@ -25,6 +25,13 @@ test_that("every RSA vector reproduces from the key's integers", {
                                          key$pubkey, pss = pss),
                   info = row$id)
     }
+    if (row$operation == "refuse") {
+      # A valid PSS signature with a salt other than the digest's length,
+      # made by Python's cryptography (#181).
+      expect_error(crypt_signature_verify(input, output, hash_fun(row$hash),
+                                          key$pubkey, pss = pss),
+                   class = "zucrypt_auth_error")
+    }
     if (row$operation == "decrypt") {
       got <- crypt_rsa_decrypt(output, key, oaep = oaep,
                                oaep_hash = if (oaep) row$hash else "sha1")
@@ -153,6 +160,28 @@ test_that("PEM gives its first key, after any text, as openssl reads it (#180)",
   text <- paste0(crypt_write_pem(b$pubkey), crypt_write_pem(a))
   expect_error(crypt_read_key(text), class = "zucrypt_invalid_argument")
   expect_identical(spki(crypt_read_pubkey(text)), spki(b))
+})
+
+test_that("a non-function hash and deterministic RSA are refused (#185)", {
+  key <- rsa_fixture_key("rfc7515-a2")
+  ec <- ec_fixture_key("rfc6979-p256")
+  msg <- charToRaw("m")
+  sig <- crypt_signature_create(msg, crypt_sha256, key)
+  for (hash in list("sha256", 1, list(crypt_sha256))) {
+    expect_error(crypt_signature_create(msg, hash, key),
+                 class = "zucrypt_invalid_argument")
+    expect_error(crypt_signature_verify(msg, sig, hash, key$pubkey),
+                 class = "zucrypt_invalid_argument")
+    expect_error(crypt_signature_create(msg, hash, ec),
+                 class = "zucrypt_invalid_argument")
+  }
+  # RFC 6979 is ECDSA's; an RSA key has nothing to make deterministic.
+  expect_error(crypt_signature_create(msg, crypt_sha256, key,
+                                      deterministic = TRUE),
+               class = "zucrypt_invalid_argument")
+  expect_error(crypt_signature_create(msg, crypt_sha256, key, pss = TRUE,
+                                      deterministic = TRUE),
+               class = "zucrypt_invalid_argument")
 })
 
 test_that("signatures cross-verify with openssl", {

@@ -11,8 +11,12 @@
 #' signed, so `hash = crypt_sha256` gives an RSA-SHA256 signature. With
 #' `hash = NULL`, `data` must already be a SHA-1 or SHA-2 digest. PKCS#1
 #' v1.5 signatures are deterministic. PSS signatures (`pss = TRUE`, RFC 8017
-#' section 8.1) are randomised, use MGF1 with the same digest, and a salt as
-#' long as the digest; verification requires that salt length.
+#' section 8.1) are randomised and use MGF1 with the same digest. The salt is
+#' as long as the digest, or as long as fits when the key is too small for
+#' that (a 1024-bit key with SHA-512 takes 62 bytes). Verification requires
+#' that same length: a PSS signature with any other salt, such as the
+#' longest that fits (`PSS.MAX_LENGTH` in Python's `cryptography`), is
+#' refused.
 #'
 #' With a key on P-256, P-384 or P-521 the signature is ECDSA, encoded in DER
 #' as openssl encodes it; [crypt_ecdsa_parse()] gives its `r` and `s`.
@@ -48,8 +52,9 @@
 #' @param oaep_hash The OAEP digest: `"sha1"` (the default), `"sha256"`,
 #'   `"sha384"` or `"sha512"`. Ignored unless `oaep = TRUE`.
 #'
-#' @return `crypt_signature_create()` returns the signature, a raw vector as
-#'   long as the modulus. `crypt_signature_verify()` returns `TRUE`, or
+#' @return `crypt_signature_create()` returns the signature, a raw vector:
+#'   as long as the modulus for RSA, and DER of varying length for ECDSA.
+#'   `crypt_signature_verify()` returns `TRUE`, or
 #'   signals `zucrypt_auth_error`. `crypt_rsa_encrypt()` returns the
 #'   ciphertext and `crypt_rsa_decrypt()` the plaintext, as raw vectors.
 #'
@@ -59,8 +64,8 @@
 #' key is `zucrypt_bad_length`.
 #'
 #' @section Compared with openssl:
-#' `pss`, `deterministic` and `oaep_hash` are additions. There is no default key: openssl
-#' reads `~/.ssh`. PKCS#1 v1.5 decryption of an invalid ciphertext is an
+#' `pss`, `deterministic` and `oaep_hash` are additions. There is no default
+#' key: openssl reads `~/.ssh`. PKCS#1 v1.5 decryption of an invalid ciphertext is an
 #' error here; OpenSSL 3 returns random bytes instead (implicit rejection).
 #'
 #' @examples

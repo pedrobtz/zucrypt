@@ -982,6 +982,15 @@ static void test_rsa(void)
                                       sizeof out, &len),
                    ZUC_ERR_INVALID_ARGUMENT);
             }
+            if (strcmp(op, "refuse") == 0) {
+                /* A valid PSS signature whose salt is not the digest's
+                 * length: refused, by either half (#181). */
+                ST(zuc_pkey_verify_hash(pub, sch, hash, digest, dlen, want,
+                                        want_len), ZUC_ERR_AUTH);
+                ST(zuc_pkey_verify_hash(key, sch, hash, digest, dlen, want,
+                                        want_len), ZUC_ERR_AUTH);
+                goto next;
+            }
             ST(zuc_pkey_verify_hash(pub, sch, hash, digest, dlen, want,
                                     want_len), ZUC_OK);
             ST(zuc_pkey_verify_hash(key, sch, hash, digest, dlen, want,

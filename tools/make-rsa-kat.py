@@ -22,6 +22,10 @@ MANIFEST.tsv. Two kinds of vector:
   - the message-length limits (#102), also generated: on that key, for
     PKCS#1 v1.5 (k - 11) and OAEP with each hash (k - 2 hLen - 2), a
     ciphertext of a message at the limit and one byte under it.
+  - the PSS salt rule (#181), also generated: on that key, SHA-256 PSS
+    signatures with salts of 0, 31, 32, 33 and the most that fits, of
+    which zucrypt verifies only the 32-byte one (operation "refuse" for
+    the others; --check verifies each with its own salt length).
     --limits rewrites only these rows, for the key already committed.
 
 PSS and OAEP are randomised, so writing again generates new values. --check
@@ -128,6 +132,27 @@ def limit_vectors(key, key_id):
                               version, n,
                               "at" if n == limit else "one byte under",
                               scheme + ("-" + h if h else ""))})
+    # The PSS salt rule (#181): verification takes a salt as long as the
+    # digest (or the most that fits), nothing else. Valid PSS signatures
+    # with salts around it, and with the most that fits (cryptography's
+    # PSS.MAX_LENGTH): only the digest-length one verifies.
+    msg = b"zucrypt PSS salt length"
+    hc = HASHES["sha256"]
+    for salt in (0, hc.digest_size - 1, hc.digest_size, hc.digest_size + 1,
+                 k - hc.digest_size - 2):
+        sig = key.sign(msg, padding.PSS(mgf=padding.MGF1(hc()),
+                                        salt_length=salt), hc())
+        out.append({
+            "id": "%spss-sha256-salt-%d" % (LIMIT_PREFIX, salt),
+            "key": key_id,
+            "operation": "verify" if salt == hc.digest_size else "refuse",
+            "scheme": "pss", "hash": "sha256", "input": msg.hex(),
+            "output": sig.hex(),
+            "source": "Python cryptography %s, generated: a PSS signature "
+                      "with a %d-byte salt, which zucrypt %s (#181)" % (
+                          version, salt,
+                          "verifies" if salt == hc.digest_size
+                          else "refuses")})
     return out
 
 
@@ -260,8 +285,10 @@ def check():
         if v["scheme"] == "pkcs1v15" and v["operation"] == "sign":
             ok = key.sign(data, padding.PKCS1v15(), hc()) == out
         elif v["scheme"] == "pss":
+            salt = (int(v["id"].rsplit("-", 1)[1]) if "-salt-" in v["id"]
+                    else hc.digest_size)
             key.public_key().verify(out, data, padding.PSS(
-                mgf=padding.MGF1(hc()), salt_length=hc.digest_size), hc())
+                mgf=padding.MGF1(hc()), salt_length=salt), hc())
             ok = True
         elif v["scheme"] == "oaep":
             ok = key.decrypt(out, padding.OAEP(
