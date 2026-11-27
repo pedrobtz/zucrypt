@@ -59,5 +59,5 @@ test_that("the backend is compiled in at the pinned version", {
   # other side -- the same arrangement zukomp uses for miniz.
   vendored <- crypt_info()$vendored
   expect_identical(vendored$source, "TF-PSA-Crypto")
-  expect_identical(vendored$version, "1.1.1")
+  expect_identical(vendored$version, "1.1.2")
 })

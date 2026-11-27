@@ -45,7 +45,7 @@ deletion-only hunks plus a comment each.
  
  /* armcc5 --gnu defines __GNUC__ but doesn't support GNU's extended asm */
  #if defined(MBEDTLS_HAVE_ASM) && defined(__GNUC__) && (!defined(__ARMCC_VERSION) || \
-@@ -505,10 +505,5 @@
+@@ -505,11 +505,6 @@
  {
      return (mbedtls_ct_condition_t) (~x);
  }
@@ -55,7 +55,8 @@ deletion-only hunks plus a comment each.
 -    #pragma GCC diagnostic pop
 -#endif
  
- #endif /* TF_PSA_CRYPTO_CONSTANT_TIME_IMPL_H */
+ #if defined(MBEDTLS_SPECTRE_V1_COUNTERMEASURES)
+ static inline uintptr_t mbedtls_ct_nullify_if_speculating(uintptr_t value,
 --- a/lib/platform_util.c
 +++ b/lib/platform_util.c
 @@ -101,21 +101,13 @@
