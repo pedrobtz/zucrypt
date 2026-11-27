@@ -129,7 +129,7 @@ needs something, it is an addition in a zucrypt 0.1.x, submitted before `zuxlsx`
 | 16a — EC keys, ECDSA, ECDH, X25519 | v0.1.1 | #81 | Stage 15a | **done**, 2026-11-03 |
 | R1 — Test gaps in the new key code (#166) | v0.1.1 | #126, #127, #128, #129, #116, #174 | Stage 16a | **done**, 2026-11-27, [#176](https://github.com/pedrobtz/zucrypt/pull/176) |
 | R2 — Documentation and CI fixes (#167) | v0.1.1 | #112, #118, #146 | — | **done**, 2026-11-27, [#178](https://github.com/pedrobtz/zucrypt/pull/178) |
-| R3 — v0.1.1 review and CRAN (#168) | v0.1.1 | #175, #180–#187 | Stages R1 and R2; CRAN cadence (#79) | review done, 2026-11-27, PR pending |
+| R3 — v0.1.1 review and CRAN (#168) | v0.1.1 | #175, #180–#187 | Stages R1 and R2; CRAN cadence (#79) | review done, 2026-11-27, [#206](https://github.com/pedrobtz/zucrypt/pull/206) |
 | 17 — Tranche 5: certificates | v0.6.0 | new | Stage 16 | |
 | 18 — The TLS engine for zuhttp | next minor | new | Stage 17, and `zuhttp`'s trigger | |
 
